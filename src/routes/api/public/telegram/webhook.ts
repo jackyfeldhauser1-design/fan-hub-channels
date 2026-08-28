@@ -48,6 +48,10 @@ const mainMenu = (free: string, vip: string): Btn[][] => {
   rows.push([{ text: "🛍 Shop", callback_data: "shop" }, { text: "🔓 Pay-per-View", callback_data: "ppv" }]);
   rows.push([{ text: "⭐ VIP-Zugang", callback_data: "vip" }, { text: "💛 Trinkgeld", callback_data: "tips" }]);
   rows.push([{ text: "🤝 Empfehlen & verdienen", callback_data: "ref" }]);
+  rows.push([
+    { text: "🚀 Early Access", callback_data: "ea" },
+    { text: "📣 Werbung buchen", callback_data: "ads" },
+  ]);
   if (vip) rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
   return rows;
 };
@@ -251,6 +255,33 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 : "Du hast noch nichts gekauft.",
               parse_mode: "HTML",
             });
+          } else if (d === "ea") {
+            const price = Math.max(1, Number(settings.early_access_price_stars ?? 250));
+            const { data: lead } = await db
+              .from("leads")
+              .insert({
+                name: cq.from.first_name ?? "",
+                telegram_handle: cq.from.username ?? "",
+                source: "telegram",
+                early_access: true,
+                claim_token: `tg${cq.from.id}-${Date.now().toString(36)}`,
+              })
+              .select("id")
+              .single();
+            await tg("sendInvoice", {
+              chat_id: chatId,
+              title: "Early-Access-Slot",
+              description: "Vorabzugang zum nächsten Drop, bevor er öffentlich wird.",
+              payload: `lead:${lead.id}`,
+              currency: "XTR",
+              prices: [{ label: "Early Access", amount: price }],
+            });
+          } else if (d === "ads") {
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: `📣 <b>Werbepost buchen</b>\nPreis: <b>⭐ ${settings.sponsor_price_stars ?? 1500}</b> pro Post in unserer Community.\n\nSchicke einfach:\n<code>/werbung Dein Anzeigentext</code>\n\nDu bekommst sofort eine Rechnung in Stars. Nach Freigabe wird dein Post in der Gruppe veröffentlicht.`,
+              parse_mode: "HTML",
+            });
           } else if (d.startsWith("tip_")) {
             const amount = parseInt(d.slice(4), 10);
             await tg("sendInvoice", {
@@ -451,6 +482,46 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         } else if (text.startsWith("/shop")) {
           await ensureUser(msg.from);
           await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
+        } else if (text.startsWith("/werbung")) {
+          const user = await ensureUser(msg.from);
+          const body = text.slice(8).trim();
+          if (body.length < 10) {
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: "Bitte schicke deinen Anzeigentext direkt mit, z. B.:\n/werbung Entdecke unseren neuen Shop – 20% Rabatt!",
+            });
+          } else {
+            const price = Math.max(1, Number(settings.sponsor_price_stars ?? 1500));
+            const { data: post } = await db
+              .from("sponsored_posts")
+              .insert({
+                advertiser: msg.from.username ? `@${msg.from.username}` : (msg.from.first_name ?? "Partner"),
+                contact: msg.from.username ? `@${msg.from.username}` : String(msg.from.id),
+                target: "free",
+                content: body.slice(0, 1500),
+                price_stars: price,
+                status: "requested",
+                tg_user_id: user.id,
+              })
+              .select("id")
+              .single();
+            await tg("sendInvoice", {
+              chat_id: chatId,
+              title: "Werbepost buchen",
+              description: "Bezahlter Post in unserer Telegram-Community.",
+              payload: `sp:${post.id}`,
+              currency: "XTR",
+              prices: [{ label: "Sponsored Post", amount: price }],
+            });
+          }
+        } else if (text.startsWith("/warteliste")) {
+          await ensureUser(msg.from);
+          await tg("sendMessage", {
+            chat_id: chatId,
+            text: `🚀 <b>Warteliste & Early Access</b>\nSichere dir für <b>⭐ ${settings.early_access_price_stars ?? 250}</b> den Vorabzugang zum nächsten Drop.`,
+            parse_mode: "HTML",
+            reply_markup: { inline_keyboard: [[{ text: "Early Access sichern", callback_data: "ea" }]] },
+          });
         } else if (text.startsWith("/id")) {
           await tg("sendMessage", { chat_id: chatId, text: `Chat-ID: <code>${chatId}</code>`, parse_mode: "HTML" });
         } else if (text) {
