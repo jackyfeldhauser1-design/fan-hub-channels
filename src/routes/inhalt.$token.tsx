@@ -5,7 +5,7 @@ import { Lock, ShieldCheck } from "lucide-react";
 import { openSecureContent } from "@/lib/public.functions";
 
 export const Route = createFileRoute("/inhalt/$token")({
-  ssr: false,
+  
   head: () => ({
     meta: [
       { title: "Geschützter Inhalt" },
