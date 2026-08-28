@@ -17,6 +17,7 @@ import { Route as FansRouteImport } from './routes/fans'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as ProdukteRouteImport } from './routes/produkte'
 import { Route as SicherheitRouteImport } from './routes/sicherheit'
+import { Route as StatusRouteImport } from './routes/status'
 import { Route as VerkaeufeRouteImport } from './routes/verkaeufe'
 import { Route as WartelisteRouteImport } from './routes/warteliste'
 import { Route as WerbepartnerRouteImport } from './routes/werbepartner'
@@ -64,6 +65,11 @@ const SicherheitRoute = SicherheitRouteImport.update({
   path: '/sicherheit',
   getParentRoute: () => rootRouteImport,
 } as any)
+const StatusRoute = StatusRouteImport.update({
+  id: '/status',
+  path: '/status',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerkaeufeRoute = VerkaeufeRouteImport.update({
   id: '/verkaeufe',
   path: '/verkaeufe',
@@ -105,6 +111,7 @@ export interface FileRoutesByFullPath {
   '/leads': typeof LeadsRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
+  '/status': typeof StatusRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -121,6 +128,7 @@ export interface FileRoutesByTo {
   '/leads': typeof LeadsRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
+  '/status': typeof StatusRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -138,6 +146,7 @@ export interface FileRoutesById {
   '/leads': typeof LeadsRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
+  '/status': typeof StatusRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -156,6 +165,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/produkte'
     | '/sicherheit'
+    | '/status'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -172,6 +182,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/produkte'
     | '/sicherheit'
+    | '/status'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -188,6 +199,7 @@ export interface FileRouteTypes {
     | '/leads'
     | '/produkte'
     | '/sicherheit'
+    | '/status'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -205,6 +217,7 @@ export interface RootRouteChildren {
   LeadsRoute: typeof LeadsRoute
   ProdukteRoute: typeof ProdukteRoute
   SicherheitRoute: typeof SicherheitRoute
+  StatusRoute: typeof StatusRoute
   VerkaeufeRoute: typeof VerkaeufeRoute
   WartelisteRoute: typeof WartelisteRoute
   WerbepartnerRoute: typeof WerbepartnerRoute
@@ -271,6 +284,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof SicherheitRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/status': {
+      id: '/status'
+      path: '/status'
+      fullPath: '/status'
+      preLoaderRoute: typeof StatusRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verkaeufe': {
       id: '/verkaeufe'
       path: '/verkaeufe'
@@ -325,6 +345,7 @@ const rootRouteChildren: RootRouteChildren = {
   LeadsRoute: LeadsRoute,
   ProdukteRoute: ProdukteRoute,
   SicherheitRoute: SicherheitRoute,
+  StatusRoute: StatusRoute,
   VerkaeufeRoute: VerkaeufeRoute,
   WartelisteRoute: WartelisteRoute,
   WerbepartnerRoute: WerbepartnerRoute,
