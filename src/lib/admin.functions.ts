@@ -95,6 +95,14 @@ export const getSettings = createServerFn({ method: "POST" })
 
 const settingsSchema = z.object({
   welcome_message: z.string().max(2000),
+  free_chat_id: z.string().max(60),
+  vip_chat_id: z.string().max(60),
+  app_base_url: z.string().max(300),
+  early_access_price_stars: z.number().int().min(0).max(1000000),
+  sponsor_price_stars: z.number().int().min(0).max(1000000),
+  link_ttl_hours: z.number().int().min(1).max(720),
+  link_max_views: z.number().int().min(1).max(50),
+  max_purchases_per_hour: z.number().int().min(1).max(100),
   free_group_url: z.string().max(300),
   vip_group_url: z.string().max(300),
   ton_wallet: z.string().max(120),
@@ -239,4 +247,181 @@ export const setupWebhook = createServerFn({ method: "POST" })
       allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query"],
     });
     return { ok: res.ok, url };
+  });
+
+// ---------- Bestell- & Liefer-Tracking ----------
+
+export const listOrders = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await requireAdmin(context);
+    const [{ data: orders }, { data: events }, { data: tokens }] = await Promise.all([
+      db
+        .from("purchases")
+        .select("*, tg_users!purchases_tg_user_id_fkey(username, first_name, telegram_id, blocked, risk_score)")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      db.from("order_events").select("*").order("created_at", { ascending: false }).limit(600),
+      db.from("access_tokens").select("*").order("created_at", { ascending: false }).limit(400),
+    ]);
+    return (orders ?? []).map((o: any) => ({
+      ...o,
+      events: (events ?? []).filter((e: any) => e.purchase_id === o.id),
+      tokens: (tokens ?? []).filter((t: any) => t.purchase_id === o.id),
+    }));
+  });
+
+export const resendDelivery = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    const { deliverProduct } = await import("@/lib/fulfillment.server");
+    const { data: purchase } = await db
+      .from("purchases")
+      .select("*, tg_users!purchases_tg_user_id_fkey(telegram_id)")
+      .eq("id", data.id)
+      .maybeSingle();
+    if (!purchase?.product_id) throw new Error("Kein lieferbarer Inhalt");
+    const [{ data: product }, { data: settings }] = await Promise.all([
+      db.from("products").select("*").eq("id", purchase.product_id).maybeSingle(),
+      db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
+    ]);
+    await deliverProduct(
+      db,
+      tg,
+      purchase.tg_users.telegram_id,
+      product,
+      { id: purchase.id, tg_user_id: purchase.tg_user_id },
+      settings,
+    );
+    return { ok: true };
+  });
+
+export const revokeAccessToken = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    await db.from("access_tokens").update({ revoked: true }).eq("id", data.id);
+    return { ok: true };
+  });
+
+// ---------- Anti-Fraud ----------
+
+export const getRiskCenter = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await requireAdmin(context);
+    const since = new Date(Date.now() - 7 * 864e5).toISOString();
+    const [{ data: users }, { data: actions }] = await Promise.all([
+      db.from("tg_users").select("*").order("risk_score", { ascending: false }).limit(100),
+      db.from("action_log").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(300),
+    ]);
+    return {
+      users: users ?? [],
+      flags: (actions ?? []).filter((a: any) => a.action === "fraud_flag" || a.action === "rate_limit"),
+      blocked: (users ?? []).filter((u: any) => u.blocked).length,
+    };
+  });
+
+export const setUserBlocked = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), blocked: z.boolean(), reason: z.string().max(200).default("") }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    await db
+      .from("tg_users")
+      .update({
+        blocked: data.blocked,
+        block_reason: data.blocked ? data.reason || "Manuell gesperrt" : "",
+        risk_score: data.blocked ? 100 : 0,
+      })
+      .eq("id", data.id);
+    return { ok: true };
+  });
+
+// ---------- Sponsored Posts ----------
+
+export const listSponsoredPosts = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await requireAdmin(context);
+    const { data } = await db.from("sponsored_posts").select("*").order("created_at", { ascending: false }).limit(200);
+    return data ?? [];
+  });
+
+export const updateSponsoredPost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        status: z.enum(["requested", "approved", "paid", "published", "rejected"]),
+        price_stars: z.number().int().min(0).max(1000000).optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    const patch: Record<string, unknown> = { status: data.status };
+    if (typeof data.price_stars === "number") patch["price_stars"] = data.price_stars;
+    await db.from("sponsored_posts").update(patch).eq("id", data.id);
+    return { ok: true };
+  });
+
+export const publishSponsoredPost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    const [{ data: post }, { data: settings }] = await Promise.all([
+      db.from("sponsored_posts").select("*").eq("id", data.id).maybeSingle(),
+      db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
+    ]);
+    if (!post) throw new Error("Buchung nicht gefunden");
+    if (post.status !== "paid" && post.status !== "approved") throw new Error("Buchung ist noch nicht bezahlt.");
+
+    const targets: string[] = [];
+    if (post.target === "free" || post.target === "both") targets.push(settings?.free_chat_id);
+    if (post.target === "vip" || post.target === "both") targets.push(settings?.vip_chat_id);
+    const valid = targets.filter(Boolean);
+    if (!valid.length) throw new Error("Bitte zuerst die Chat-ID der Gruppe im Bot-Setup hinterlegen.");
+
+    for (const chatId of valid) {
+      await tg("sendMessage", {
+        chat_id: chatId,
+        text: `📣 <b>Anzeige</b> · ${post.advertiser}\n\n${post.content}`,
+        parse_mode: "HTML",
+        ...(post.link_url
+          ? { reply_markup: { inline_keyboard: [[{ text: "Mehr erfahren", url: post.link_url }]] } }
+          : {}),
+      });
+    }
+    await db
+      .from("sponsored_posts")
+      .update({ status: "published", published_at: new Date().toISOString() })
+      .eq("id", post.id);
+    return { ok: true, count: valid.length };
+  });
+
+// ---------- Leads / Warteliste ----------
+
+export const listLeads = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await requireAdmin(context);
+    const { data } = await db.from("leads").select("*").order("created_at", { ascending: false }).limit(300);
+    return data ?? [];
+  });
+
+export const deleteLead = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    await db.from("leads").delete().eq("id", data.id);
+    return { ok: true };
   });

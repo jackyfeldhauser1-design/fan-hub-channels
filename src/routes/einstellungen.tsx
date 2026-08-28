@@ -76,6 +76,40 @@ function SettingsPage() {
             <Label>Trinkgeld-Text</Label>
             <Input value={form.tip_message} onChange={(e) => setForm({ ...form, tip_message: e.target.value })} />
           </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Chat-ID Gratis-Gruppe</Label>
+              <Input value={form.free_chat_id} onChange={(e) => setForm({ ...form, free_chat_id: e.target.value })} placeholder="-100…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Chat-ID VIP-Gruppe</Label>
+              <Input value={form.vip_chat_id} onChange={(e) => setForm({ ...form, vip_chat_id: e.target.value })} placeholder="-100…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Öffentliche App-Adresse (für Einmal-Links)</Label>
+              <Input value={form.app_base_url} onChange={(e) => setForm({ ...form, app_base_url: e.target.value })} placeholder="https://…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Early-Access-Preis (Stars)</Label>
+              <Input type="number" value={form.early_access_price_stars} onChange={(e) => setForm({ ...form, early_access_price_stars: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Preis Werbepost (Stars)</Label>
+              <Input type="number" value={form.sponsor_price_stars} onChange={(e) => setForm({ ...form, sponsor_price_stars: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Käufe pro Stunde & Fan (Limit)</Label>
+              <Input type="number" value={form.max_purchases_per_hour} onChange={(e) => setForm({ ...form, max_purchases_per_hour: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Gültigkeit Einmal-Link (Stunden)</Label>
+              <Input type="number" value={form.link_ttl_hours} onChange={(e) => setForm({ ...form, link_ttl_hours: e.target.value })} />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Max. Aufrufe pro Zugangslink</Label>
+              <Input type="number" value={form.link_max_views} onChange={(e) => setForm({ ...form, link_max_views: e.target.value })} />
+            </div>
+          </div>
           <div className="space-y-1.5">
             <Label>Upsell-Text nach dem Kauf</Label>
             <Input value={form.upsell_message} onChange={(e) => setForm({ ...form, upsell_message: e.target.value })} />
@@ -92,6 +126,14 @@ function SettingsPage() {
                     affiliate_percent: Number(form.affiliate_percent),
                     tip_message: form.tip_message,
                     upsell_message: form.upsell_message,
+                    free_chat_id: form.free_chat_id,
+                    vip_chat_id: form.vip_chat_id,
+                    app_base_url: form.app_base_url,
+                    early_access_price_stars: Number(form.early_access_price_stars),
+                    sponsor_price_stars: Number(form.sponsor_price_stars),
+                    link_ttl_hours: Number(form.link_ttl_hours),
+                    link_max_views: Number(form.link_max_views),
+                    max_purchases_per_hour: Number(form.max_purchases_per_hour),
                   },
                 });
                 toast.success("Einstellungen gespeichert");
@@ -135,8 +177,9 @@ function SettingsPage() {
             <p className="mb-2 flex items-center gap-2 text-foreground">
               <CheckCircle2 className="size-4 text-primary" /> Funnel-Kette
             </p>
-            /start → Gratis-Gruppe für Fans → Shop, Pay-per-View, VIP-Zugang → Zahlung per Stars oder TON → sofortige
-            Auslieferung im Chat → Upsell → Empfehlungslink mit Provision.
+            /start → Gratis-Gruppe für Fans → Shop, Pay-per-View, VIP-Zugang → Zahlung per Stars oder TON → sichere
+            Auslieferung (Einmal-Link) → Upsell → Empfehlungslink mit Provision. Zusätzlich im Bot: /warteliste für
+            Early-Access-Slots und /werbung für bezahlte Werbeposts.
           </div>
         </div>
       </div>
