@@ -36,6 +36,9 @@ function SettingsPage() {
   const { data } = useQuery({ queryKey: ["settings"], queryFn: () => getFn({ data: undefined as never }) });
   const status = useQuery({ queryKey: ["botStatus"], queryFn: () => statusFn({ data: undefined as never }), retry: false });
   const [form, setForm] = useState<any>(null);
+  const [baseUrl, setBaseUrl] = useState(
+    "https://project--35deff30-24dd-4f21-b1d1-af6203c909df-dev.lovable.app",
+  );
 
   useEffect(() => {
     if (data && !form) setForm(data);
@@ -109,12 +112,16 @@ function SettingsPage() {
           <p className="break-all text-xs text-muted-foreground">
             Webhook: {status.data?.webhook || "nicht aktiv"}
           </p>
+          <div className="space-y-1.5">
+            <Label>Öffentliche Bot-URL</Label>
+            <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} />
+          </div>
           <Button
             variant="secondary"
             className="w-full gap-2"
             onClick={async () => {
               try {
-                const res = await hookFn({ data: { baseUrl: window.location.origin } });
+                const res = await hookFn({ data: { baseUrl } });
                 toast.success(`Webhook aktiv: ${res.url}`);
                 status.refetch();
               } catch (e) {
