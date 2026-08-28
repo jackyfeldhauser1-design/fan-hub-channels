@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useAuth } from "@/lib/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -29,7 +30,8 @@ function SecurityPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(getRiskCenter);
   const blockFn = useServerFn(setUserBlocked);
-  const { data } = useQuery({ queryKey: ["risk"], queryFn: () => listFn({ data: undefined as never }) });
+  const { session } = useAuth();
+  const { data } = useQuery({ queryKey: ["risk"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
 
   return (
     <DashLayout
