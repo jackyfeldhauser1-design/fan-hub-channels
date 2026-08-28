@@ -76,7 +76,7 @@ function StatusPage() {
   const s = data as any;
   const settings = s?.settings ?? {};
   const webhookActive = Boolean(s?.bot?.webhook);
-  const groupsSet = Boolean(settings.free_group_url || settings.free_chat_id) && Boolean(settings.vip_group_url || settings.vip_chat_idGrp ?? settings.vip_chat_id);
+  const groupsSet = Boolean(settings.free_group_url || settings.free_chat_id) && Boolean(settings.vip_group_url || settings.vip_chat_id);
   const tonSet = Boolean(settings.ton_wallet);
   const welcomeSet = Boolean(settings.welcome_message && settings.welcome_message.trim());
 
