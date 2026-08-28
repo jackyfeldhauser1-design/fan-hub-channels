@@ -40,7 +40,7 @@ function OrdersPage() {
   const revokeFn = useServerFn(revokeAccessToken);
   const [open, setOpen] = useState<string | null>(null);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["orders"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["orders"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
 
   return (
     <DashLayout

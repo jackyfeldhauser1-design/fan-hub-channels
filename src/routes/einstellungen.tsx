@@ -35,8 +35,8 @@ function SettingsPage() {
   const statusFn = useServerFn(getBotStatus);
   const hookFn = useServerFn(setupWebhook);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => getFn({ data: undefined as never }) enabled: Boolean(session) });
-  const status = useQuery({ queryKey: ["botStatus"], queryFn: () => statusFn({ data: undefined as never }), retry: false enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => getFn({ data: undefined as never }), enabled: Boolean(session) });
+  const status = useQuery({ queryKey: ["botStatus"], queryFn: () => statusFn({ data: undefined as never }), retry: false, enabled: Boolean(session) });
   const [form, setForm] = useState<any>(null);
   const [baseUrl, setBaseUrl] = useState(
     "https://project--35deff30-24dd-4f21-b1d1-af6203c909df-dev.lovable.app",

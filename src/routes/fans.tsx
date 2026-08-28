@@ -25,7 +25,7 @@ export const Route = createFileRoute("/fans")({
 function FansPage() {
   const fn = useServerFn(listFans);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["fans"], queryFn: () => fn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["fans"], queryFn: () => fn({ data: undefined as never }), enabled: Boolean(session) });
 
   return (
     <DashLayout title="Fans & Affiliates" subtitle="Wer kauft, wer wirbt und wer verdient mit.">

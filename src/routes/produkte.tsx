@@ -65,7 +65,7 @@ function ProductsPage() {
   const saveFn = useServerFn(saveProduct);
   const delFn = useServerFn(deleteProduct);
   const { session } = useAuth();
-  const { data: products } = useQuery({ queryKey: ["products"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data: products } = useQuery({ queryKey: ["products"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState<any>(empty);
 

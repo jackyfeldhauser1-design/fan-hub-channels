@@ -39,7 +39,7 @@ function Stat({ icon: Icon, label, value, hint }: { icon: any; label: string; va
 function Overview() {
   const fn = useServerFn(getOverview);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["overview"], queryFn: () => fn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["overview"], queryFn: () => fn({ data: undefined as never }), enabled: Boolean(session) });
 
   return (
     <DashLayout title="Übersicht" subtitle="Deine Telegram-Kette von der Gratis-Gruppe bis zum VIP-Kauf.">

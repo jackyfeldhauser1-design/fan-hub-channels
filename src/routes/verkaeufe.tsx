@@ -30,7 +30,7 @@ function SalesPage() {
   const listFn = useServerFn(listPurchases);
   const confirmFn = useServerFn(confirmTonPurchase);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["purchases"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["purchases"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
 
   return (
     <DashLayout title="Verkäufe" subtitle="Stars werden automatisch verbucht, TON-Zahlungen bestätigst du hier.">

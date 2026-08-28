@@ -31,7 +31,7 @@ function SecurityPage() {
   const listFn = useServerFn(getRiskCenter);
   const blockFn = useServerFn(setUserBlocked);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["risk"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["risk"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
 
   return (
     <DashLayout

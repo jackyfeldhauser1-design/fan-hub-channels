@@ -30,7 +30,7 @@ function LeadsPage() {
   const listFn = useServerFn(listLeads);
   const delFn = useServerFn(deleteLead);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["leads"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["leads"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
 
   const paid = (data ?? []).filter((l: any) => l.early_access_status === "paid");
 

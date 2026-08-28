@@ -34,7 +34,7 @@ function SponsorPage() {
   const updateFn = useServerFn(updateSponsoredPost);
   const publishFn = useServerFn(publishSponsoredPost);
   const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["sponsors"], queryFn: () => listFn({ data: undefined as never }) enabled: Boolean(session) });
+  const { data } = useQuery({ queryKey: ["sponsors"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
 
   const refresh = () => qc.invalidateQueries({ queryKey: ["sponsors"] });
 
