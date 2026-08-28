@@ -14,37 +14,157 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_tokens: {
+        Row: {
+          created_at: string
+          expires_at: string
+          id: string
+          last_ip_hash: string
+          max_views: number
+          product_id: string | null
+          purchase_id: string | null
+          revoked: boolean
+          tg_user_id: string | null
+          token: string
+          views: number
+        }
+        Insert: {
+          created_at?: string
+          expires_at: string
+          id?: string
+          last_ip_hash?: string
+          max_views?: number
+          product_id?: string | null
+          purchase_id?: string | null
+          revoked?: boolean
+          tg_user_id?: string | null
+          token: string
+          views?: number
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string
+          id?: string
+          last_ip_hash?: string
+          max_views?: number
+          product_id?: string | null
+          purchase_id?: string | null
+          revoked?: boolean
+          tg_user_id?: string | null
+          token?: string
+          views?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_tokens_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_tokens_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_tokens_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      action_log: {
+        Row: {
+          action: string
+          created_at: string
+          id: string
+          meta: string
+          tg_user_id: string | null
+        }
+        Insert: {
+          action: string
+          created_at?: string
+          id?: string
+          meta?: string
+          tg_user_id?: string | null
+        }
+        Update: {
+          action?: string
+          created_at?: string
+          id?: string
+          meta?: string
+          tg_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "action_log_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       bot_settings: {
         Row: {
           affiliate_percent: number
+          app_base_url: string
+          early_access_price_stars: number
+          free_chat_id: string
           free_group_url: string
           id: boolean
+          link_max_views: number
+          link_ttl_hours: number
+          max_purchases_per_hour: number
+          sponsor_price_stars: number
           tip_message: string
           ton_wallet: string
           updated_at: string
           upsell_message: string
+          vip_chat_id: string
           vip_group_url: string
           welcome_message: string
         }
         Insert: {
           affiliate_percent?: number
+          app_base_url?: string
+          early_access_price_stars?: number
+          free_chat_id?: string
           free_group_url?: string
           id?: boolean
+          link_max_views?: number
+          link_ttl_hours?: number
+          max_purchases_per_hour?: number
+          sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
           updated_at?: string
           upsell_message?: string
+          vip_chat_id?: string
           vip_group_url?: string
           welcome_message?: string
         }
         Update: {
           affiliate_percent?: number
+          app_base_url?: string
+          early_access_price_stars?: number
+          free_chat_id?: string
           free_group_url?: string
           id?: boolean
+          link_max_views?: number
+          link_ttl_hours?: number
+          max_purchases_per_hour?: number
+          sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
           updated_at?: string
           upsell_message?: string
+          vip_chat_id?: string
           vip_group_url?: string
           welcome_message?: string
         }
@@ -76,6 +196,96 @@ export type Database = {
             columns: ["product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      leads: {
+        Row: {
+          amount_stars: number
+          claim_token: string
+          created_at: string
+          early_access: boolean
+          early_access_status: Database["public"]["Enums"]["pay_status"]
+          email: string
+          id: string
+          interest: string
+          ip_hash: string
+          name: string
+          source: string
+          telegram_handle: string
+          updated_at: string
+        }
+        Insert: {
+          amount_stars?: number
+          claim_token: string
+          created_at?: string
+          early_access?: boolean
+          early_access_status?: Database["public"]["Enums"]["pay_status"]
+          email?: string
+          id?: string
+          interest?: string
+          ip_hash?: string
+          name?: string
+          source?: string
+          telegram_handle?: string
+          updated_at?: string
+        }
+        Update: {
+          amount_stars?: number
+          claim_token?: string
+          created_at?: string
+          early_access?: boolean
+          early_access_status?: Database["public"]["Enums"]["pay_status"]
+          email?: string
+          id?: string
+          interest?: string
+          ip_hash?: string
+          name?: string
+          source?: string
+          telegram_handle?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      order_events: {
+        Row: {
+          created_at: string
+          detail: string
+          id: string
+          kind: string
+          purchase_id: string | null
+          tg_user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          detail?: string
+          id?: string
+          kind: string
+          purchase_id?: string | null
+          tg_user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          detail?: string
+          id?: string
+          kind?: string
+          purchase_id?: string | null
+          tg_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "order_events_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "order_events_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
             referencedColumns: ["id"]
           },
         ]
@@ -178,6 +388,9 @@ export type Database = {
           commission_stars: number
           created_at: string
           currency: Database["public"]["Enums"]["pay_currency"]
+          delivered_at: string | null
+          delivery_note: string
+          delivery_status: Database["public"]["Enums"]["delivery_state"]
           id: string
           product_id: string | null
           referrer_id: string | null
@@ -194,6 +407,9 @@ export type Database = {
           commission_stars?: number
           created_at?: string
           currency?: Database["public"]["Enums"]["pay_currency"]
+          delivered_at?: string | null
+          delivery_note?: string
+          delivery_status?: Database["public"]["Enums"]["delivery_state"]
           id?: string
           product_id?: string | null
           referrer_id?: string | null
@@ -210,6 +426,9 @@ export type Database = {
           commission_stars?: number
           created_at?: string
           currency?: Database["public"]["Enums"]["pay_currency"]
+          delivered_at?: string | null
+          delivery_note?: string
+          delivery_status?: Database["public"]["Enums"]["delivery_state"]
           id?: string
           product_id?: string | null
           referrer_id?: string | null
@@ -237,6 +456,65 @@ export type Database = {
           },
           {
             foreignKeyName: "purchases_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      sponsored_posts: {
+        Row: {
+          advertiser: string
+          contact: string
+          content: string
+          created_at: string
+          id: string
+          link_url: string
+          media_url: string
+          price_stars: number
+          published_at: string | null
+          scheduled_at: string | null
+          status: Database["public"]["Enums"]["sponsor_status"]
+          target: Database["public"]["Enums"]["audience"]
+          tg_user_id: string | null
+          updated_at: string
+        }
+        Insert: {
+          advertiser: string
+          contact?: string
+          content?: string
+          created_at?: string
+          id?: string
+          link_url?: string
+          media_url?: string
+          price_stars?: number
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["sponsor_status"]
+          target?: Database["public"]["Enums"]["audience"]
+          tg_user_id?: string | null
+          updated_at?: string
+        }
+        Update: {
+          advertiser?: string
+          contact?: string
+          content?: string
+          created_at?: string
+          id?: string
+          link_url?: string
+          media_url?: string
+          price_stars?: number
+          published_at?: string | null
+          scheduled_at?: string | null
+          status?: Database["public"]["Enums"]["sponsor_status"]
+          target?: Database["public"]["Enums"]["audience"]
+          tg_user_id?: string | null
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "sponsored_posts_tg_user_id_fkey"
             columns: ["tg_user_id"]
             isOneToOne: false
             referencedRelation: "tg_users"
@@ -273,6 +551,8 @@ export type Database = {
       }
       tg_users: {
         Row: {
+          block_reason: string
+          blocked: boolean
           created_at: string
           first_name: string | null
           id: string
@@ -280,10 +560,13 @@ export type Database = {
           last_seen_at: string
           referral_code: string
           referred_by: string | null
+          risk_score: number
           telegram_id: number
           username: string | null
         }
         Insert: {
+          block_reason?: string
+          blocked?: boolean
           created_at?: string
           first_name?: string | null
           id?: string
@@ -291,10 +574,13 @@ export type Database = {
           last_seen_at?: string
           referral_code: string
           referred_by?: string | null
+          risk_score?: number
           telegram_id: number
           username?: string | null
         }
         Update: {
+          block_reason?: string
+          blocked?: boolean
           created_at?: string
           first_name?: string | null
           id?: string
@@ -302,6 +588,7 @@ export type Database = {
           last_seen_at?: string
           referral_code?: string
           referred_by?: string | null
+          risk_score?: number
           telegram_id?: number
           username?: string | null
         }
@@ -351,10 +638,18 @@ export type Database = {
     }
     Enums: {
       app_role: "admin" | "user"
+      audience: "free" | "vip" | "both"
       delivery_kind: "text" | "file" | "link"
+      delivery_state: "pending" | "delivered" | "failed" | "revoked"
       pay_currency: "stars" | "ton"
       pay_status: "pending" | "paid" | "failed" | "refunded"
       product_kind: "single" | "bundle" | "ppv" | "tip"
+      sponsor_status:
+        | "requested"
+        | "approved"
+        | "paid"
+        | "published"
+        | "rejected"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -483,10 +778,19 @@ export const Constants = {
   public: {
     Enums: {
       app_role: ["admin", "user"],
+      audience: ["free", "vip", "both"],
       delivery_kind: ["text", "file", "link"],
+      delivery_state: ["pending", "delivered", "failed", "revoked"],
       pay_currency: ["stars", "ton"],
       pay_status: ["pending", "paid", "failed", "refunded"],
       product_kind: ["single", "bundle", "ppv", "tip"],
+      sponsor_status: [
+        "requested",
+        "approved",
+        "paid",
+        "published",
+        "rejected",
+      ],
     },
   },
 } as const

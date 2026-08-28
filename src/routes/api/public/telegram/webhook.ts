@@ -63,6 +63,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
         const update = (await request.json()) as any;
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+        const {
+          guardAction,
+          flagRepeatPayment,
+          deliverProduct,
+          logOrderEvent,
+        } = await import("@/lib/fulfillment.server");
         const db = supabaseAdmin as any;
 
         const msg = update.message ?? update.edited_message;
@@ -151,41 +157,8 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           });
         }
 
-        async function deliver(chatId: number, product: any) {
-          if (!product) return;
-          if (product.delivery_type === "file" && product.delivery_payload) {
-            await tg("sendDocument", { chat_id: chatId, document: product.delivery_payload, caption: product.title });
-          } else if (product.delivery_type === "link" && product.delivery_payload) {
-            await tg("sendMessage", {
-              chat_id: chatId,
-              text: `✅ <b>${product.title}</b>\nDein Zugang:`,
-              parse_mode: "HTML",
-              reply_markup: { inline_keyboard: [[{ text: "Jetzt öffnen", url: product.delivery_payload }]] },
-            });
-          } else {
-            await tg("sendMessage", {
-              chat_id: chatId,
-              text: `✅ <b>${product.title}</b>\n\n${product.delivery_payload || "Danke für deinen Kauf!"}`,
-              parse_mode: "HTML",
-            });
-          }
-          if (product.upsell_product_id) {
-            const { data: up } = await db
-              .from("products")
-              .select("*")
-              .eq("id", product.upsell_product_id)
-              .maybeSingle();
-            if (up?.active) {
-              await tg("sendMessage", {
-                chat_id: chatId,
-                text: `${settings.upsell_message ?? "Das könnte dir auch gefallen:"}\n<b>${up.title}</b>`,
-                parse_mode: "HTML",
-                reply_markup: {
-                  inline_keyboard: [[{ text: `Jetzt sichern — ⭐ ${up.price_stars}`, callback_data: `buy_${up.id}` }]],
-                },
-              });
-            }
-          }
+        async function deliver(chatId: number, product: any, purchase: any) {
+          await deliverProduct(db, tg, chatId, product, purchase, settings);
         }
 
         // ---- callback queries ----
@@ -195,6 +168,28 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const user = await ensureUser(cq.from);
           await tg("answerCallbackQuery", { callback_query_id: cq.id });
           const d: string = cq.data ?? "";
+
+          if (user?.blocked) {
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: "🚫 Dein Zugang ist zur Prüfung gesperrt. Bitte melde dich beim Support.",
+            });
+            return Response.json({ ok: true });
+          }
+          if (d.startsWith("buy_") || d.startsWith("ton_") || d.startsWith("tip_")) {
+            const reason = await guardAction(db, user, settings, "buy");
+            if (reason) {
+              await tg("sendMessage", { chat_id: chatId, text: `⚠️ ${reason}` });
+              return Response.json({ ok: true });
+            }
+          }
+          if (d === "ref") {
+            const reason = await guardAction(db, user, settings, "referral");
+            if (reason) {
+              await tg("sendMessage", { chat_id: chatId, text: `⚠️ ${reason}` });
+              return Response.json({ ok: true });
+            }
+          }
 
           if (d === "shop") await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
           else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
@@ -301,6 +296,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 ton_memo: memo,
                 referrer_id: user.referred_by,
               });
+              await logOrderEvent(db, null, user.id, "ton_created", memo);
               const url = `ton://transfer/${settings.ton_wallet}?amount=${Math.round(Number(p.price_ton) * 1e9)}&text=${memo}`;
               await tg("sendMessage", {
                 chat_id: chatId,
@@ -333,18 +329,51 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             product = (await db.from("products").select("*").eq("id", payload.slice(2)).maybeSingle()).data;
           }
           const commission = user.referred_by ? Math.floor((sp.total_amount * percent) / 100) : 0;
-          await db.from("purchases").insert({
-            tg_user_id: user.id,
-            product_id: product?.id ?? null,
-            title_snapshot: product?.title ?? "Trinkgeld",
-            currency: "stars",
-            amount_stars: sp.total_amount,
-            status: "paid",
-            telegram_charge_id: sp.telegram_payment_charge_id,
-            referrer_id: user.referred_by,
-            commission_stars: commission,
-          });
-          if (product) await deliver(chatId, product);
+
+          // paid early-access slot from the waitlist form
+          if (payload.startsWith("lead:")) {
+            await db
+              .from("leads")
+              .update({ early_access_status: "paid", amount_stars: sp.total_amount })
+              .eq("id", payload.slice(5));
+          }
+          // paid sponsored post booking
+          if (payload.startsWith("sp:")) {
+            await db.from("sponsored_posts").update({ status: "paid" }).eq("id", payload.slice(3));
+          }
+
+          const { data: purchase } = await db
+            .from("purchases")
+            .insert({
+              tg_user_id: user.id,
+              product_id: product?.id ?? null,
+              title_snapshot: product?.title ?? (payload.startsWith("lead:") ? "Early-Access-Slot" : payload.startsWith("sp:") ? "Werbepost" : "Trinkgeld"),
+              currency: "stars",
+              amount_stars: sp.total_amount,
+              status: "paid",
+              telegram_charge_id: sp.telegram_payment_charge_id,
+              referrer_id: user.referred_by,
+              commission_stars: commission,
+              delivery_status: product ? "pending" : "delivered",
+              delivered_at: product ? null : new Date().toISOString(),
+            })
+            .select("id, tg_user_id")
+            .single();
+
+          await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
+          await flagRepeatPayment(db, user, product?.id ?? null);
+
+          if (product) await deliver(chatId, product, purchase);
+          else if (payload.startsWith("lead:"))
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: "🚀 Dein Early-Access-Slot ist gesichert! Du wirst als Erste:r benachrichtigt, sobald der Drop live geht.",
+            });
+          else if (payload.startsWith("sp:"))
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: "✅ Deine Werbebuchung ist bezahlt und wird nach Freigabe veröffentlicht.",
+            });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
 
           if (user.referred_by && commission > 0) {
@@ -367,6 +396,54 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (text.startsWith("/start")) {
           const payload = text.split(" ")[1];
           const user = await ensureUser(msg.from, payload);
+          if (payload?.startsWith("ea_")) {
+            const { data: lead } = await db
+              .from("leads")
+              .select("*")
+              .eq("claim_token", payload.slice(3))
+              .maybeSingle();
+            if (lead && lead.early_access_status !== "paid") {
+              await db.from("leads").update({ telegram_handle: msg.from.username ?? "" }).eq("id", lead.id);
+              await tg("sendInvoice", {
+                chat_id: chatId,
+                title: "Early-Access-Slot",
+                description: "Sichere dir vorab Zugang zum kommenden Drop.",
+                payload: `lead:${lead.id}`,
+                currency: "XTR",
+                prices: [
+                  {
+                    label: "Early Access",
+                    amount: Math.max(1, Number(settings.early_access_price_stars ?? 250)),
+                  },
+                ],
+              });
+              return Response.json({ ok: true });
+            }
+          }
+          if (payload?.startsWith("spo_")) {
+            const { data: post } = await db
+              .from("sponsored_posts")
+              .select("*")
+              .eq("id", payload.slice(4))
+              .maybeSingle();
+            if (post && post.status !== "paid" && post.status !== "published") {
+              await db.from("sponsored_posts").update({ tg_user_id: user.id }).eq("id", post.id);
+              await tg("sendInvoice", {
+                chat_id: chatId,
+                title: "Werbepost buchen",
+                description: `Bezahlter Post in der ${post.target === "vip" ? "VIP" : "Fan"}-Gruppe.`,
+                payload: `sp:${post.id}`,
+                currency: "XTR",
+                prices: [
+                  {
+                    label: "Sponsored Post",
+                    amount: Math.max(1, Number(post.price_stars || settings.sponsor_price_stars || 1500)),
+                  },
+                ],
+              });
+              return Response.json({ ok: true });
+            }
+          }
           await sendMenu(
             chatId,
             `${settings.welcome_message ?? "Willkommen!"}\n\nHallo ${user.first_name ?? ""}! 👋`,
