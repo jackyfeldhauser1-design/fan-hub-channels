@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useAuth } from "@/lib/useAuth";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useEffect, useState } from "react";
@@ -33,8 +34,9 @@ function SettingsPage() {
   const saveFn = useServerFn(saveSettings);
   const statusFn = useServerFn(getBotStatus);
   const hookFn = useServerFn(setupWebhook);
-  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => getFn({ data: undefined as never }) });
-  const status = useQuery({ queryKey: ["botStatus"], queryFn: () => statusFn({ data: undefined as never }), retry: false });
+  const { session } = useAuth();
+  const { data } = useQuery({ queryKey: ["settings"], queryFn: () => getFn({ data: undefined as never }), enabled: Boolean(session) });
+  const status = useQuery({ queryKey: ["botStatus"], queryFn: () => statusFn({ data: undefined as never }), retry: false, enabled: Boolean(session) });
   const [form, setForm] = useState<any>(null);
   const [baseUrl, setBaseUrl] = useState(
     "https://project--35deff30-24dd-4f21-b1d1-af6203c909df-dev.lovable.app",

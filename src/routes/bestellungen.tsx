@@ -1,4 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useAuth } from "@/lib/useAuth";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
@@ -38,7 +39,8 @@ function OrdersPage() {
   const resendFn = useServerFn(resendDelivery);
   const revokeFn = useServerFn(revokeAccessToken);
   const [open, setOpen] = useState<string | null>(null);
-  const { data } = useQuery({ queryKey: ["orders"], queryFn: () => listFn({ data: undefined as never }) });
+  const { session } = useAuth();
+  const { data } = useQuery({ queryKey: ["orders"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
 
   return (
     <DashLayout
