@@ -2,7 +2,19 @@ import { Link, useNavigate, useRouterState } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { LayoutDashboard, Package, Receipt, Users, Settings2, LogOut, Sparkles } from "lucide-react";
+import {
+  LayoutDashboard,
+  Package,
+  Receipt,
+  Users,
+  Settings2,
+  LogOut,
+  Sparkles,
+  Truck,
+  ShieldAlert,
+  Megaphone,
+  Rocket,
+} from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/useAuth";
 import { getAccess, claimAdmin } from "@/lib/admin.functions";
@@ -12,7 +24,11 @@ const nav = [
   { to: "/", label: "Übersicht", icon: LayoutDashboard },
   { to: "/produkte", label: "Inhalte & Preise", icon: Package },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
+  { to: "/bestellungen", label: "Bestellungen", icon: Truck },
   { to: "/fans", label: "Fans & Affiliates", icon: Users },
+  { to: "/sicherheit", label: "Sicherheit", icon: ShieldAlert },
+  { to: "/werbeposts", label: "Werbepartner", icon: Megaphone },
+  { to: "/leads", label: "Warteliste", icon: Rocket },
   { to: "/einstellungen", label: "Bot-Setup", icon: Settings2 },
 ];
 
