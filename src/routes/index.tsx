@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { useAuth } from "@/lib/useAuth";
+import { useAdmin } from "@/lib/useAdmin";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { Star, Gem, Users, TrendingUp, Handshake, Clock } from "lucide-react";
@@ -38,8 +38,8 @@ function Stat({ icon: Icon, label, value, hint }: { icon: any; label: string; va
 
 function Overview() {
   const fn = useServerFn(getOverview);
-  const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["overview"], queryFn: () => fn({ data: undefined as never }), enabled: Boolean(session) });
+  const { isAdmin } = useAdmin();
+  const { data } = useQuery({ queryKey: ["overview"], queryFn: () => fn({ data: undefined as never }), enabled: isAdmin });
 
   return (
     <DashLayout title="Übersicht" subtitle="Deine Telegram-Kette von der Gratis-Gruppe bis zum VIP-Kauf.">
