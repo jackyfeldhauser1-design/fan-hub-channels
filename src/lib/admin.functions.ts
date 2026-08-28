@@ -425,3 +425,59 @@ export const deleteLead = createServerFn({ method: "POST" })
     await db.from("leads").delete().eq("id", data.id);
     return { ok: true };
   });
+
+// ---------- Admin-Status ----------
+
+export const getAdminStatus = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const adb = supabaseAdmin as any;
+
+    let db: any;
+    try {
+      db = await requireAdmin(context);
+    } catch {
+      const { data: user } = await adb.auth.admin.getUserById(context.userId);
+      const { count } = await adb.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
+      return {
+        account: { email: user?.user?.email ?? "", userId: context.userId },
+        admin: { isAdmin: false, adminExists: (count ?? 0) > 0, since: null as string | null },
+        bot: null as null | { username: string | null; webhook: string; pending: number },
+        settings: null as Record<string, any> | null,
+        counts: { products: 0, purchases: 0, fans: 0, leads: 0 },
+      };
+    }
+
+    const [{ data: user }, { data: role }, settingsRes, products, purchases, fans, leads] = await Promise.all([
+      adb.auth.admin.getUserById(context.userId),
+      db.from("user_roles").select("role, created_at").eq("user_id", context.userId).eq("role", "admin").maybeSingle(),
+      db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
+      db.from("products").select("id", { count: "exact", head: true }),
+      db.from("purchases").select("id", { count: "exact", head: true }),
+      db.from("tg_users").select("id", { count: "exact", head: true }),
+      db.from("leads").select("id", { count: "exact", head: true }),
+    ]);
+
+    let bot: { username: string | null; webhook: string; pending: number } | null = null;
+    try {
+      const me = await tg("getMe", {});
+      const info = await tg("getWebhookInfo", {});
+      bot = { username: me.result?.username ?? null, webhook: info.result?.url ?? "", pending: info.result?.pending_update_count ?? 0 };
+    } catch {
+      bot = null;
+    }
+
+    return {
+      account: { email: user?.user?.email ?? "", userId: context.userId },
+      admin: { isAdmin: true, adminExists: true, since: (role as any)?.created_at ?? null },
+      bot,
+      settings: settingsRes.data ?? null,
+      counts: {
+        products: products.count ?? 0,
+        purchases: purchases.count ?? 0,
+        fans: fans.count ?? 0,
+        leads: leads.count ?? 0,
+      },
+    };
+  });

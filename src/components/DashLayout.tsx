@@ -3,6 +3,7 @@ import { useEffect, type ReactNode } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import {
+  Activity,
   LayoutDashboard,
   Package,
   Receipt,
@@ -22,6 +23,7 @@ import { Button } from "@/components/ui/button";
 
 const nav = [
   { to: "/", label: "Übersicht", icon: LayoutDashboard },
+  { to: "/status", label: "Status", icon: Activity },
   { to: "/produkte", label: "Inhalte & Preise", icon: Package },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
   { to: "/bestellungen", label: "Bestellungen", icon: Truck },
