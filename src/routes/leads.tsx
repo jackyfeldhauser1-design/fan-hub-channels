@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useAuth } from "@/lib/useAuth";
+import { useAdmin } from "@/lib/useAdmin";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
@@ -29,8 +29,8 @@ function LeadsPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listLeads);
   const delFn = useServerFn(deleteLead);
-  const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["leads"], queryFn: () => listFn({ data: undefined as never }), enabled: Boolean(session) });
+  const { isAdmin } = useAdmin();
+  const { data } = useQuery({ queryKey: ["leads"], queryFn: () => listFn({ data: undefined as never }), enabled: isAdmin });
 
   const paid = (data ?? []).filter((l: any) => l.early_access_status === "paid");
 

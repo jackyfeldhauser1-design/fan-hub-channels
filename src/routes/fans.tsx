@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useAuth } from "@/lib/useAuth";
+import { useAdmin } from "@/lib/useAdmin";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { DashLayout } from "@/components/DashLayout";
@@ -24,8 +24,8 @@ export const Route = createFileRoute("/fans")({
 
 function FansPage() {
   const fn = useServerFn(listFans);
-  const { session } = useAuth();
-  const { data } = useQuery({ queryKey: ["fans"], queryFn: () => fn({ data: undefined as never }), enabled: Boolean(session) });
+  const { isAdmin } = useAdmin();
+  const { data } = useQuery({ queryKey: ["fans"], queryFn: () => fn({ data: undefined as never }), enabled: isAdmin });
 
   return (
     <DashLayout title="Fans & Affiliates" subtitle="Wer kauft, wer wirbt und wer verdient mit.">
