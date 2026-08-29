@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHash, timingSafeEqual } from "crypto";
-
-const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
-
-function deriveSecret(apiKey: string) {
-  return createHash("sha256").update(`telegram-webhook:${apiKey}`).digest("base64url");
-}
+import { timingSafeEqual } from "crypto";
+import { tgSafe } from "@/lib/telegram.server";
 
 function safeEqual(a: string, b: string) {
   const left = Buffer.from(a);
@@ -14,27 +9,9 @@ function safeEqual(a: string, b: string) {
 }
 
 async function tg(method: string, body: Record<string, unknown>) {
-  const res = await fetch(`${GATEWAY}/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
-      "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    console.error(`Telegram ${method} failed [${res.status}]: ${text}`);
-    return null;
-  }
-  const json = JSON.parse(text) as { ok: boolean; result?: unknown; description?: string };
-  if (!json.ok) {
-    console.error(`Telegram ${method} error: ${json.description}`);
-    return null;
-  }
-  return json.result as Record<string, unknown>;
+  return (await tgSafe(method, body)) as Record<string, unknown> | null;
 }
+
 
 function code() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
