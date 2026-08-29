@@ -104,6 +104,20 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { rel: "icon", href: "/favicon.ico", type: "image/x-icon" },
     ],
   }),
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "Organization",
+          name: "Telegram Fan Funnel Studio",
+          url: "https://fan-hub-channels.lovable.app",
+          logo: "https://fan-hub-channels.lovable.app/favicon.ico",
+          description:
+            "Telegram-Bot-Kette mit Gratis-Gruppe, VIP-Verkauf über Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
+        }),
+      },
+    ],
 
   shellComponent: RootShell,
   component: RootComponent,

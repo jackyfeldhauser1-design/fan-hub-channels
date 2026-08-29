@@ -21,6 +21,21 @@ export const Route = createFileRoute("/werbepartner")({
       { property: "og:description", content: "Erreiche eine engagierte Telegram-Community mit einem bezahlten Post." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { property: "og:url", content: "https://fan-hub-channels.lovable.app/werbepartner" },
+    ],
+    links: [{ rel: "canonical", href: "https://fan-hub-channels.lovable.app/werbepartner" }],
+    scripts: [
+      {
+        type: "application/ld+json",
+        children: JSON.stringify({
+          "@context": "https://schema.org",
+          "@type": "BreadcrumbList",
+          itemListElement: [
+            { "@type": "ListItem", position: 1, name: "Start", item: "https://fan-hub-channels.lovable.app" },
+            { "@type": "ListItem", position: 2, name: "Werbepartner", item: "https://fan-hub-channels.lovable.app/werbepartner" },
+          ],
+        }),
+      },
     ],
   }),
   component: SponsorForm,
