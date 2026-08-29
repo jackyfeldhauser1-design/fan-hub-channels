@@ -700,10 +700,25 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
         provider_message_id: messageId,
       });
       posts.push({ key: c.key, label: c.label, chatId: c.chatId.trim(), title: c.title, ok: status === "sent", error: err });
+      await auditLog(db, {
+        actorId: context.userId,
+        actorEmail: context.claims?.email ?? null,
+        action: "chat_test_post",
+        target: c.label,
+        chatId: c.chatId.trim(),
+        status: status === "sent" ? "ok" : "error",
+        detail: err || `Testpost gesendet (msg ${messageId})`,
+        meta: { setup: true },
+      });
+      await auditMembershipChange(db,
+        { id: context.userId, email: context.claims?.email ?? null },
+        { chatId: c.chatId.trim(), label: c.label, reachable: c.ok, canPost: c.canPost },
+      );
     }
 
     return { saved: true, checks: filled, posts };
   });
+
 
 /* --------------------- Telegram-Infos automatisch holen -------------------- */
 
