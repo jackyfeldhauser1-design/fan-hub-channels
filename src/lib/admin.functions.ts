@@ -37,16 +37,36 @@ async function requireAdmin(context: any) {
   return supabaseAdmin as any;
 }
 
+export type TeamRole = "admin" | "operator" | "viewer";
+const RANK: Record<TeamRole, number> = { viewer: 1, operator: 2, admin: 3 };
+
+/** Höchste Rolle des Aufrufers (RLS erlaubt nur die eigenen Rollen zu lesen). */
+async function roleOf(context: any): Promise<TeamRole | null> {
+  const { data } = await context.supabase.from("user_roles").select("role").eq("user_id", context.userId);
+  const roles = (data ?? []).map((r: any) => r.role).filter((r: string) => r in RANK) as TeamRole[];
+  if (!roles.length) return null;
+  return roles.sort((a, b) => RANK[b] - RANK[a])[0]!;
+}
+
+/** Prüft Mindestrolle und liefert den privilegierten DB-Client. */
+async function requireRole(context: any, min: TeamRole) {
+  const role = await roleOf(context);
+  if (!role || RANK[role] < RANK[min]) throw new Error("Forbidden");
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  return { db: supabaseAdmin as any, role };
+}
+
 export const getAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const isAdmin = await isAdminUser(context);
+    const role = await roleOf(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count } = await (supabaseAdmin as any)
       .from("user_roles")
       .select("id", { count: "exact", head: true })
       .eq("role", "admin");
-    return { isAdmin: Boolean(isAdmin), adminExists: (count ?? 0) > 0 };
+    return { isAdmin: Boolean(isAdmin), role, adminExists: (count ?? 0) > 0 };
   });
 
 export const claimAdmin = createServerFn({ method: "POST" })
