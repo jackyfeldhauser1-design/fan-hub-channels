@@ -22,7 +22,6 @@ import {
   Rocket,
   MoreHorizontal,
   Plug,
-  Rocket,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/useAuth";
