@@ -137,10 +137,38 @@ const settingsSchema = z.object({
   tip_message: z.string().max(500),
   upsell_message: z.string().max(500),
   control_chat_id: z.string().max(60),
+  vip_price_stars: z.number().int().min(1).max(1000000).default(450),
+  vip_product_title: z.string().max(60).default("VIP-Zugang"),
+  vip_invite_ttl_hours: z.number().int().min(1).max(720).default(24),
   notify_blocked: z.boolean(),
   notify_unpaid: z.boolean(),
   notify_expired: z.boolean(),
 });
+
+/** Nur die Preis-/Stars-Einstellungen (eigene Seite im Admin-Board). */
+const starsSchema = z.object({
+  vip_price_stars: z.number().int().min(1).max(1000000),
+  vip_product_title: z.string().min(1).max(60),
+  vip_invite_ttl_hours: z.number().int().min(1).max(720),
+  early_access_price_stars: z.number().int().min(0).max(1000000),
+  sponsor_price_stars: z.number().int().min(0).max(1000000),
+  affiliate_percent: z.number().int().min(0).max(90),
+  link_ttl_hours: z.number().int().min(1).max(720),
+  link_max_views: z.number().int().min(1).max(50),
+  max_purchases_per_hour: z.number().int().min(1).max(100),
+  tip_message: z.string().max(500),
+});
+
+export const saveStarsSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => starsSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    const { error } = await db.from("bot_settings").update(data).eq("id", true);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 export const saveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
