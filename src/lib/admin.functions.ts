@@ -486,3 +486,69 @@ export const getAdminStatus = createServerFn({ method: "POST" })
       },
     };
   });
+
+// ---------- Zugriffs- & Lieferprotokoll ----------
+
+export const listAccessLog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const db = await requireAdmin(context);
+    const [{ data: tokens }, { data: events }] = await Promise.all([
+      db
+        .from("access_tokens")
+        .select("*, products(title), tg_users(username, first_name, telegram_id, blocked), purchases(status, amount_stars, currency, delivery_status)")
+        .order("created_at", { ascending: false })
+        .limit(200),
+      db
+        .from("order_events")
+        .select("*, tg_users(username, first_name)")
+        .in("kind", ["access_opened", "access_denied", "access_revoked", "delivered"])
+        .order("created_at", { ascending: false })
+        .limit(200),
+    ]);
+
+    const list = (tokens ?? []).map((t: any) => {
+      const expired = new Date(t.expires_at).getTime() < Date.now();
+      const usedUp = t.views >= t.max_views;
+      const paid = !t.purchase_id || t.purchases?.status === "paid";
+      const state = t.revoked
+        ? "gesperrt"
+        : !paid
+          ? "unbezahlt"
+          : expired
+            ? "abgelaufen"
+            : usedUp
+              ? "aufgebraucht"
+              : "aktiv";
+      return {
+        id: t.id,
+        state,
+        product: t.products?.title ?? "—",
+        fan: t.tg_users?.username ? `@${t.tg_users.username}` : (t.tg_users?.first_name ?? "—"),
+        blocked: Boolean(t.tg_users?.blocked),
+        views: t.views,
+        maxViews: t.max_views,
+        expiresAt: t.expires_at,
+        createdAt: t.created_at,
+        paid,
+        amount: t.purchases ? `${t.purchases.amount_stars} ⭐` : "—",
+      };
+    });
+
+    return {
+      tokens: list,
+      events: (events ?? []).map((e: any) => ({
+        id: e.id,
+        kind: e.kind,
+        detail: e.detail,
+        createdAt: e.created_at,
+        fan: e.tg_users?.username ? `@${e.tg_users.username}` : (e.tg_users?.first_name ?? "—"),
+      })),
+      stats: {
+        active: list.filter((t: any) => t.state === "aktiv").length,
+        revoked: list.filter((t: any) => t.state === "gesperrt").length,
+        denied: (events ?? []).filter((e: any) => e.kind === "access_denied").length,
+        opens: (events ?? []).filter((e: any) => e.kind === "access_opened").length,
+      },
+    };
+  });
