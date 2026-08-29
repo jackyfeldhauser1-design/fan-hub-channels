@@ -32,7 +32,7 @@ export type PlatformState = {
 export async function readPlatformOverview(db: any): Promise<PlatformState[]> {
   const { data: settings } = await db
     .from("bot_settings")
-    .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id")
+    .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
     .eq("id", true)
     .maybeSingle();
 
@@ -58,17 +58,18 @@ export async function readPlatformOverview(db: any): Promise<PlatformState[]> {
       items.push({ label: "Webhook", ok: false, detail: e instanceof Error ? e.message.slice(0, 160) : "Fehler" });
     }
   }
-  const chatCount = ["free_chat_id", "vip_chat_id", "admin_chat_id"].filter((k) => settings?.[k]).length;
+  const chatKeys = ["free_chat_id", "vip_chat_id", "admin_chat_id", "announce_chat_id", "preview_chat_id"];
+  const chatCount = chatKeys.filter((k) => settings?.[k]).length;
   items.push({
     label: "Chat-Zuordnung",
-    ok: chatCount === 3,
-    detail: `${chatCount}/3 Ziele gesetzt (Gratis, VIP, Admin)`,
+    ok: chatCount >= 3,
+    detail: `${chatCount}/5 Ziele gesetzt (Gratis, VIP, Admin, Ankündigungen, Trailer)`,
   });
 
   const telegram: PlatformState = {
     id: "telegram",
     name: "Telegram",
-    connected: botOk && Boolean(hookUrl) && chatCount === 3,
+    connected: botOk && Boolean(hookUrl) && chatCount >= 3,
     detail: botName ? `@${botName}` : "nicht verbunden",
     items,
   };
