@@ -46,7 +46,7 @@ export const getOpsStatus = createServerFn({ method: "POST" })
 
     const [{ data: runs }, { data: settings }, deliveries, campaigns] = await Promise.all([
       db.from("job_runs").select("*").gte("created_at", since).order("created_at", { ascending: false }).limit(500),
-      db.from("bot_settings").select("app_base_url, admin_chat_id, free_chat_id, vip_chat_id").eq("id", true).maybeSingle(),
+      db.from("bot_settings").select("app_base_url, control_chat_id, community_chat_id, shop_chat_id").eq("id", true).maybeSingle(),
       db.from("notification_deliveries").select("status").gte("created_at", since).limit(2000),
       db.from("notification_campaigns").select("id, status, scheduled_at").limit(200),
     ]);
@@ -108,9 +108,9 @@ export const getOpsStatus = createServerFn({ method: "POST" })
       webhook,
       settings: {
         appBaseUrl: settings?.app_base_url ?? "",
-        adminChatId: settings?.admin_chat_id ?? "",
-        freeChatId: settings?.free_chat_id ?? "",
-        vipChatId: settings?.vip_chat_id ?? "",
+        adminChatId: settings?.control_chat_id ?? "",
+        freeChatId: settings?.community_chat_id ?? "",
+        vipChatId: settings?.shop_chat_id ?? "",
       },
       deliveries24h: {
         total: d.length,
@@ -134,14 +134,14 @@ export const checkChatIds = createServerFn({ method: "POST" })
     const { db } = await requireRole(context, "admin");
     const { data: s } = await db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
+      .select("community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
     const targets = [
-      { key: "free", label: "Gratis-Gruppe", chatId: s?.free_chat_id ?? "" },
-      { key: "vip", label: "VIP-Gruppe", chatId: s?.vip_chat_id ?? "" },
-      { key: "admin", label: "Admin-Chat", chatId: s?.admin_chat_id ?? "" },
+      { key: "free", label: "Gratis-Gruppe", chatId: s?.community_chat_id ?? "" },
+      { key: "vip", label: "VIP-Gruppe", chatId: s?.shop_chat_id ?? "" },
+      { key: "admin", label: "Admin-Chat", chatId: s?.control_chat_id ?? "" },
       { key: "announce", label: "Ankündigungs-Channel", chatId: s?.announce_chat_id ?? "" },
       { key: "preview", label: "Trailer-Channel", chatId: s?.preview_chat_id ?? "" },
     ];
@@ -310,7 +310,7 @@ export const sendBulkTest = createServerFn({ method: "POST" })
     const { buildVars, renderStoredTemplate, deliverOnce } = await import("@/lib/notify.server");
 
 
-    const { data: settings } = await db.from("bot_settings").select("admin_chat_id").eq("id", true).maybeSingle();
+    const { data: settings } = await db.from("bot_settings").select("control_chat_id").eq("id", true).maybeSingle();
     const vars = await buildVars(db, { tokenId: null, tgUserId: null, detail: "Bulk-Test aus dem Dashboard" });
     const tpl = await renderStoredTemplate(db, data.kind, vars, "admin");
     const body = `🧪 <b>Testversand</b>\n${tpl.body ?? ""}`;
@@ -332,12 +332,12 @@ export const sendBulkTest = createServerFn({ method: "POST" })
       target: (r.channel === "email" ? r.email : r.chat_id) as string,
     }));
 
-    if (data.includeAdminChat && settings?.admin_chat_id) {
+    if (data.includeAdminChat && settings?.control_chat_id) {
       targets.unshift({
         id: null,
         label: "Admin-Chat",
         channel: "telegram",
-        target: String(settings.admin_chat_id),
+        target: String(settings.control_chat_id),
       });
     }
 
@@ -730,9 +730,9 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
     const { error: saveError } = await db
       .from("bot_settings")
       .update({
-        free_chat_id: data.free.trim(),
-        vip_chat_id: data.vip.trim(),
-        admin_chat_id: data.admin.trim(),
+        community_chat_id: data.free.trim(),
+        shop_chat_id: data.vip.trim(),
+        control_chat_id: data.admin.trim(),
         announce_chat_id: data.announce.trim(),
         preview_chat_id: data.preview.trim(),
       })
@@ -868,7 +868,7 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
+      .select("community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -879,9 +879,9 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
       webhookActive,
       chats: [...seen.values()],
       current: {
-        free: settings?.free_chat_id ?? "",
-        vip: settings?.vip_chat_id ?? "",
-        admin: settings?.admin_chat_id ?? "",
+        free: settings?.community_chat_id ?? "",
+        vip: settings?.shop_chat_id ?? "",
+        admin: settings?.control_chat_id ?? "",
         announce: settings?.announce_chat_id ?? "",
         preview: settings?.preview_chat_id ?? "",
       },
@@ -909,14 +909,14 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
+      .select("community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
     const targets = chatTargets({
-      free: settings?.free_chat_id ?? "",
-      vip: settings?.vip_chat_id ?? "",
-      admin: settings?.admin_chat_id ?? "",
+      free: settings?.community_chat_id ?? "",
+      vip: settings?.shop_chat_id ?? "",
+      admin: settings?.control_chat_id ?? "",
       announce: settings?.announce_chat_id ?? "",
       preview: settings?.preview_chat_id ?? "",
     });
@@ -1050,7 +1050,7 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
+      .select("app_base_url, community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -1140,9 +1140,9 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
       (c) => c !== vipCandidate && c !== announceCandidate && c !== previewCandidate,
     );
     const assigned = {
-      free: (settings?.free_chat_id || freeCandidate?.chatId || "").trim(),
-      vip: (settings?.vip_chat_id || vipCandidate?.chatId || "").trim(),
-      admin: (settings?.admin_chat_id || privates[0]?.chatId || "").trim(),
+      free: (settings?.community_chat_id || freeCandidate?.chatId || "").trim(),
+      vip: (settings?.shop_chat_id || vipCandidate?.chatId || "").trim(),
+      admin: (settings?.control_chat_id || privates[0]?.chatId || "").trim(),
       announce: (settings?.announce_chat_id || announceCandidate?.chatId || "").trim(),
       preview: (settings?.preview_chat_id || previewCandidate?.chatId || "").trim(),
     };
@@ -1151,9 +1151,9 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
       const { error } = await db
         .from("bot_settings")
         .update({
-          free_chat_id: assigned.free,
-          vip_chat_id: assigned.vip,
-          admin_chat_id: assigned.admin,
+          community_chat_id: assigned.free,
+          shop_chat_id: assigned.vip,
+          control_chat_id: assigned.admin,
           announce_chat_id: assigned.announce,
           preview_chat_id: assigned.preview,
         })

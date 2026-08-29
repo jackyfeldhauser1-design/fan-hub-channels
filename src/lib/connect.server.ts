@@ -32,7 +32,7 @@ export type PlatformState = {
 export async function readPlatformOverview(db: any): Promise<PlatformState[]> {
   const { data: settings } = await db
     .from("bot_settings")
-    .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
+    .select("app_base_url, community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
     .eq("id", true)
     .maybeSingle();
 
@@ -58,7 +58,7 @@ export async function readPlatformOverview(db: any): Promise<PlatformState[]> {
       items.push({ label: "Webhook", ok: false, detail: e instanceof Error ? e.message.slice(0, 160) : "Fehler" });
     }
   }
-  const chatKeys = ["free_chat_id", "vip_chat_id", "admin_chat_id", "announce_chat_id", "preview_chat_id"];
+  const chatKeys = ["community_chat_id", "shop_chat_id", "control_chat_id", "announce_chat_id", "preview_chat_id"];
   const chatCount = chatKeys.filter((k) => settings?.[k]).length;
   items.push({
     label: "Chat-Zuordnung",
