@@ -15,6 +15,7 @@ import { Textarea } from "@/components/ui/textarea";
 export const Route = createFileRoute("/einstellungen")({
   head: () => ({
     meta: [
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Bot-Setup – Telegram Fan Funnel Studio" },
       {
         name: "description",

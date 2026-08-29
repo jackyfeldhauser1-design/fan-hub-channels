@@ -8,6 +8,7 @@ import { listFans } from "@/lib/admin.functions";
 export const Route = createFileRoute("/fans")({
   head: () => ({
     meta: [
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Fans & Affiliates – Telegram Fan Funnel Studio" },
       {
         name: "description",

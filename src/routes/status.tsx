@@ -10,6 +10,7 @@ import { useAdmin } from "@/lib/useAdmin";
 export const Route = createFileRoute("/status")({
   head: () => ({
     meta: [
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Status – Telegram Fan Funnel Studio" },
       {
         name: "description",

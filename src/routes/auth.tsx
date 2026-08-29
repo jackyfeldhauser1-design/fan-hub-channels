@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 export const Route = createFileRoute("/auth")({
   head: () => ({
     meta: [
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Login – Telegram Fan Funnel Studio" },
       { name: "description", content: "Melde dich an, um deinen Telegram-Verkaufsfunnel, Inhalte und Affiliate-Provisionen zu verwalten." },
       { property: "og:title", content: "Login – Telegram Fan Funnel Studio" },
