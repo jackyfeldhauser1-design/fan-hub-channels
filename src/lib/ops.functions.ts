@@ -108,9 +108,9 @@ export const getOpsStatus = createServerFn({ method: "POST" })
       webhook,
       settings: {
         appBaseUrl: settings?.app_base_url ?? "",
-        adminChatId: settings?.control_chat_id ?? "",
-        freeChatId: settings?.community_chat_id ?? "",
-        vipChatId: settings?.shop_chat_id ?? "",
+        controlChatId: settings?.control_chat_id ?? "",
+        communityChatId: settings?.community_chat_id ?? "",
+        shopChatId: settings?.shop_chat_id ?? "",
       },
       deliveries24h: {
         total: d.length,
@@ -134,16 +134,14 @@ export const checkChatIds = createServerFn({ method: "POST" })
     const { db } = await requireRole(context, "admin");
     const { data: s } = await db
       .from("bot_settings")
-      .select("community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
+      .select("community_chat_id, shop_chat_id, control_chat_id")
       .eq("id", true)
       .maybeSingle();
 
     const targets = [
-      { key: "free", label: "Gratis-Gruppe", chatId: s?.community_chat_id ?? "" },
-      { key: "vip", label: "VIP-Gruppe", chatId: s?.shop_chat_id ?? "" },
-      { key: "admin", label: "Admin-Chat", chatId: s?.control_chat_id ?? "" },
-      { key: "announce", label: "Ankündigungs-Channel", chatId: s?.announce_chat_id ?? "" },
-      { key: "preview", label: "Trailer-Channel", chatId: s?.preview_chat_id ?? "" },
+      { key: "community", label: "Community", chatId: s?.community_chat_id ?? "" },
+      { key: "shop", label: "Shop", chatId: s?.shop_chat_id ?? "" },
+      { key: "control", label: "Kontrollraum", chatId: s?.control_chat_id ?? "" },
     ];
 
     const results = [];
@@ -607,11 +605,9 @@ export const exportAttributionCsv = createServerFn({ method: "POST" })
 /* ----------------------------- Setup-Assistent ---------------------------- */
 
 const chatInput = z.object({
-  free: z.string().max(64).default(""),
-  vip: z.string().max(64).default(""),
-  admin: z.string().max(64).default(""),
-  announce: z.string().max(64).default(""),
-  preview: z.string().max(64).default(""),
+  community: z.string().max(64).default(""),
+  shop: z.string().max(64).default(""),
+  control: z.string().max(64).default(""),
 });
 
 type ChatTarget = { key: string; label: string; chatId: string };
@@ -655,19 +651,11 @@ async function inspectChat(t: ChatTarget) {
   }
 }
 
-function chatTargets(d: {
-  free: string;
-  vip: string;
-  admin: string;
-  announce?: string;
-  preview?: string;
-}): ChatTarget[] {
+function chatTargets(d: { community: string; shop: string; control: string }): ChatTarget[] {
   return [
-    { key: "free", label: "Gratis-Gruppe", chatId: d.free },
-    { key: "vip", label: "VIP-Gruppe", chatId: d.vip },
-    { key: "admin", label: "Admin-Chat", chatId: d.admin },
-    { key: "announce", label: "Ankündigungs-Channel", chatId: d.announce ?? "" },
-    { key: "preview", label: "Trailer-Channel", chatId: d.preview ?? "" },
+    { key: "community", label: "Community", chatId: d.community },
+    { key: "shop", label: "Shop", chatId: d.shop },
+    { key: "control", label: "Kontrollraum", chatId: d.control },
   ];
 }
 
@@ -730,11 +718,9 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
     const { error: saveError } = await db
       .from("bot_settings")
       .update({
-        community_chat_id: data.free.trim(),
-        shop_chat_id: data.vip.trim(),
-        control_chat_id: data.admin.trim(),
-        announce_chat_id: data.announce.trim(),
-        preview_chat_id: data.preview.trim(),
+        community_chat_id: data.community.trim(),
+        shop_chat_id: data.shop.trim(),
+        control_chat_id: data.control.trim(),
       })
       .eq("id", true);
     if (saveError) throw new Error(saveError.message);
@@ -868,7 +854,7 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
+      .select("community_chat_id, shop_chat_id, control_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -879,11 +865,9 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
       webhookActive,
       chats: [...seen.values()],
       current: {
-        free: settings?.community_chat_id ?? "",
-        vip: settings?.shop_chat_id ?? "",
-        admin: settings?.control_chat_id ?? "",
-        announce: settings?.announce_chat_id ?? "",
-        preview: settings?.preview_chat_id ?? "",
+        community: settings?.community_chat_id ?? "",
+        shop: settings?.shop_chat_id ?? "",
+        control: settings?.control_chat_id ?? "",
       },
     };
   });
@@ -891,7 +875,7 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
 /* ------------------ Automatische Prüfung der gespeicherten Chats ----------- */
 
 /**
- * Prüft für die gespeicherten Gratis-/VIP-/Admin-Chats, ob der Bot Mitglied ist
+ * Prüft für die gespeicherten Community-/Shop-/Kontroll-Chats, ob der Bot Mitglied ist
  * und dort posten darf. Optional wird sofort ein Testpost gesendet und im
  * Zustellprotokoll dokumentiert.
  */
@@ -909,16 +893,14 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
+      .select("community_chat_id, shop_chat_id, control_chat_id")
       .eq("id", true)
       .maybeSingle();
 
     const targets = chatTargets({
-      free: settings?.community_chat_id ?? "",
-      vip: settings?.shop_chat_id ?? "",
-      admin: settings?.control_chat_id ?? "",
-      announce: settings?.announce_chat_id ?? "",
-      preview: settings?.preview_chat_id ?? "",
+      community: settings?.community_chat_id ?? "",
+      shop: settings?.shop_chat_id ?? "",
+      control: settings?.control_chat_id ?? "",
     });
 
     const text =
@@ -1020,7 +1002,7 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
 
 /**
  * Verbindet Telegram komplett automatisch: Bot prüfen, Webhook setzen,
- * erkannte Chats sinnvoll auf Gratis/VIP/Admin verteilen, speichern und
+ * erkannte Chats auf Community/Shop/Kontrollraum verteilen, speichern und
  * je einen Testpost senden. Manuelles Suchen von Chat-IDs entfällt.
  */
 export const autoConnectTelegram = createServerFn({ method: "POST" })
@@ -1050,7 +1032,7 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("app_base_url, community_chat_id, shop_chat_id, control_chat_id, announce_chat_id, preview_chat_id")
+      .select("app_base_url, community_chat_id, shop_chat_id, control_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -1127,38 +1109,32 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
     // 4) Zuordnung: bestehende Werte gewinnen, sonst Heuristik
     const groups = chats.filter((c) => c.type === "group" || c.type === "supergroup" || c.type === "channel");
     const privates = chats.filter((c) => c.type === "private");
-    const isVip = (t: string) => /vip|premium|plus/i.test(t);
-    const isAnnounce = (t: string) => /news|ank|announc|update|info/i.test(t);
-    const isPreview = (t: string) => /trailer|preview|vorschau|teaser/i.test(t);
-    const channels = chats.filter((c) => c.type === "channel");
-    const vipCandidate = groups.find((c) => isVip(c.title));
-    const announceCandidate = channels.find((c) => isAnnounce(c.title) && c !== vipCandidate);
-    const previewCandidate = channels.find(
-      (c) => isPreview(c.title) && c !== vipCandidate && c !== announceCandidate,
-    );
-    const freeCandidate = groups.find(
-      (c) => c !== vipCandidate && c !== announceCandidate && c !== previewCandidate,
-    );
+    const isShop = (t: string) => /vip|shop|premium|drop|plus/i.test(t);
+    const isCommunity = (t: string) => /free|gratis|community|fan/i.test(t);
+    const isControl = (t: string) => /admin|log|control|kontroll/i.test(t);
+    const shopCandidate = groups.find((c) => isShop(c.title));
+    const communityCandidate =
+      groups.find((c) => isCommunity(c.title) && c !== shopCandidate) ??
+      groups.find((c) => c !== shopCandidate);
+    const controlCandidate =
+      privates[0] ??
+      groups.find((c) => isControl(c.title) && c !== shopCandidate && c !== communityCandidate);
     const assigned = {
-      free: (settings?.community_chat_id || freeCandidate?.chatId || "").trim(),
-      vip: (settings?.shop_chat_id || vipCandidate?.chatId || "").trim(),
-      admin: (settings?.control_chat_id || privates[0]?.chatId || "").trim(),
-      announce: (settings?.announce_chat_id || announceCandidate?.chatId || "").trim(),
-      preview: (settings?.preview_chat_id || previewCandidate?.chatId || "").trim(),
+      community: (settings?.community_chat_id || communityCandidate?.chatId || "").trim(),
+      shop: (settings?.shop_chat_id || shopCandidate?.chatId || "").trim(),
+      control: (settings?.control_chat_id || controlCandidate?.chatId || "").trim(),
     };
 
-    if (assigned.free || assigned.vip || assigned.admin || assigned.announce || assigned.preview) {
+    if (assigned.community || assigned.shop || assigned.control) {
       const { error } = await db
         .from("bot_settings")
         .update({
-          community_chat_id: assigned.free,
-          shop_chat_id: assigned.vip,
-          control_chat_id: assigned.admin,
-          announce_chat_id: assigned.announce,
-          preview_chat_id: assigned.preview,
+          community_chat_id: assigned.community,
+          shop_chat_id: assigned.shop,
+          control_chat_id: assigned.control,
         })
         .eq("id", true);
-      add("save", "Chats zugeordnet", !error, error ? error.message : "Gratis, VIP und Admin gespeichert");
+      add("save", "Chats zugeordnet", !error, error ? error.message : "Community, Shop und Kontrollraum gespeichert");
     } else {
       add("save", "Chats zugeordnet", false, "Noch keine passenden Chats vorhanden");
     }
