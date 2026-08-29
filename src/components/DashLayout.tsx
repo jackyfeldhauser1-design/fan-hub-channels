@@ -6,6 +6,7 @@ import {
   Activity,
   LayoutDashboard,
   Package,
+  FolderLock,
   Receipt,
   Users,
   Settings2,
