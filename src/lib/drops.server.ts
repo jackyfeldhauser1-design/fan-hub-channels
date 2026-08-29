@@ -103,16 +103,17 @@ export async function writeDropPricing(
   return { saved: true };
 }
 
-async function botLink(db: any) {
+async function botLink(db: any, payload = "drop") {
   try {
     const me = await tg("getMe", {});
     const username = me.result?.username ?? "";
-    return username ? `https://t.me/${username}?start=drop` : "";
+    return username ? `https://t.me/${username}?start=${payload}` : "";
   } catch {
     void db;
     return "";
   }
 }
+
 
 /** Baut den Nachrichtentext für einen Drop-Post. */
 export function dropMessage(item: DropItem, variant: "drop" | "teaser", link: string) {
