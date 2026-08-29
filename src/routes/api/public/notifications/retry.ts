@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
+import { authorizeCronRequest } from "@/lib/cron-token.server";
 
 export const Route = createFileRoute("/api/public/notifications/retry")({
   server: {
