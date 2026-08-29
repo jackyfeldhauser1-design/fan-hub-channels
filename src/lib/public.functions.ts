@@ -133,6 +133,7 @@ export const openSecureContent = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { hashIp, logOrderEvent } = await import("@/lib/fulfillment.server");
+    const { notifyAccessIssue } = await import("@/lib/notify.server");
     const db = supabaseAdmin as any;
 
     const { data: row } = await db
@@ -142,7 +143,11 @@ export const openSecureContent = createServerFn({ method: "POST" })
       .maybeSingle();
     if (!row) return { status: "invalid" as const };
     if (row.revoked) return { status: "revoked" as const };
-    if (new Date(row.expires_at).getTime() < Date.now()) return { status: "expired" as const };
+    if (new Date(row.expires_at).getTime() < Date.now()) {
+      await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_denied", "Link abgelaufen");
+      await notifyAccessIssue(db, "expired", { tgUserId: row.tg_user_id, detail: "Link abgelaufen" });
+      return { status: "expired" as const };
+    }
     if (row.views >= row.max_views) return { status: "used_up" as const };
 
     // Zugang nur für bezahlte Bestellungen und nicht gesperrte Fans.
@@ -154,6 +159,7 @@ export const openSecureContent = createServerFn({ method: "POST" })
         .maybeSingle();
       if (!purchase || purchase.status !== "paid" || purchase.delivery_status === "revoked") {
         await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_denied", "Zahlung nicht bestätigt");
+        await notifyAccessIssue(db, "unpaid", { tgUserId: row.tg_user_id, detail: "Zahlung nicht bestätigt" });
         return { status: "unpaid" as const };
       }
     }
@@ -161,6 +167,7 @@ export const openSecureContent = createServerFn({ method: "POST" })
       const { data: fan } = await db.from("tg_users").select("blocked").eq("id", row.tg_user_id).maybeSingle();
       if (fan?.blocked) {
         await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_denied", "Konto gesperrt");
+        await notifyAccessIssue(db, "blocked", { tgUserId: row.tg_user_id, detail: "Konto gesperrt" });
         return { status: "revoked" as const };
       }
     }
