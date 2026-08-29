@@ -30,7 +30,7 @@ export const TARGETS: { key: SetupTarget; label: string; column: string; hint: s
   },
 ];
 
-const WELCOME: Record<SetupTarget, string> = {
+export const DEFAULT_WELCOME: Record<SetupTarget, string> = {
   community:
     "👋 <b>Willkommen in der Community!</b>\nHier gibt es kostenlose Updates, Teaser und Ankündigungen. Starte den Bot, um Zugänge und Drops zu erhalten.",
   shop:
@@ -38,6 +38,25 @@ const WELCOME: Record<SetupTarget, string> = {
   control:
     "🛠 <b>Kontrollraum verbunden</b>\nHier landen ab sofort Alarme, Zustellprotokolle, Testposts und Fehlermeldungen.",
 };
+
+/** Vorlage (Willkommenstext + Pin-Option) für ein Ziel laden. */
+export async function loadTemplate(db: any, target: SetupTarget) {
+  const { data } = await db.from("chat_templates").select("*").eq("target", target).maybeSingle();
+  const body = String(data?.welcome_body ?? "").trim();
+  return {
+    target,
+    welcomeBody: body || DEFAULT_WELCOME[target],
+    pinMessage: data?.pin_message ?? true,
+    isDefault: !body,
+  };
+}
+
+/** Alle drei Vorlagen für die Oberfläche. */
+export async function loadTemplates(db: any) {
+  return Promise.all(
+    TARGETS.map(async (t) => ({ ...(await loadTemplate(db, t.key)), label: t.label, hint: t.hint })),
+  );
+}
 
 function newCode() {
   const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -123,6 +142,7 @@ export async function applyTarget(db: any, row: any, chatId: string, title: stri
   const def = TARGETS.find((t) => t.key === target)!;
 
   const perms = await canPost(chatId);
+  const tpl = await loadTemplate(db, target);
   await db
     .from("bot_settings")
     .update({ [def.column]: chatId })
@@ -132,12 +152,12 @@ export async function applyTarget(db: any, row: any, chatId: string, title: stri
   if (perms.ok) {
     const sent = await tgSafe("sendMessage", {
       chat_id: chatId,
-      text: WELCOME[target],
+      text: tpl.welcomeBody,
       parse_mode: "HTML",
       disable_notification: true,
     });
     posted = Boolean(sent?.message_id);
-    if (posted && type !== "private") {
+    if (posted && tpl.pinMessage && type !== "private") {
       await tgSafe("pinChatMessage", { chat_id: chatId, message_id: sent.message_id, disable_notification: true });
     }
   }
