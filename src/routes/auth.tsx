@@ -134,30 +134,53 @@ function AuthPage() {
           Verwalte deine Telegram-Kette: Gratis-Gruppe, VIP-Zugang, Stars & TON.
         </p>
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">E-Mail</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Passwort</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={busy}>
-            {mode === "login" ? "Anmelden" : "Konto erstellen"}
-          </Button>
-        </form>
+        {mfa ? (
+          <form onSubmit={submitOtp} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="otp">Zwei-Faktor-Code</Label>
+              <Input
+                id="otp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">6-stelliger Code aus deiner Authenticator-App.</p>
+            </div>
+            <Button type="submit" className="w-full" disabled={busy}>
+              Bestätigen
+            </Button>
+          </form>
+        ) : (
+          <>
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">E-Mail</Label>
+                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Passwort</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {mode === "login" ? "Anmelden" : "Konto erstellen"}
+              </Button>
+            </form>
 
-        <Button variant="outline" className="mt-3 w-full" onClick={google}>
-          Mit Google fortfahren
-        </Button>
+            <Button variant="outline" className="mt-3 w-full" onClick={google}>
+              Mit Google fortfahren
+            </Button>
+          </>
+        )}
 
         <button
           className="mt-5 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
