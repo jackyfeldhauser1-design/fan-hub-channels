@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge";
 export const Route = createFileRoute("/leads")({
   head: () => ({
     meta: [
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Warteliste & Leads – Telegram Fan Funnel Studio" },
       {
         name: "description",

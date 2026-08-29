@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge";
 export const Route = createFileRoute("/sicherheit")({
   head: () => ({
     meta: [
+      { name: "robots", content: "noindex, nofollow" },
       { title: "Sicherheit & Anti-Fraud – Telegram Fan Funnel Studio" },
       {
         name: "description",
