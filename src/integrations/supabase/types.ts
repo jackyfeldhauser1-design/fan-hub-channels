@@ -23,6 +23,8 @@ export type Database = {
           max_views: number
           product_id: string | null
           purchase_id: string | null
+          reactivated_at: string | null
+          reactivations: number
           revoked: boolean
           tg_user_id: string | null
           token: string
@@ -36,6 +38,8 @@ export type Database = {
           max_views?: number
           product_id?: string | null
           purchase_id?: string | null
+          reactivated_at?: string | null
+          reactivations?: number
           revoked?: boolean
           tg_user_id?: string | null
           token: string
@@ -49,6 +53,8 @@ export type Database = {
           max_views?: number
           product_id?: string | null
           purchase_id?: string | null
+          reactivated_at?: string | null
+          reactivations?: number
           revoked?: boolean
           tg_user_id?: string | null
           token?: string
@@ -112,6 +118,7 @@ export type Database = {
       }
       bot_settings: {
         Row: {
+          admin_chat_id: string
           affiliate_percent: number
           app_base_url: string
           early_access_price_stars: number
@@ -121,6 +128,9 @@ export type Database = {
           link_max_views: number
           link_ttl_hours: number
           max_purchases_per_hour: number
+          notify_blocked: boolean
+          notify_expired: boolean
+          notify_unpaid: boolean
           sponsor_price_stars: number
           tip_message: string
           ton_wallet: string
@@ -131,6 +141,7 @@ export type Database = {
           welcome_message: string
         }
         Insert: {
+          admin_chat_id?: string
           affiliate_percent?: number
           app_base_url?: string
           early_access_price_stars?: number
@@ -140,6 +151,9 @@ export type Database = {
           link_max_views?: number
           link_ttl_hours?: number
           max_purchases_per_hour?: number
+          notify_blocked?: boolean
+          notify_expired?: boolean
+          notify_unpaid?: boolean
           sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
@@ -150,6 +164,7 @@ export type Database = {
           welcome_message?: string
         }
         Update: {
+          admin_chat_id?: string
           affiliate_percent?: number
           app_base_url?: string
           early_access_price_stars?: number
@@ -159,6 +174,9 @@ export type Database = {
           link_max_views?: number
           link_ttl_hours?: number
           max_purchases_per_hour?: number
+          notify_blocked?: boolean
+          notify_expired?: boolean
+          notify_unpaid?: boolean
           sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
@@ -638,7 +656,7 @@ export type Database = {
       is_admin: { Args: never; Returns: boolean }
     }
     Enums: {
-      app_role: "admin" | "user"
+      app_role: "admin" | "user" | "operator" | "viewer"
       audience: "free" | "vip" | "both"
       delivery_kind: "text" | "file" | "link"
       delivery_state: "pending" | "delivered" | "failed" | "revoked"
@@ -778,7 +796,7 @@ export type CompositeTypes<
 export const Constants = {
   public: {
     Enums: {
-      app_role: ["admin", "user"],
+      app_role: ["admin", "user", "operator", "viewer"],
       audience: ["free", "vip", "both"],
       delivery_kind: ["text", "file", "link"],
       delivery_state: ["pending", "delivered", "failed", "revoked"],
