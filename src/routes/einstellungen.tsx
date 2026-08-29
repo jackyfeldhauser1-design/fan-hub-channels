@@ -60,7 +60,16 @@ function SettingsPage() {
         <ConnectPanel
           defaultBaseUrl={form.app_base_url || baseUrl}
           disabled={!isAdmin}
-          onConnected={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
+          onConnected={(v) =>
+            setForm({
+              ...form,
+              free_chat_id: v.free,
+              vip_chat_id: v.vip,
+              admin_chat_id: v.admin,
+              announce_chat_id: v.announce,
+              preview_chat_id: v.preview,
+            })
+          }
         />
       </div>
       <details className="mb-4">

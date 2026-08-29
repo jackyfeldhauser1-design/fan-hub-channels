@@ -13,7 +13,7 @@ type Result = {
   steps: Step[];
   bot: { username: string; link: string } | null;
   chats: { chatId: string; title: string; type: string }[];
-  assigned: { free: string; vip: string; admin: string } | null;
+  assigned: { free: string; vip: string; admin: string; announce: string; preview: string } | null;
 };
 
 export function ConnectPanel({
@@ -23,7 +23,7 @@ export function ConnectPanel({
 }: {
   defaultBaseUrl: string;
   disabled?: boolean;
-  onConnected?: (v: { free: string; vip: string; admin: string }) => void;
+  onConnected?: (v: { free: string; vip: string; admin: string; announce: string; preview: string }) => void;
 }) {
   const connectFn = useServerFn(autoConnectTelegram);
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
@@ -48,7 +48,7 @@ export function ConnectPanel({
         <h2 className="text-lg font-semibold">Telegram in einem Klick verbinden</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Bot prüfen, Webhook aktivieren, erkannte Gruppen automatisch als Gratis-, VIP- und Admin-Chat zuordnen und
+        Bot prüfen, Webhook aktivieren, erkannte Gruppen automatisch als Gratis-, VIP-, Admin-, Ankündigungs- und Trailer-Chat zuordnen und
         sofort einen Testpost senden – ohne Chat-IDs zu suchen.
       </p>
 
