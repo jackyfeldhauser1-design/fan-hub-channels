@@ -528,7 +528,15 @@ export const listAccessLog = createServerFn({ method: "POST" })
       db
         .from("order_events")
         .select("*, tg_users(username, first_name)")
-        .in("kind", ["access_opened", "access_denied", "access_revoked", "delivered", "delivery_failed"])
+        .in("kind", [
+          "access_opened",
+          "access_denied",
+          "access_revoked",
+          "delivered",
+          "delivery_failed",
+          "login_success",
+          "login_failed",
+        ])
         .order("created_at", { ascending: false })
         .limit(300),
     ]);
