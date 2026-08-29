@@ -379,8 +379,49 @@ export const sendBulkTest = createServerFn({ method: "POST" })
       });
     }
 
+    await auditLog(db, {
+      actorId: context.userId,
+      actorEmail: context.claims?.email ?? null,
+      action: "bulk_test_send",
+      target: data.kind,
+      status: results.every((r) => r.ok) ? "ok" : "warn",
+      detail: `${results.filter((r) => r.ok).length}/${results.length} zugestellt`,
+      meta: { channels: data.channels },
+    });
+
     return { total: results.length, sent: results.filter((r) => r.ok).length, results };
   });
+
+/** Admin-Audit-Log: Prüfungen, Testposts und Mitgliedschaftsänderungen je Chat. */
+export const listAdminAudit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ chatId: z.string().max(64).default(""), action: z.string().max(40).default(""), limit: z.number().int().min(1).max(200).default(100) })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { db } = await requireRole(context, "viewer");
+    let q = db.from("admin_audit").select("*").order("created_at", { ascending: false }).limit(data.limit);
+    if (data.chatId) q = q.eq("chat_id", data.chatId);
+    if (data.action) q = q.eq("action", data.action);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return {
+      entries: (rows ?? []).map((r: any) => ({
+        id: r.id,
+        at: r.created_at,
+        action: r.action,
+        target: r.target ?? "—",
+        chatId: r.chat_id ?? "",
+        status: r.status,
+        detail: r.detail ?? "",
+        actor: r.actor_email ?? r.actor_id ?? "—",
+      })),
+    };
+  });
+
+
 
 /** Ordnet bezahlte Käufe der letzten 90 Tage der jeweils letzten Interaktion zu. */
 async function computeAttribution(db: any) {
