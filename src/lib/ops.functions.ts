@@ -608,6 +608,8 @@ const chatInput = z.object({
   free: z.string().max(64).default(""),
   vip: z.string().max(64).default(""),
   admin: z.string().max(64).default(""),
+  announce: z.string().max(64).default(""),
+  preview: z.string().max(64).default(""),
 });
 
 type ChatTarget = { key: string; label: string; chatId: string };
