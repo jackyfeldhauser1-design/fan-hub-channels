@@ -21,6 +21,7 @@ import {
   Megaphone,
   Rocket,
   MoreHorizontal,
+  Plug,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/useAuth";
@@ -31,6 +32,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetTrigger } from "@/co
 const nav = [
   { to: "/", label: "Übersicht", icon: LayoutDashboard },
   { to: "/status", label: "Status", icon: Activity },
+  { to: "/verbinden", label: "Verbinden", icon: Plug },
   { to: "/produkte", label: "Inhalte & Preise", icon: Package },
   { to: "/medien", label: "Medien-Ordner", icon: FolderLock },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
