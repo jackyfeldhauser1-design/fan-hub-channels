@@ -492,6 +492,9 @@ function CampaignsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AttributionPanel enabled={canRead} />
     </DashLayout>
+
   );
 }
