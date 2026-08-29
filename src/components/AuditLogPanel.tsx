@@ -8,6 +8,17 @@ import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { listAdminAudit } from "@/lib/ops.functions";
 
+type Entry = {
+  id: string;
+  at: string;
+  action: string;
+  target: string;
+  chatId: string;
+  status: string;
+  detail: string;
+  actor: string;
+};
+
 const LABEL: Record<string, string> = {
   chat_verify: "Prüfung",
   chat_test_post: "Testpost",
@@ -49,7 +60,7 @@ export function AuditLogPanel({ enabled = true }: { enabled?: boolean }) {
         />
         {q.data?.entries.length ? (
           <ul className="divide-y rounded-md border">
-            {q.data.entries.map((e) => (
+            {(q.data.entries as Entry[]).map((e) => (
               <li key={e.id} className="flex flex-wrap items-center gap-2 p-3 text-sm">
                 <Badge variant={e.status === "ok" ? "secondary" : "destructive"}>
                   {LABEL[e.action] ?? e.action}
