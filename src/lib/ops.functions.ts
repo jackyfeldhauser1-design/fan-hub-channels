@@ -997,3 +997,185 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
       missing: results.filter((r) => !r.configured).map((r) => r.label),
     };
   });
+
+/* ------------------------- Ein-Klick-Verbindung --------------------------- */
+
+/**
+ * Verbindet Telegram komplett automatisch: Bot prüfen, Webhook setzen,
+ * erkannte Chats sinnvoll auf Gratis/VIP/Admin verteilen, speichern und
+ * je einen Testpost senden. Manuelles Suchen von Chat-IDs entfällt.
+ */
+export const autoConnectTelegram = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ baseUrl: z.string().url().optional(), sendTest: z.boolean().default(true) }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "auto_connect", context.userId, 10, 600_000);
+
+    const steps: { key: string; label: string; ok: boolean; detail: string }[] = [];
+    const add = (key: string, label: string, ok: boolean, detail: string) => steps.push({ key, label, ok, detail });
+
+    // 1) Bot
+    let bot: { username: string; link: string } | null = null;
+    try {
+      const me = await tg("getMe", {});
+      const username = me.result?.username ?? "";
+      bot = { username, link: username ? `https://t.me/${username}` : "" };
+      add("bot", "Bot verbunden", true, username ? `@${username}` : "Bot erreichbar");
+    } catch (e) {
+      add("bot", "Bot verbunden", false, e instanceof Error ? e.message.slice(0, 200) : "Bot nicht erreichbar");
+      return { steps, bot, chats: [], assigned: null, posts: [] };
+    }
+
+    const { data: settings } = await db
+      .from("bot_settings")
+      .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id")
+      .eq("id", true)
+      .maybeSingle();
+
+    // 2) Webhook
+    let webhookUrl = "";
+    try {
+      const info = await tg("getWebhookInfo", {});
+      webhookUrl = info.result?.url ?? "";
+      const base = (data.baseUrl || settings?.app_base_url || "").replace(/\/$/, "");
+      const wanted = base ? `${base}/api/public/telegram/webhook` : "";
+      if (wanted && webhookUrl !== wanted) {
+        const { createHash } = await import("crypto");
+        const secret = createHash("sha256")
+          .update(`telegram-webhook:${process.env["TELEGRAM_API_KEY"]}`)
+          .digest("base64url");
+        await tg("setWebhook", {
+          url: wanted,
+          secret_token: secret,
+          allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query"],
+        });
+        webhookUrl = wanted;
+      }
+      add("webhook", "Webhook aktiv", Boolean(webhookUrl), webhookUrl || "Keine öffentliche Adresse hinterlegt");
+    } catch (e) {
+      add("webhook", "Webhook aktiv", false, e instanceof Error ? e.message.slice(0, 200) : "Fehler");
+    }
+
+    // 3) Chats erkennen (Webhook aktiv → gespeicherte Updates nutzen)
+    const seen = new Map<string, { chatId: string; title: string; type: string }>();
+    const addChat = (c: any) => {
+      if (!c?.id) return;
+      seen.set(String(c.id), {
+        chatId: String(c.id),
+        title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
+        type: c.type ?? "",
+      });
+    };
+    try {
+      if (webhookUrl) {
+        const { data: rows } = await db
+          .from("telegram_updates")
+          .select("raw")
+          .order("update_id", { ascending: false })
+          .limit(200);
+        for (const r of (rows ?? []) as any[]) {
+          const u = r.raw ?? {};
+          addChat(
+            u.message?.chat ??
+              u.edited_message?.chat ??
+              u.channel_post?.chat ??
+              u.callback_query?.message?.chat ??
+              u.my_chat_member?.chat,
+          );
+        }
+      } else {
+        const res = await tg("getUpdates", { limit: 100, allowed_updates: ["message", "channel_post", "my_chat_member"] });
+        for (const u of (res.result ?? []) as any[]) {
+          addChat(u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat);
+        }
+      }
+    } catch {
+      /* Erkennung ist optional */
+    }
+    const chats = [...seen.values()];
+    add(
+      "chats",
+      "Chats erkannt",
+      chats.length > 0,
+      chats.length > 0
+        ? `${chats.length} Chat(s) gefunden`
+        : "Bot in Gruppe/Kanal als Admin aufnehmen, dort eine Nachricht senden und erneut verbinden",
+    );
+
+    // 4) Zuordnung: bestehende Werte gewinnen, sonst Heuristik
+    const groups = chats.filter((c) => c.type === "group" || c.type === "supergroup" || c.type === "channel");
+    const privates = chats.filter((c) => c.type === "private");
+    const isVip = (t: string) => /vip|premium|plus/i.test(t);
+    const vipCandidate = groups.find((c) => isVip(c.title));
+    const freeCandidate = groups.find((c) => c !== vipCandidate);
+    const assigned = {
+      free: (settings?.free_chat_id || freeCandidate?.chatId || "").trim(),
+      vip: (settings?.vip_chat_id || vipCandidate?.chatId || "").trim(),
+      admin: (settings?.admin_chat_id || privates[0]?.chatId || "").trim(),
+    };
+
+    if (assigned.free || assigned.vip || assigned.admin) {
+      const { error } = await db
+        .from("bot_settings")
+        .update({ free_chat_id: assigned.free, vip_chat_id: assigned.vip, admin_chat_id: assigned.admin })
+        .eq("id", true);
+      add("save", "Chats zugeordnet", !error, error ? error.message : "Gratis, VIP und Admin gespeichert");
+    } else {
+      add("save", "Chats zugeordnet", false, "Noch keine passenden Chats vorhanden");
+    }
+
+    // 5) Testposts
+    const posts: { key: string; label: string; chatId: string; ok: boolean; error: string }[] = [];
+    if (data.sendTest) {
+      const text = "✅ Verbindung eingerichtet – der Funnel kann hier posten.";
+      for (const t of chatTargets(assigned)) {
+        if (!t.chatId.trim()) continue;
+        let ok = true;
+        let err = "";
+        let messageId = "";
+        try {
+          const res = await tg("sendMessage", { chat_id: t.chatId.trim(), text, disable_notification: true });
+          messageId = String(res.result?.message_id ?? "");
+        } catch (e) {
+          ok = false;
+          err = e instanceof Error ? e.message.slice(0, 300) : "Fehler";
+        }
+        await db.from("notification_deliveries").insert({
+          recipient_label: `Auto-Setup: ${t.label}`,
+          kind: "reactivated",
+          channel: "telegram",
+          target: t.chatId.trim(),
+          body: text,
+          status: ok ? "sent" : "dead",
+          attempt: 1,
+          error: err,
+          provider_message_id: messageId,
+        });
+        posts.push({ key: t.key, label: t.label, chatId: t.chatId.trim(), ok, error: err });
+      }
+      const failed = posts.filter((p) => !p.ok).length;
+      add(
+        "test",
+        "Testposts gesendet",
+        posts.length > 0 && failed === 0,
+        posts.length === 0 ? "Keine Ziele zum Testen" : failed ? `${failed} fehlgeschlagen` : `${posts.length} zugestellt`,
+      );
+    }
+
+    await auditLog(db, {
+      actorId: context.userId,
+      actorEmail: context.claims?.email ?? null,
+      action: "auto_connect",
+      target: "telegram",
+      chatId: assigned.free || assigned.vip || assigned.admin || "",
+      status: steps.every((s) => s.ok) ? "ok" : "error",
+      detail: steps.map((s) => `${s.label}: ${s.ok ? "ok" : s.detail}`).join(" | ").slice(0, 500),
+      meta: { assigned },
+    });
+
+    return { steps, bot, chats, assigned, posts };
+  });

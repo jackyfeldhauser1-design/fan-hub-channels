@@ -8,6 +8,8 @@ import { CheckCircle2, Link2 } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { ChatSetupWizard } from "@/components/ChatSetupWizard";
 import { ChatHealthPanel } from "@/components/ChatHealthPanel";
+import { ConnectPanel } from "@/components/ConnectPanel";
+
 
 import { getSettings, saveSettings, getBotStatus, setupWebhook } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
@@ -55,12 +57,25 @@ function SettingsPage() {
   return (
     <DashLayout title="Bot-Setup" subtitle="Verbinde den Bot und lege deine Funnel-Ziele fest.">
       <div className="mb-4">
-        <ChatSetupWizard
-          initial={{ free: form.free_chat_id ?? "", vip: form.vip_chat_id ?? "", admin: form.admin_chat_id ?? "" }}
+        <ConnectPanel
+          defaultBaseUrl={form.app_base_url || baseUrl}
           disabled={!isAdmin}
-          onSaved={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
+          onConnected={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
         />
       </div>
+      <details className="mb-4">
+        <summary className="cursor-pointer px-1 py-2 text-sm text-muted-foreground">
+          Manuell anpassen (Gruppen-Assistent)
+        </summary>
+        <div className="mt-2">
+          <ChatSetupWizard
+            initial={{ free: form.free_chat_id ?? "", vip: form.vip_chat_id ?? "", admin: form.admin_chat_id ?? "" }}
+            disabled={!isAdmin}
+            onSaved={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
+          />
+        </div>
+      </details>
+
       <div className="mb-4">
         <ChatHealthPanel enabled={isAdmin} />
       </div>
