@@ -387,7 +387,9 @@ export async function notifyAccessIssue(
     tgUserId: opts.tgUserId ?? null,
     detail: opts.detail ?? "",
   });
-  const body = renderTemplate(kind, vars, "admin") ?? "";
+  const tpl = await renderStoredTemplate(db, kind, vars, "admin");
+  const body = tpl.body ?? "";
+  const base = String(settings.app_base_url ?? "");
   const recipients = await resolveRecipients(db, opts.tokenId, settings.admin_chat_id ?? "");
 
   // Opt-in/Opt-out je Empfänger
@@ -417,29 +419,154 @@ export async function notifyAccessIssue(
       .select("id")
       .single();
     if (skipped || !row) continue;
+    const trackedBody = withTracking(base, row.id, body, tpl.linkUrl);
+    if (trackedBody !== body) await db.from("notification_deliveries").update({ body: trackedBody }).eq("id", row.id);
     await deliverOnce(db, {
       id: row.id,
       channel: r.channel,
       target: r.target,
-      body,
+      body: trackedBody,
       attempt: 0,
       recipient_id: r.id,
     });
   }
 
   // Fan-Nachricht bleibt wie bisher optional und unabhängig vom Protokoll.
-  const userText = renderTemplate(kind, vars, "user");
+  const userTpl = await renderStoredTemplate(db, kind, vars, "user");
+  const userText = userTpl.body;
   if (opts.notifyUser !== false && userText && opts.tgUserId) {
     const { data: fan } = await db.from("tg_users").select("telegram_id").eq("id", opts.tgUserId).maybeSingle();
     if (fan?.telegram_id) {
+      const { data: row } = await db
+        .from("notification_deliveries")
+        .insert({
+          recipient_id: null,
+          recipient_label: "Fan",
+          kind,
+          channel: "telegram",
+          target: String(fan.telegram_id),
+          token_id: opts.tokenId ?? null,
+          tg_user_id: opts.tgUserId ?? null,
+          body: userText,
+          status: "queued",
+        })
+        .select("id")
+        .single();
+      const tracked = row ? withTracking(base, row.id, userText, userTpl.linkUrl) : userText;
       try {
-        await sendTelegram(fan.telegram_id, userText);
+        if (row) {
+          await db.from("notification_deliveries").update({ body: tracked }).eq("id", row.id);
+          await deliverOnce(db, {
+            id: row.id,
+            channel: "telegram",
+            target: String(fan.telegram_id),
+            body: tracked,
+            attempt: 0,
+            recipient_id: null,
+          });
+        } else {
+          await sendTelegram(fan.telegram_id, userText);
+        }
       } catch {
         /* Fan-Benachrichtigung darf den Zugriffsfluss nie blockieren */
       }
     }
   }
 }
+
+/** Startet eine geplante Kampagne: segmentiert Empfänger und verschickt die Nachricht. */
+export async function runCampaign(db: any, campaignId: string) {
+  const { data: c } = await db.from("notification_campaigns").select("*").eq("id", campaignId).maybeSingle();
+  if (!c) throw new Error("Kampagne nicht gefunden");
+  const { data: settings } = await db.from("bot_settings").select("app_base_url, admin_chat_id").eq("id", true).maybeSingle();
+  const base = String(settings?.app_base_url ?? "");
+  const nowIso = new Date().toISOString();
+
+  let q = db.from("access_tokens").select("id, tg_user_id, expires_at, revoked, views, max_views").limit(500);
+  if (c.segment === "expiring")
+    q = q.eq("revoked", false).gt("expires_at", nowIso).lt("expires_at", new Date(Date.now() + 72 * 3_600_000).toISOString());
+  else if (c.segment === "expired") q = q.lt("expires_at", nowIso);
+  else if (c.segment === "unused") q = q.eq("views", 0).gt("expires_at", nowIso);
+  else if (c.segment === "revoked") q = q.eq("revoked", true);
+
+  const { data: tokens } = await q;
+  let sent = 0;
+  let lastError = "";
+
+  for (const t of tokens ?? []) {
+    if (!t.tg_user_id) continue;
+    const vars = await buildVars(db, { tokenId: t.id, tgUserId: t.tg_user_id, detail: c.name });
+    const body = fillVars(c.body || "", vars);
+    const { data: fan } = await db.from("tg_users").select("telegram_id, blocked").eq("id", t.tg_user_id).maybeSingle();
+    const target =
+      c.audience === "user" ? String(fan?.telegram_id ?? "") : String(settings?.admin_chat_id ?? "");
+    if (!target || (c.audience === "user" && fan?.blocked)) continue;
+    const { data: row } = await db
+      .from("notification_deliveries")
+      .insert({
+        recipient_id: null,
+        recipient_label: c.audience === "user" ? "Fan (Kampagne)" : "Admin-Chat (Kampagne)",
+        kind: c.kind,
+        channel: "telegram",
+        target,
+        token_id: t.id,
+        tg_user_id: t.tg_user_id,
+        campaign_id: c.id,
+        body,
+        status: "queued",
+      })
+      .select("id")
+      .single();
+    if (!row) continue;
+    const tracked = withTracking(base, row.id, body, c.link_url ?? "");
+    await db.from("notification_deliveries").update({ body: tracked }).eq("id", row.id);
+    const res = await deliverOnce(db, {
+      id: row.id,
+      channel: "telegram",
+      target,
+      body: tracked,
+      attempt: 0,
+      recipient_id: null,
+    });
+    if (res.ok) sent += 1;
+    else lastError = res.error ?? "";
+  }
+
+  await db
+    .from("notification_campaigns")
+    .update({
+      status: "sent",
+      sent_count: (c.sent_count ?? 0) + sent,
+      last_run_at: new Date().toISOString(),
+      last_error: lastError.slice(0, 300),
+    })
+    .eq("id", c.id);
+  return { sent, total: (tokens ?? []).length };
+}
+
+/** Verarbeitet alle fälligen geplanten Kampagnen (Cron). */
+export async function processDueCampaigns(db: any) {
+  const { data: due } = await db
+    .from("notification_campaigns")
+    .select("id")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", new Date().toISOString())
+    .limit(10);
+  let total = 0;
+  for (const c of due ?? []) {
+    try {
+      const r = await runCampaign(db, c.id);
+      total += r.sent;
+    } catch (e) {
+      await db
+        .from("notification_campaigns")
+        .update({ status: "failed", last_error: (e instanceof Error ? e.message : String(e)).slice(0, 300) })
+        .eq("id", c.id);
+    }
+  }
+  return { campaigns: (due ?? []).length, sent: total };
+}
+
 
 /** Arbeitet fällige Wiederholungen ab (vom Cron-Endpunkt aufgerufen). */
 export async function processRetryQueue(db: any, limit = 50) {
