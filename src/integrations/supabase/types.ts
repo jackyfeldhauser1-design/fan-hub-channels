@@ -159,6 +159,45 @@ export type Database = {
           },
         ]
       }
+      admin_audit: {
+        Row: {
+          action: string
+          actor_email: string | null
+          actor_id: string | null
+          chat_id: string | null
+          created_at: string
+          detail: string | null
+          id: string
+          meta: Json
+          status: string
+          target: string | null
+        }
+        Insert: {
+          action: string
+          actor_email?: string | null
+          actor_id?: string | null
+          chat_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          meta?: Json
+          status?: string
+          target?: string | null
+        }
+        Update: {
+          action?: string
+          actor_email?: string | null
+          actor_id?: string | null
+          chat_id?: string | null
+          created_at?: string
+          detail?: string | null
+          id?: string
+          meta?: Json
+          status?: string
+          target?: string | null
+        }
+        Relationships: []
+      }
       bot_settings: {
         Row: {
           admin_chat_id: string
@@ -1148,6 +1187,27 @@ export type Database = {
           },
         ]
       }
+      rate_limits: {
+        Row: {
+          bucket: string
+          created_at: string
+          id: string
+          subject: string
+        }
+        Insert: {
+          bucket: string
+          created_at?: string
+          id?: string
+          subject: string
+        }
+        Update: {
+          bucket?: string
+          created_at?: string
+          id?: string
+          subject?: string
+        }
+        Relationships: []
+      }
       sponsored_posts: {
         Row: {
           advertiser: string
@@ -1212,6 +1272,7 @@ export type Database = {
           chat_id: number | null
           created_at: string
           raw: Json
+          received_at: string
           telegram_user_id: number | null
           text: string | null
           update_id: number
@@ -1220,6 +1281,7 @@ export type Database = {
           chat_id?: number | null
           created_at?: string
           raw: Json
+          received_at?: string
           telegram_user_id?: number | null
           text?: string | null
           update_id: number
@@ -1228,6 +1290,7 @@ export type Database = {
           chat_id?: number | null
           created_at?: string
           raw?: Json
+          received_at?: string
           telegram_user_id?: number | null
           text?: string | null
           update_id?: number
