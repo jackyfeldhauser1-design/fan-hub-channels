@@ -55,7 +55,7 @@ function SecurityPage() {
         </div>
       </div>
 
-      <div className="panel mt-4 overflow-x-auto">
+      <div className="panel mt-4 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[680px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">

@@ -35,7 +35,7 @@ function SalesPage() {
 
   return (
     <DashLayout title="Verkäufe" subtitle="Stars werden automatisch verbucht, TON-Zahlungen bestätigst du hier.">
-      <div className="panel overflow-x-auto">
+      <div className="panel hidden overflow-x-auto md:block">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">

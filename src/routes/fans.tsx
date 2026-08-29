@@ -30,7 +30,7 @@ function FansPage() {
 
   return (
     <DashLayout title="Fans & Affiliates" subtitle="Wer kauft, wer wirbt und wer verdient mit.">
-      <div className="panel overflow-x-auto">
+      <div className="panel hidden overflow-x-auto md:block">
         <table className="w-full min-w-[680px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
