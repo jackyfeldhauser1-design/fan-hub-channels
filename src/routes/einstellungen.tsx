@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Link2 } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { ChatSetupWizard } from "@/components/ChatSetupWizard";
+import { ChatHealthPanel } from "@/components/ChatHealthPanel";
 
 import { getSettings, saveSettings, getBotStatus, setupWebhook } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
