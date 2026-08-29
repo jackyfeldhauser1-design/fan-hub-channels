@@ -91,6 +91,44 @@ export function ChatSetupWizard({
 
       {step === 1 ? (
         <div className="space-y-4">
+          <div className="rounded-lg border border-border bg-muted/40 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" size="sm" disabled={disabled || discover.isPending} onClick={() => discover.mutate()} className="gap-2">
+                <Radar className="size-4" />
+                {discover.isPending ? "Suche…" : "Telegram-Infos automatisch erkennen"}
+              </Button>
+              {found?.bot?.username ? (
+                <a className="text-xs underline" href={found.bot.link} target="_blank" rel="noreferrer">
+                  Bot: @{found.bot.username}
+                </a>
+              ) : null}
+            </div>
+            {found?.chats?.length ? (
+              <ul className="mt-3 space-y-2">
+                {found.chats.map((c) => (
+                  <li key={c.chatId} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">
+                      {c.title || "ohne Titel"} <span className="text-xs text-muted-foreground">({c.type} · {c.chatId})</span>
+                    </span>
+                    {FIELDS.map((f) => (
+                      <Button
+                        key={f.key}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIds({ ...ids, [f.key]: c.chatId })}
+                      >
+                        → {f.key === "free" ? "Gratis" : f.key === "vip" ? "VIP" : "Admin"}
+                      </Button>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="mt-2 text-xs text-muted-foreground">
+              {found?.error || found?.updatesNote ||
+                "Bot in die Gruppe/Kanal aufnehmen (als Admin), dort eine Nachricht senden und hier erkennen lassen – die Chat-ID wird automatisch eingesetzt."}
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {FIELDS.map((f) => (
               <div key={f.key} className="space-y-1.5">
@@ -106,6 +144,7 @@ export function ChatSetupWizard({
               </div>
             ))}
           </div>
+
           <div className="space-y-1.5">
             <Label>Text des Testposts (optional)</Label>
             <Textarea
