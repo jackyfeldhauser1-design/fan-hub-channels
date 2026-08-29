@@ -31,10 +31,56 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mfa, setMfa] = useState<{ factorId: string } | null>(null);
+  const [otp, setOtp] = useState("");
+  const logAttempt = useServerFn(logLoginAttempt);
+
+  function log(success: boolean, method: "password" | "google" | "2fa", reason = "") {
+    void logAttempt({ data: { email, success, method, reason } }).catch(() => {});
+  }
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/" });
-  }, [loading, session, navigate]);
+    if (!loading && session && !mfa) navigate({ to: "/" });
+  }, [loading, session, mfa, navigate]);
+
+  /** Nach dem Passwort-Login prüfen, ob noch ein 2FA-Code nötig ist. */
+  async function continueAfterSignIn(method: "password" | "google") {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const factor = (factors?.totp ?? []).find((f) => f.status === "verified");
+      if (factor) {
+        setMfa({ factorId: factor.id });
+        return;
+      }
+    }
+    log(true, method);
+    navigate({ to: "/" });
+  }
+
+  async function submitOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mfa) return;
+    setBusy(true);
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId: mfa.factorId });
+      if (challenge.error) throw challenge.error;
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: mfa.factorId,
+        challengeId: challenge.data.id,
+        code: otp.trim(),
+      });
+      if (error) throw error;
+      log(true, "2fa");
+      setMfa(null);
+      navigate({ to: "/" });
+    } catch (err) {
+      log(false, "2fa", err instanceof Error ? err.message : "2FA fehlgeschlagen");
+      toast.error(err instanceof Error ? err.message : "Code ungültig");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,8 +88,11 @@ function AuthPage() {
     try {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate({ to: "/" });
+        if (error) {
+          log(false, "password", error.message);
+          throw error;
+        }
+        await continueAfterSignIn("password");
       } else {
         const { error } = await supabase.auth.signUp({
           email,
