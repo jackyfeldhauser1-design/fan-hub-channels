@@ -6,6 +6,8 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { CheckCircle2, Link2 } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
+import { ChatSetupWizard } from "@/components/ChatSetupWizard";
+
 import { getSettings, saveSettings, getBotStatus, setupWebhook } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,7 +53,15 @@ function SettingsPage() {
 
   return (
     <DashLayout title="Bot-Setup" subtitle="Verbinde den Bot und lege deine Funnel-Ziele fest.">
+      <div className="mb-4">
+        <ChatSetupWizard
+          initial={{ free: form.free_chat_id ?? "", vip: form.vip_chat_id ?? "", admin: form.admin_chat_id ?? "" }}
+          disabled={!isAdmin}
+          onSaved={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
+        />
+      </div>
       <div className="grid gap-4 lg:grid-cols-3">
+
         <div className="panel space-y-4 p-6 lg:col-span-2">
           <div className="space-y-1.5">
             <Label>Willkommensnachricht</Label>

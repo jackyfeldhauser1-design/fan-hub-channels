@@ -552,3 +552,131 @@ export const exportAttributionCsv = createServerFn({ method: "POST" })
     ];
     return { filename: `attribution-${new Date().toISOString().slice(0, 10)}.csv`, csv: csv(out) };
   });
+
+/* ----------------------------- Setup-Assistent ---------------------------- */
+
+const chatInput = z.object({
+  free: z.string().max(64).default(""),
+  vip: z.string().max(64).default(""),
+  admin: z.string().max(64).default(""),
+});
+
+type ChatTarget = { key: string; label: string; chatId: string };
+
+/** Prüft eine einzelne Chat-ID gegen Telegram (Existenz + Bot-Berechtigung). */
+async function inspectChat(t: ChatTarget) {
+  if (!t.chatId.trim()) {
+    return { ...t, ok: false, title: "", type: "", canPost: false, error: "Chat-ID fehlt" };
+  }
+  if (!/^-?\d+$|^@[A-Za-z0-9_]{4,}$/.test(t.chatId.trim())) {
+    return { ...t, ok: false, title: "", type: "", canPost: false, error: "Ungültiges Format (z. B. -100… oder @name)" };
+  }
+  try {
+    const chat = await tg("getChat", { chat_id: t.chatId.trim() });
+    let canPost = false;
+    try {
+      const me = await tg("getMe", {});
+      const member = await tg("getChatMember", { chat_id: t.chatId.trim(), user_id: me.result?.id });
+      const st = member.result?.status;
+      canPost = st === "administrator" || st === "creator" || st === "member";
+    } catch {
+      canPost = chat.result?.type === "private";
+    }
+    return {
+      ...t,
+      ok: true,
+      title: chat.result?.title ?? chat.result?.username ?? chat.result?.first_name ?? "",
+      type: chat.result?.type ?? "",
+      canPost,
+      error: canPost ? "" : "Bot ist kein Mitglied/Admin – Posten evtl. nicht möglich",
+    };
+  } catch (e) {
+    return {
+      ...t,
+      ok: false,
+      title: "",
+      type: "",
+      canPost: false,
+      error: e instanceof Error ? e.message.slice(0, 200) : "Fehler",
+    };
+  }
+}
+
+function chatTargets(d: { free: string; vip: string; admin: string }): ChatTarget[] {
+  return [
+    { key: "free", label: "Gratis-Gruppe", chatId: d.free },
+    { key: "vip", label: "VIP-Gruppe", chatId: d.vip },
+    { key: "admin", label: "Admin-Chat", chatId: d.admin },
+  ];
+}
+
+/** Schritt 1 des Assistenten: eingegebene Chat-IDs prüfen, ohne zu speichern. */
+export const validateChatIdsInput = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => chatInput.parse(d))
+  .handler(async ({ context, data }) => {
+    await requireRole(context, "admin");
+    const results = [];
+    for (const t of chatTargets(data)) results.push(await inspectChat(t));
+    return { results, allOk: results.filter((r) => r.chatId.trim()).every((r) => r.ok) };
+  });
+
+/** Schritt 2: Chat-IDs speichern und sofort einen Testpost in jeden Chat senden. */
+export const saveChatIdsWithTest = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) => chatInput.extend({ message: z.string().max(500).default("") }).parse(d))
+  .handler(async ({ context, data }) => {
+    const { db } = await requireRole(context, "admin");
+
+    const targets = chatTargets(data);
+    const checks = [];
+    for (const t of targets) checks.push(await inspectChat(t));
+    const filled = checks.filter((c) => c.chatId.trim());
+    if (filled.length === 0) throw new Error("Bitte mindestens eine Chat-ID eintragen");
+    const broken = filled.filter((c) => !c.ok);
+    if (broken.length > 0) {
+      throw new Error(`Ungültige Chat-ID: ${broken.map((b) => `${b.label} (${b.error})`).join(", ")}`);
+    }
+
+    const { error: saveError } = await db
+      .from("bot_settings")
+      .update({
+        free_chat_id: data.free.trim(),
+        vip_chat_id: data.vip.trim(),
+        admin_chat_id: data.admin.trim(),
+      })
+      .eq("id", true);
+    if (saveError) throw new Error(saveError.message);
+
+    const text =
+      data.message.trim() ||
+      "✅ Testpost aus dem Bot-Setup. Diese Gruppe ist korrekt verbunden – der Funnel kann hier posten.";
+
+    const posts = [];
+    for (const c of filled) {
+      let status: "sent" | "dead" = "sent";
+      let err = "";
+      let messageId = "";
+      try {
+        const res = await tg("sendMessage", { chat_id: c.chatId.trim(), text, disable_notification: true });
+        messageId = String(res.result?.message_id ?? "");
+      } catch (e) {
+        status = "dead";
+        err = e instanceof Error ? e.message.slice(0, 300) : "Fehler";
+      }
+      await db.from("notification_deliveries").insert({
+        recipient_label: `Setup-Test: ${c.label}`,
+        kind: "reactivated",
+        channel: "telegram",
+        target: c.chatId.trim(),
+        body: text,
+        status,
+        attempt: 1,
+        error: err,
+        provider_message_id: messageId,
+      });
+      posts.push({ key: c.key, label: c.label, chatId: c.chatId.trim(), title: c.title, ok: status === "sent", error: err });
+    }
+
+    return { saved: true, checks: filled, posts };
+  });
