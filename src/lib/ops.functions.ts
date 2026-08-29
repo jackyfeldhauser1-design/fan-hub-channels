@@ -458,7 +458,12 @@ export const getAttribution = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ recompute: z.boolean().default(true) }).parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { db, role } = await requireRole(context, "viewer");
-    if (data.recompute && RANK[role as TeamRole] >= RANK.operator) await computeAttribution(db);
+    if (data.recompute && RANK[role as TeamRole] >= RANK.operator) {
+      const { rateLimit } = await import("@/lib/security.server");
+      const gate = await rateLimit(db, "attribution_recompute", context.userId, 12, 600_000);
+      if (gate.allowed) await computeAttribution(db);
+    }
+
 
     const { data: rows } = await db
       .from("purchase_attributions")
