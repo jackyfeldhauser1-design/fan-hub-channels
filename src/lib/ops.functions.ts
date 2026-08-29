@@ -653,11 +653,19 @@ async function inspectChat(t: ChatTarget) {
   }
 }
 
-function chatTargets(d: { free: string; vip: string; admin: string }): ChatTarget[] {
+function chatTargets(d: {
+  free: string;
+  vip: string;
+  admin: string;
+  announce?: string;
+  preview?: string;
+}): ChatTarget[] {
   return [
     { key: "free", label: "Gratis-Gruppe", chatId: d.free },
     { key: "vip", label: "VIP-Gruppe", chatId: d.vip },
     { key: "admin", label: "Admin-Chat", chatId: d.admin },
+    { key: "announce", label: "Ankündigungs-Channel", chatId: d.announce ?? "" },
+    { key: "preview", label: "Trailer-Channel", chatId: d.preview ?? "" },
   ];
 }
 
