@@ -8,7 +8,7 @@ import { createHash } from "crypto";
 
 const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
-let cache: { token: string; username: string; at: number } | null = null;
+let cache: { token: string; username: string; previous: string; previousUntil: number; at: number } | null = null;
 
 /** Liest den gespeicherten Bot-Token (60 Sekunden gecached). */
 export async function getBotToken(): Promise<{ token: string; username: string }> {
@@ -17,12 +17,18 @@ export async function getBotToken(): Promise<{ token: string; username: string }
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { data } = await (supabaseAdmin as any)
       .from("bot_credentials")
-      .select("bot_token, bot_username")
+      .select("bot_token, bot_username, previous_token, previous_valid_until")
       .eq("id", true)
       .maybeSingle();
-    cache = { token: data?.bot_token ?? "", username: data?.bot_username ?? "", at: Date.now() };
+    cache = {
+      token: data?.bot_token ?? "",
+      username: data?.bot_username ?? "",
+      previous: data?.previous_token ?? "",
+      previousUntil: data?.previous_valid_until ? new Date(data.previous_valid_until).getTime() : 0,
+      at: Date.now(),
+    };
   } catch {
-    cache = { token: "", username: "", at: Date.now() };
+    cache = { token: "", username: "", previous: "", previousUntil: 0, at: Date.now() };
   }
   return { token: cache.token, username: cache.username };
 }
@@ -42,6 +48,8 @@ export async function validWebhookSecrets(): Promise<string[]> {
   const out: string[] = [];
   const { token } = await getBotToken();
   if (token) out.push(deriveWebhookSecret(token));
+  // Übergangsfrist nach einem Token-Wechsel: alter Schlüssel bleibt kurz gültig.
+  if (cache?.previous && cache.previousUntil > Date.now()) out.push(deriveWebhookSecret(cache.previous));
   const apiKey = process.env["TELEGRAM_API_KEY"];
   if (apiKey) out.push(deriveWebhookSecret(apiKey));
   return out;

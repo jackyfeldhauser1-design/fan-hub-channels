@@ -102,7 +102,7 @@ export async function createSetupCodes(db: any, targets: SetupTarget[], userId: 
   return { botUsername: username, targets: out };
 }
 
-async function canPost(chatId: string) {
+export async function canPost(chatId: string) {
   try {
     const me = await tgApi("getMe", {});
     const member = await tgApi("getChatMember", { chat_id: chatId, user_id: me.result?.id });
@@ -229,4 +229,96 @@ export async function readSetupProgress(db: any) {
     total: items.length,
     items,
   };
+}
+
+/** Vollständige Prüfung: Token, Webhook, Chats, Rechte – mit klaren Fehlern. */
+export async function verifySetup(db: any) {
+  const { getBotToken, tgApi, currentWebhookSecret } = await import("@/lib/telegram.server");
+  const checks: { key: string; label: string; ok: boolean; detail: string }[] = [];
+  const { token, username } = await getBotToken();
+
+  let botOk = false;
+  let botName = username;
+  try {
+    const me = await tgApi("getMe", {});
+    botOk = true;
+    botName = String(me.result?.username ?? username);
+    checks.push({ key: "bot", label: "Bot erreichbar", ok: true, detail: `@${botName}${token ? "" : " (Connector-Fallback)"}` });
+  } catch (e) {
+    checks.push({
+      key: "bot",
+      label: "Bot erreichbar",
+      ok: false,
+      detail: e instanceof Error ? e.message.slice(0, 200) : "Bot-API antwortet nicht – Token prüfen.",
+    });
+  }
+
+  const { data: settings } = await db
+    .from("bot_settings")
+    .select("community_chat_id, shop_chat_id, control_chat_id, app_base_url")
+    .eq("id", true)
+    .maybeSingle();
+  const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
+  const expectedUrl = base ? `${base}/api/public/telegram/webhook` : "";
+
+  if (botOk) {
+    try {
+      const info = await tgApi("getWebhookInfo", {});
+      const url = String(info.result?.url ?? "");
+      const pending = Number(info.result?.pending_update_count ?? 0);
+      const lastError = String(info.result?.last_error_message ?? "");
+      const match = Boolean(url) && (!expectedUrl || url === expectedUrl);
+      checks.push({
+        key: "webhook",
+        label: "Webhook aktiv",
+        ok: match && !lastError,
+        detail: !url
+          ? "Kein Webhook gesetzt – Token erneut speichern."
+          : !match
+            ? `Webhook zeigt auf ${url}, erwartet ${expectedUrl}`
+            : lastError
+              ? `Telegram meldet: ${lastError}`
+              : `${url} · ${pending} offene Updates`,
+      });
+      const secretOk = Boolean(await currentWebhookSecret());
+      checks.push({
+        key: "secret",
+        label: "Webhook-Signatur",
+        ok: secretOk,
+        detail: secretOk ? "Geheimnis aus aktuellem Token abgeleitet" : "Kein Schlüssel vorhanden",
+      });
+    } catch (e) {
+      checks.push({
+        key: "webhook",
+        label: "Webhook aktiv",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 200) : "Webhook-Status nicht abrufbar",
+      });
+    }
+  }
+
+  const chats: { target: SetupTarget; label: string; chatId: string; ok: boolean; detail: string }[] = [];
+  for (const t of TARGETS) {
+    const chatId = String(settings?.[t.column] ?? "").trim();
+    if (!chatId) {
+      chats.push({ target: t.key, label: t.label, chatId: "", ok: false, detail: "Nicht zugeordnet – Setup-Link nutzen." });
+      continue;
+    }
+    if (!botOk) {
+      chats.push({ target: t.key, label: t.label, chatId, ok: false, detail: "Bot nicht erreichbar" });
+      continue;
+    }
+    const perms = await canPost(chatId);
+    chats.push({ target: t.key, label: t.label, chatId, ok: perms.ok, detail: perms.detail });
+  }
+
+  const ok = checks.every((c) => c.ok) && chats.every((c) => c.ok);
+  await db.from("admin_audit").insert({
+    action: "setup_verify",
+    status: ok ? "ok" : "warn",
+    detail: ok ? "Alle Prüfungen bestanden" : "Prüfung mit Hinweisen",
+    meta: { checks, chats },
+  });
+
+  return { ok, botUsername: botName, expectedUrl, checks, chats };
 }
