@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           created_at: string
           expires_at: string
+          folder_id: string | null
           id: string
           last_ip_hash: string
           max_views: number
@@ -33,6 +34,7 @@ export type Database = {
         Insert: {
           created_at?: string
           expires_at: string
+          folder_id?: string | null
           id?: string
           last_ip_hash?: string
           max_views?: number
@@ -48,6 +50,7 @@ export type Database = {
         Update: {
           created_at?: string
           expires_at?: string
+          folder_id?: string | null
           id?: string
           last_ip_hash?: string
           max_views?: number
@@ -61,6 +64,13 @@ export type Database = {
           views?: number
         }
         Relationships: [
+          {
+            foreignKeyName: "access_tokens_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "access_tokens_product_id_fkey"
             columns: ["product_id"]
@@ -265,6 +275,168 @@ export type Database = {
           updated_at?: string
         }
         Relationships: []
+      }
+      media_downloads: {
+        Row: {
+          allowed: boolean
+          created_at: string
+          file_id: string | null
+          folder_id: string | null
+          id: string
+          ip_hash: string
+          reason: string
+          tg_user_id: string | null
+          token_id: string | null
+        }
+        Insert: {
+          allowed?: boolean
+          created_at?: string
+          file_id?: string | null
+          folder_id?: string | null
+          id?: string
+          ip_hash?: string
+          reason?: string
+          tg_user_id?: string | null
+          token_id?: string | null
+        }
+        Update: {
+          allowed?: boolean
+          created_at?: string
+          file_id?: string | null
+          folder_id?: string | null
+          id?: string
+          ip_hash?: string
+          reason?: string
+          tg_user_id?: string | null
+          token_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_downloads_file_id_fkey"
+            columns: ["file_id"]
+            isOneToOne: false
+            referencedRelation: "media_files"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_downloads_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_downloads_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "media_downloads_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_files: {
+        Row: {
+          created_at: string
+          display_name: string
+          folder_id: string
+          id: string
+          mime_type: string
+          preview_allowed: boolean
+          size_bytes: number
+          sort_order: number
+          storage_path: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          display_name?: string
+          folder_id: string
+          id?: string
+          mime_type?: string
+          preview_allowed?: boolean
+          size_bytes?: number
+          sort_order?: number
+          storage_path: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          display_name?: string
+          folder_id?: string
+          id?: string
+          mime_type?: string
+          preview_allowed?: boolean
+          size_bytes?: number
+          sort_order?: number
+          storage_path?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_files_folder_id_fkey"
+            columns: ["folder_id"]
+            isOneToOne: false
+            referencedRelation: "media_folders"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      media_folders: {
+        Row: {
+          active: boolean
+          cover_url: string
+          created_at: string
+          description: string
+          id: string
+          price_stars: number
+          price_ton: number
+          product_id: string | null
+          sort_order: number
+          title: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          cover_url?: string
+          created_at?: string
+          description?: string
+          id?: string
+          price_stars?: number
+          price_ton?: number
+          product_id?: string | null
+          sort_order?: number
+          title: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          cover_url?: string
+          created_at?: string
+          description?: string
+          id?: string
+          price_stars?: number
+          price_ton?: number
+          product_id?: string | null
+          sort_order?: number
+          title?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "media_folders_product_id_fkey"
+            columns: ["product_id"]
+            isOneToOne: false
+            referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       order_events: {
         Row: {
