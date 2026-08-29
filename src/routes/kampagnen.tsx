@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { DashLayout } from "@/components/DashLayout";
+import { AttributionPanel } from "@/components/AttributionPanel";
+
 import { useAdmin } from "@/lib/useAdmin";
 import {
   getNotificationAnalytics,
