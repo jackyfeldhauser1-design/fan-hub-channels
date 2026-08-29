@@ -13,6 +13,7 @@ import {
 } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { TokenRecipients } from "@/components/TokenRecipients";
 
 export const Route = createFileRoute("/zugriffe")({
   head: () => ({
@@ -206,6 +207,7 @@ function AccessPage() {
                   <Badge className={stateTone[t.state] ?? "bg-muted text-muted-foreground"}>{t.state}</Badge>
                 </td>
                 <td className="px-4 py-3 text-right">
+                  <TokenRecipients tokenId={t.id} disabled={!canOperate} />
                   {t.state === "aktiv" ? (
                     <Button size="sm" variant="outline" disabled={!canOperate} onClick={() => revoke(t.id)}>
                       Sperren
