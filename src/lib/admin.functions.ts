@@ -512,19 +512,21 @@ export const getAdminStatus = createServerFn({ method: "POST" })
 export const listAccessLog = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const db = await requireAdmin(context);
+    const { db, role } = await requireRole(context, "viewer");
     const [{ data: tokens }, { data: events }] = await Promise.all([
       db
         .from("access_tokens")
-        .select("*, products(title), tg_users(username, first_name, telegram_id, blocked), purchases(status, amount_stars, currency, delivery_status)")
+        .select(
+          "*, products(title), tg_users(username, first_name, telegram_id, blocked), purchases(status, amount_stars, currency, delivery_status)",
+        )
         .order("created_at", { ascending: false })
-        .limit(200),
+        .limit(300),
       db
         .from("order_events")
         .select("*, tg_users(username, first_name)")
-        .in("kind", ["access_opened", "access_denied", "access_revoked", "delivered"])
+        .in("kind", ["access_opened", "access_denied", "access_revoked", "delivered", "delivery_failed"])
         .order("created_at", { ascending: false })
-        .limit(200),
+        .limit(300),
     ]);
 
     const list = (tokens ?? []).map((t: any) => {
@@ -550,14 +552,23 @@ export const listAccessLog = createServerFn({ method: "POST" })
         maxViews: t.max_views,
         expiresAt: t.expires_at,
         createdAt: t.created_at,
+        reactivations: t.reactivations ?? 0,
         paid,
         amount: t.purchases ? `${t.purchases.amount_stars} ⭐` : "—",
       };
     });
 
+    const ev = events ?? [];
+    const delivered = ev.filter((e: any) => e.kind === "delivered").length;
+    const opens = ev.filter((e: any) => e.kind === "access_opened").length;
+    const denied = ev.filter((e: any) => e.kind === "access_denied").length;
+    const total = list.length;
+    const openRate = total ? Math.round((list.filter((t: any) => t.views > 0).length / total) * 100) : 0;
+
     return {
+      role,
       tokens: list,
-      events: (events ?? []).map((e: any) => ({
+      events: ev.map((e: any) => ({
         id: e.id,
         kind: e.kind,
         detail: e.detail,
@@ -565,10 +576,150 @@ export const listAccessLog = createServerFn({ method: "POST" })
         fan: e.tg_users?.username ? `@${e.tg_users.username}` : (e.tg_users?.first_name ?? "—"),
       })),
       stats: {
+        total,
         active: list.filter((t: any) => t.state === "aktiv").length,
         revoked: list.filter((t: any) => t.state === "gesperrt").length,
-        denied: (events ?? []).filter((e: any) => e.kind === "access_denied").length,
-        opens: (events ?? []).filter((e: any) => e.kind === "access_opened").length,
+        expired: list.filter((t: any) => t.state === "abgelaufen" || t.state === "aufgebraucht").length,
+        unpaid: list.filter((t: any) => t.state === "unbezahlt").length,
+        delivered,
+        opens,
+        denied,
+        openRate,
       },
     };
+  });
+
+function csv(rows: (string | number)[][]) {
+  return rows
+    .map((r) => r.map((c) => `"${String(c ?? "").replace(/"/g, '""')}"`).join(";"))
+    .join("\n");
+}
+
+export const exportAccessCsv = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ kind: z.enum(["tokens", "events"]) }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { db } = await requireRole(context, "viewer");
+
+    if (data.kind === "events") {
+      const { data: events } = await db
+        .from("order_events")
+        .select("*, tg_users(username, first_name)")
+        .order("created_at", { ascending: false })
+        .limit(5000);
+      const rows: (string | number)[][] = [["Zeitpunkt", "Ereignis", "Fan", "Bestellung", "Detail"]];
+      for (const e of events ?? [])
+        rows.push([
+          new Date(e.created_at).toISOString(),
+          e.kind,
+          e.tg_users?.username ? `@${e.tg_users.username}` : (e.tg_users?.first_name ?? ""),
+          e.purchase_id ?? "",
+          e.detail ?? "",
+        ]);
+      return { filename: `lieferprotokoll-${new Date().toISOString().slice(0, 10)}.csv`, content: csv(rows) };
+    }
+
+    const { data: tokens } = await db
+      .from("access_tokens")
+      .select("*, products(title), tg_users(username, first_name), purchases(status, amount_stars, currency)")
+      .order("created_at", { ascending: false })
+      .limit(5000);
+    const rows: (string | number)[][] = [
+      ["Erstellt", "Inhalt", "Fan", "Zahlung", "Betrag", "Aufrufe", "Max", "Gültig bis", "Gesperrt", "Neuaktivierungen"],
+    ];
+    for (const t of tokens ?? [])
+      rows.push([
+        new Date(t.created_at).toISOString(),
+        t.products?.title ?? "",
+        t.tg_users?.username ? `@${t.tg_users.username}` : (t.tg_users?.first_name ?? ""),
+        t.purchases?.status ?? "",
+        t.purchases ? `${t.purchases.amount_stars} ${t.purchases.currency}` : "",
+        t.views,
+        t.max_views,
+        new Date(t.expires_at).toISOString(),
+        t.revoked ? "ja" : "nein",
+        t.reactivations ?? 0,
+      ]);
+    return { filename: `zugriffe-${new Date().toISOString().slice(0, 10)}.csv`, content: csv(rows) };
+  });
+
+/** Abgelaufenen oder aufgebrauchten Einmal-Zugang neu aktivieren. */
+export const reactivateAccessToken = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ id: z.string().uuid(), hours: z.number().int().min(1).max(720).optional() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { db } = await requireRole(context, "operator");
+    const { data: settings } = await db.from("bot_settings").select("*").eq("id", true).maybeSingle();
+    const hours = data.hours ?? Number(settings?.link_ttl_hours ?? 48);
+    const { data: row } = await db.from("access_tokens").select("*").eq("id", data.id).maybeSingle();
+    if (!row) throw new Error("Zugang nicht gefunden");
+
+    await db
+      .from("access_tokens")
+      .update({
+        revoked: false,
+        views: 0,
+        last_ip_hash: "",
+        expires_at: new Date(Date.now() + hours * 3600_000).toISOString(),
+        max_views: Math.max(row.max_views, Number(settings?.link_max_views ?? 3)),
+        reactivated_at: new Date().toISOString(),
+        reactivations: (row.reactivations ?? 0) + 1,
+      })
+      .eq("id", data.id);
+
+    const { logOrderEvent } = await import("@/lib/fulfillment.server");
+    const { notifyAccessIssue } = await import("@/lib/notify.server");
+    await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_revoked", `Neu aktiviert für ${hours} h`);
+    await notifyAccessIssue(db, "reactivated", { tgUserId: row.tg_user_id, detail: `Gültig für ${hours} Stunden` });
+    return { ok: true, hours };
+  });
+
+// ---------- Team & Rollen ----------
+
+export const listTeam = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { db } = await requireRole(context, "admin");
+    const { data: roles } = await db.from("user_roles").select("*").order("created_at", { ascending: true });
+    const { data: users } = await db.auth.admin.listUsers({ page: 1, perPage: 200 });
+    const emails = new Map<string, string>((users?.users ?? []).map((u: any) => [u.id, u.email ?? ""]));
+    return {
+      members: (roles ?? []).map((r: any) => ({
+        id: r.id,
+        userId: r.user_id,
+        role: r.role as TeamRole,
+        email: emails.get(r.user_id) ?? r.user_id,
+        createdAt: r.created_at,
+        isSelf: r.user_id === context.userId,
+      })),
+      accounts: (users?.users ?? []).map((u: any) => ({ id: u.id, email: u.email ?? u.id })),
+    };
+  });
+
+export const setTeamRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ userId: z.string().uuid(), role: z.enum(["admin", "operator", "viewer"]) }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { db } = await requireRole(context, "admin");
+    await db.from("user_roles").delete().eq("user_id", data.userId).in("role", ["admin", "operator", "viewer"]);
+    await db.from("user_roles").insert({ user_id: data.userId, role: data.role });
+    return { ok: true };
+  });
+
+export const removeTeamRole = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
+  .handler(async ({ data, context }) => {
+    const { db } = await requireRole(context, "admin");
+    if (data.userId === context.userId) throw new Error("Du kannst dich nicht selbst entfernen.");
+    const { count } = await db.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
+    const { data: target } = await db.from("user_roles").select("role").eq("user_id", data.userId);
+    const targetIsAdmin = (target ?? []).some((r: any) => r.role === "admin");
+    if (targetIsAdmin && (count ?? 0) <= 1) throw new Error("Der letzte Admin kann nicht entfernt werden.");
+    await db.from("user_roles").delete().eq("user_id", data.userId);
+    return { ok: true };
   });
