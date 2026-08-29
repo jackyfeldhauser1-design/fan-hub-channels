@@ -267,7 +267,11 @@ export async function notifyAccessIssue(
           : true;
   if (!master) return;
 
-  const vars = await buildVars(db, { tokenId: opts.tokenId, tgUserId: opts.tgUserId, detail: opts.detail });
+  const vars = await buildVars(db, {
+    tokenId: opts.tokenId ?? null,
+    tgUserId: opts.tgUserId ?? null,
+    detail: opts.detail ?? "",
+  });
   const body = renderTemplate(kind, vars, "admin") ?? "";
   const recipients = await resolveRecipients(db, opts.tokenId, settings.admin_chat_id ?? "");
 
