@@ -243,9 +243,21 @@ export const runCampaignNow = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "campaign_run", context.userId, 10, 600_000);
     const { runCampaign } = await import("@/lib/notify.server");
-    return runCampaign(db, data.id);
+    const res = await runCampaign(db, data.id);
+    await auditLog(db, {
+      actorId: context.userId,
+      actorEmail: context.claims?.email ?? null,
+      action: "campaign_run",
+      target: data.id,
+      status: "ok",
+      detail: JSON.stringify(res).slice(0, 300),
+    });
+    return res;
   });
+
 
 export const saveWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
