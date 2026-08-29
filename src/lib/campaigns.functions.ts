@@ -89,15 +89,15 @@ export const getNotificationAnalytics = createServerFn({ method: "POST" })
     return {
       role,
       overall: summarize(list),
-      byKind: kinds.map((k) => ({ kind: k, ...summarize(list.filter((d) => d.kind === k)) })),
+      byKind: kinds.map((k) => ({ kind: k, ...summarize(list.filter((d: any) => d.kind === k)) })),
       byChannel: ["telegram", "slack", "email"].map((c) => ({
         channel: c,
-        ...summarize(list.filter((d) => d.channel === c)),
+        ...summarize(list.filter((d: any) => d.channel === c)),
       })),
       byCampaign: (campaigns ?? []).map((c: any) => ({
         id: c.id,
         name: campaignMap.get(c.id) ?? "—",
-        ...summarize(list.filter((d) => d.campaign_id === c.id)),
+        ...summarize(list.filter((d: any) => d.campaign_id === c.id)),
       })),
     };
   });
