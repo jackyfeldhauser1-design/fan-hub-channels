@@ -19,12 +19,20 @@ async function tg(method: string, body: Record<string, unknown>) {
   return JSON.parse(text) as { ok: boolean; result?: any; description?: string };
 }
 
+// Admin check via the caller's own user_roles row. RLS ("users read own roles")
+// restricts this to the caller's own roles, so no SECURITY DEFINER RPC is needed.
+async function isAdminUser(context: any): Promise<boolean> {
+  const { data } = await context.supabase
+    .from("user_roles")
+    .select("id")
+    .eq("user_id", context.userId)
+    .eq("role", "admin")
+    .maybeSingle();
+  return Boolean(data);
+}
+
 async function requireAdmin(context: any) {
-  const { data: isAdmin } = await context.supabase.rpc("has_role", {
-    _user_id: context.userId,
-    _role: "admin",
-  });
-  if (!isAdmin) throw new Error("Forbidden");
+  if (!(await isAdminUser(context))) throw new Error("Forbidden");
   const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
   return supabaseAdmin as any;
 }
@@ -32,10 +40,7 @@ async function requireAdmin(context: any) {
 export const getAccess = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { data: isAdmin } = await context.supabase.rpc("has_role", {
-      _user_id: context.userId,
-      _role: "admin",
-    });
+    const isAdmin = await isAdminUser(context);
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { count } = await (supabaseAdmin as any)
       .from("user_roles")
