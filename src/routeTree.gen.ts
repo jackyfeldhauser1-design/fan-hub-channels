@@ -22,6 +22,7 @@ import { Route as MedienRouteImport } from './routes/medien'
 import { Route as ProdukteRouteImport } from './routes/produkte'
 import { Route as SicherheitRouteImport } from './routes/sicherheit'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
+import { Route as StarsRouteImport } from './routes/stars'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as TeamRouteImport } from './routes/team'
 import { Route as VerbindenRouteImport } from './routes/verbinden'
@@ -100,6 +101,11 @@ const SicherheitRoute = SicherheitRouteImport.update({
 const SitemapDotxmlRoute = SitemapDotxmlRouteImport.update({
   id: '/sitemap.xml',
   path: '/sitemap.xml',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const StarsRoute = StarsRouteImport.update({
+  id: '/stars',
+  path: '/stars',
   getParentRoute: () => rootRouteImport,
 } as any)
 const StatusRoute = StatusRouteImport.update({
@@ -190,6 +196,7 @@ export interface FileRoutesByFullPath {
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
   '/verbinden': typeof VerbindenRoute
@@ -219,6 +226,7 @@ export interface FileRoutesByTo {
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
   '/verbinden': typeof VerbindenRoute
@@ -249,6 +257,7 @@ export interface FileRoutesById {
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
+  '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
   '/verbinden': typeof VerbindenRoute
@@ -280,6 +289,7 @@ export interface FileRouteTypes {
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
+    | '/stars'
     | '/status'
     | '/team'
     | '/verbinden'
@@ -309,6 +319,7 @@ export interface FileRouteTypes {
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
+    | '/stars'
     | '/status'
     | '/team'
     | '/verbinden'
@@ -338,6 +349,7 @@ export interface FileRouteTypes {
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
+    | '/stars'
     | '/status'
     | '/team'
     | '/verbinden'
@@ -368,6 +380,7 @@ export interface RootRouteChildren {
   ProdukteRoute: typeof ProdukteRoute
   SicherheitRoute: typeof SicherheitRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
+  StarsRoute: typeof StarsRoute
   StatusRoute: typeof StatusRoute
   TeamRoute: typeof TeamRoute
   VerbindenRoute: typeof VerbindenRoute
@@ -475,6 +488,13 @@ declare module '@tanstack/react-router' {
       path: '/sitemap.xml'
       fullPath: '/sitemap.xml'
       preLoaderRoute: typeof SitemapDotxmlRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/stars': {
+      id: '/stars'
+      path: '/stars'
+      fullPath: '/stars'
+      preLoaderRoute: typeof StarsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/status': {
@@ -592,6 +612,7 @@ const rootRouteChildren: RootRouteChildren = {
   ProdukteRoute: ProdukteRoute,
   SicherheitRoute: SicherheitRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
+  StarsRoute: StarsRoute,
   StatusRoute: StatusRoute,
   TeamRoute: TeamRoute,
   VerbindenRoute: VerbindenRoute,
