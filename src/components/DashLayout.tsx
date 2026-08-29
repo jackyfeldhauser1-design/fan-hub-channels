@@ -38,6 +38,7 @@ const nav = [
   { to: "/fans", label: "Fans & Affiliates", icon: Users },
   { to: "/zugriffe", label: "Zugriffe", icon: KeyRound },
   { to: "/benachrichtigungen", label: "Benachrichtigungen", icon: BellRing },
+  { to: "/kampagnen", label: "Kampagnen", icon: Megaphone },
   { to: "/sicherheit", label: "Sicherheit", icon: ShieldAlert },
   { to: "/werbeposts", label: "Werbepartner", icon: Megaphone },
   { to: "/leads", label: "Warteliste", icon: Rocket },
