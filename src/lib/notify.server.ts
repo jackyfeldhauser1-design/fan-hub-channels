@@ -1,76 +1,343 @@
 const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
-async function send(chatId: string | number, text: string) {
-  if (!chatId) return;
-  try {
-    await fetch(`${GATEWAY}/sendMessage`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
-        "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-    });
-  } catch {
-    /* Benachrichtigungen dürfen den Zugriffsfluss nie blockieren */
-  }
+/** Sendet eine Telegram-Nachricht, wirft bei Fehlern (für Retry/Fallback). */
+export async function sendTelegram(chatId: string | number, text: string) {
+  if (!chatId) throw new Error("Keine Chat-ID hinterlegt");
+  const res = await fetch(`${GATEWAY}/sendMessage`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
+      "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
+  });
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Telegram [${res.status}]: ${body.slice(0, 300)}`);
+  const parsed = JSON.parse(body) as { ok: boolean; description?: string };
+  if (!parsed.ok) throw new Error(parsed.description ?? "Telegram lehnte den Versand ab");
+  return true;
 }
 
-export type NotifyKind = "blocked" | "unpaid" | "expired" | "reactivated";
+export type NotifyKind = "expiring" | "expired" | "unpaid" | "blocked" | "reactivated";
 
-const copy: Record<NotifyKind, { admin: (fan: string, detail: string) => string; user: string | null }> = {
-  blocked: {
-    admin: (fan, d) => `🚫 <b>Zugriff blockiert</b>\nFan: ${fan}\nGrund: gesperrtes Konto\n${d}`,
-    user: "🚫 Dein Zugang ist derzeit gesperrt. Bitte melde dich beim Support, damit wir das prüfen.",
-  },
-  unpaid: {
-    admin: (fan, d) => `💳 <b>Zugriff ohne bestätigte Zahlung</b>\nFan: ${fan}\n${d}`,
-    user: "💳 Deine Zahlung ist noch nicht bestätigt. Sobald sie eingeht, wird der Inhalt automatisch freigeschaltet.",
+export const NOTIFY_KINDS: { kind: NotifyKind; label: string }[] = [
+  { kind: "expiring", label: "Zugang läuft bald ab" },
+  { kind: "expired", label: "Zugang abgelaufen" },
+  { kind: "unpaid", label: "Zahlung nicht bestätigt" },
+  { kind: "blocked", label: "Konto gesperrt" },
+  { kind: "reactivated", label: "Zugang neu aktiviert" },
+];
+
+export type NotifyVars = {
+  fan: string;
+  inhalt: string;
+  ticket: string;
+  ablauf: string;
+  grund: string;
+};
+
+export const NOTIFY_VARIABLES: { key: keyof NotifyVars; label: string; source: string }[] = [
+  { key: "fan", label: "{fan}", source: "Telegram-Name des Fans (tg_users)" },
+  { key: "inhalt", label: "{inhalt}", source: "Titel des Produkts oder Medien-Ordners" },
+  { key: "ticket", label: "{ticket}", source: "Kurz-ID des Zugangs (access_tokens.id)" },
+  { key: "ablauf", label: "{ablauf}", source: "Ablaufzeitpunkt des Zugangslinks" },
+  { key: "grund", label: "{grund}", source: "Detailtext des auslösenden Ereignisses" },
+];
+
+const TEMPLATES: Record<NotifyKind, { admin: string; user: string | null }> = {
+  expiring: {
+    admin: "⏰ <b>Zugang läuft bald ab</b>\nFan: {fan}\nInhalt: {inhalt}\nTicket: {ticket}\nGültig bis: {ablauf}",
+    user: "⏰ Dein Zugang läuft bald ab (gültig bis {ablauf}). Öffne den Inhalt rechtzeitig.",
   },
   expired: {
-    admin: (fan, d) => `⏳ <b>Einmal-Zugang abgelaufen</b>\nFan: ${fan}\n${d}\nIm Dashboard unter „Zugriffe“ neu aktivieren.`,
+    admin:
+      "⏳ <b>Einmal-Zugang abgelaufen</b>\nFan: {fan}\nInhalt: {inhalt}\nTicket: {ticket}\nAbgelaufen: {ablauf}\n{grund}\nIm Dashboard unter „Zugriffe“ neu aktivieren.",
     user: "⏳ Dein Zugangslink ist abgelaufen. Wir haben das Team informiert – du bekommst gleich einen neuen Link.",
   },
+  unpaid: {
+    admin: "💳 <b>Zugriff ohne bestätigte Zahlung</b>\nFan: {fan}\nInhalt: {inhalt}\nTicket: {ticket}\n{grund}",
+    user: "💳 Deine Zahlung ist noch nicht bestätigt. Sobald sie eingeht, wird der Inhalt automatisch freigeschaltet.",
+  },
+  blocked: {
+    admin: "🚫 <b>Zugriff blockiert</b>\nFan: {fan}\nInhalt: {inhalt}\nTicket: {ticket}\nGrund: gesperrtes Konto\n{grund}",
+    user: "🚫 Dein Zugang ist derzeit gesperrt. Bitte melde dich beim Support, damit wir das prüfen.",
+  },
   reactivated: {
-    admin: (fan, d) => `✅ <b>Zugang neu aktiviert</b>\nFan: ${fan}\n${d}`,
+    admin: "✅ <b>Zugang neu aktiviert</b>\nFan: {fan}\nInhalt: {inhalt}\nTicket: {ticket}\nGültig bis: {ablauf}\n{grund}",
     user: "✅ Dein Zugang wurde neu aktiviert. Öffne den Link erneut, um den Inhalt zu sehen.",
   },
 };
 
-/** Informiert Admin-Chat und (falls sinnvoll) den Fan über Zugriffsprobleme. */
+export function renderTemplate(kind: NotifyKind, vars: NotifyVars, audience: "admin" | "user" = "admin") {
+  const raw = audience === "user" ? TEMPLATES[kind].user : TEMPLATES[kind].admin;
+  if (!raw) return null;
+  return raw.replace(/\{(fan|inhalt|ticket|ablauf|grund)\}/g, (_m, key: keyof NotifyVars) => vars[key] || "—");
+}
+
+/** Baut die Platzhalterwerte für einen Zugang (oder Beispielwerte). */
+export async function buildVars(
+  db: any,
+  opts: { tokenId?: string | null; tgUserId?: string | null; detail?: string },
+): Promise<NotifyVars> {
+  let fan = "unbekannt";
+  let inhalt = "—";
+  let ablauf = "—";
+  let ticket = opts.tokenId ? opts.tokenId.slice(0, 8) : "—";
+  let tgUserId = opts.tgUserId ?? null;
+
+  if (opts.tokenId) {
+    const { data: token } = await db
+      .from("access_tokens")
+      .select("id, expires_at, tg_user_id, products(title), media_folders(title)")
+      .eq("id", opts.tokenId)
+      .maybeSingle();
+    if (token) {
+      ticket = String(token.id).slice(0, 8);
+      ablauf = token.expires_at ? new Date(token.expires_at).toLocaleString("de-DE") : "—";
+      inhalt = token.products?.title ?? token.media_folders?.title ?? "—";
+      tgUserId = tgUserId ?? token.tg_user_id;
+    }
+  }
+
+  if (tgUserId) {
+    const { data: user } = await db
+      .from("tg_users")
+      .select("username, first_name")
+      .eq("id", tgUserId)
+      .maybeSingle();
+    if (user) fan = user.username ? `@${user.username}` : (user.first_name ?? "unbekannt");
+  }
+
+  return { fan, inhalt, ticket, ablauf, grund: opts.detail ?? "" };
+}
+
+type Recipient = {
+  id: string | null;
+  label: string;
+  channel: "telegram" | "email";
+  target: string;
+  fallback_channel: "telegram" | "email" | null;
+  fallback_target: string;
+};
+
+const RETRY_DELAYS_MIN = [1, 5, 15];
+export const MAX_ATTEMPTS = RETRY_DELAYS_MIN.length + 1;
+
+function nextRetryAt(attempt: number) {
+  const minutes = RETRY_DELAYS_MIN[attempt - 1];
+  if (minutes === undefined) return null;
+  return new Date(Date.now() + minutes * 60_000).toISOString();
+}
+
+/** Ein einzelner Zustellversuch inkl. Kanal-Fallback. */
+export async function deliverOnce(
+  db: any,
+  delivery: {
+    id: string;
+    channel: "telegram" | "email";
+    target: string;
+    body: string;
+    attempt: number;
+    recipient_id: string | null;
+  },
+) {
+  const attempt = (delivery.attempt ?? 0) + 1;
+  let usedFallback = false;
+  let error = "";
+
+  const tryChannel = async (channel: "telegram" | "email", target: string) => {
+    if (channel === "email") throw new Error("E-Mail-Versand ist noch nicht eingerichtet (keine Absender-Domain)");
+    await sendTelegram(target, delivery.body);
+  };
+
+  try {
+    await tryChannel(delivery.channel, delivery.target);
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e);
+    // Ersatzkanal versuchen
+    let fb: { channel: "telegram" | "email"; target: string } | null = null;
+    if (delivery.recipient_id) {
+      const { data: rec } = await db
+        .from("notification_recipients")
+        .select("fallback_channel, fallback_target")
+        .eq("id", delivery.recipient_id)
+        .maybeSingle();
+      if (rec?.fallback_channel && rec.fallback_target) {
+        fb = { channel: rec.fallback_channel, target: rec.fallback_target };
+      }
+    }
+    if (fb) {
+      try {
+        await tryChannel(fb.channel, fb.target);
+        usedFallback = true;
+        error = "";
+      } catch (e2) {
+        error = `${error} · Ersatzkanal: ${e2 instanceof Error ? e2.message : String(e2)}`;
+      }
+    }
+  }
+
+  if (!error) {
+    await db
+      .from("notification_deliveries")
+      .update({ status: "sent", attempt, error: "", used_fallback: usedFallback, next_retry_at: null })
+      .eq("id", delivery.id);
+    return { ok: true, usedFallback };
+  }
+
+  const retryAt = attempt < MAX_ATTEMPTS ? nextRetryAt(attempt) : null;
+  await db
+    .from("notification_deliveries")
+    .update({
+      status: retryAt ? "retrying" : "dead",
+      attempt,
+      error: error.slice(0, 500),
+      next_retry_at: retryAt,
+    })
+    .eq("id", delivery.id);
+  return { ok: false, error };
+}
+
+/** Ermittelt alle aktiven Empfänger für einen Alarm (Admin-Chat + Standard + Zugangs-Zuordnung). */
+async function resolveRecipients(db: any, tokenId: string | null | undefined, adminChatId: string) {
+  const [{ data: defaults }, { data: linked }] = await Promise.all([
+    db.from("notification_recipients").select("*").eq("active", true).eq("is_default", true),
+    tokenId
+      ? db
+          .from("access_token_recipients")
+          .select("notification_recipients(*)")
+          .eq("token_id", tokenId)
+      : Promise.resolve({ data: [] }),
+  ]);
+
+  const rows: any[] = [
+    ...(defaults ?? []),
+    ...((linked ?? []).map((r: any) => r.notification_recipients).filter(Boolean) as any[]),
+  ].filter((r) => r.active);
+
+  const list: Recipient[] = [];
+  if (adminChatId) {
+    list.push({
+      id: null,
+      label: "Admin-Chat",
+      channel: "telegram",
+      target: adminChatId,
+      fallback_channel: null,
+      fallback_target: "",
+    });
+  }
+  for (const r of rows) {
+    list.push({
+      id: r.id,
+      label: r.label || "Empfänger",
+      channel: r.channel,
+      target: r.channel === "email" ? r.email : r.chat_id,
+      fallback_channel: r.fallback_channel ?? null,
+      fallback_target: r.fallback_target ?? "",
+    });
+  }
+
+  const seen = new Set<string>();
+  return list.filter((r) => {
+    const key = `${r.id ?? "admin"}:${r.channel}:${r.target}`;
+    if (!r.target || seen.has(key)) return false;
+    seen.add(key);
+    return true;
+  });
+}
+
+/** Informiert alle berechtigten Empfänger und (falls sinnvoll) den Fan. */
 export async function notifyAccessIssue(
   db: any,
   kind: NotifyKind,
-  opts: { tgUserId?: string | null; detail?: string; notifyUser?: boolean },
+  opts: { tgUserId?: string | null; tokenId?: string | null; detail?: string; notifyUser?: boolean },
 ) {
   const { data: settings } = await db.from("bot_settings").select("*").eq("id", true).maybeSingle();
   if (!settings) return;
-  const flag =
+
+  // Globaler Hauptschalter aus dem Bot-Setup
+  const master =
     kind === "blocked"
       ? settings.notify_blocked
       : kind === "unpaid"
         ? settings.notify_unpaid
-        : kind === "expired"
+        : kind === "expired" || kind === "expiring"
           ? settings.notify_expired
           : true;
-  if (!flag) return;
+  if (!master) return;
 
-  let fanLabel = "unbekannt";
-  let telegramId: number | null = null;
-  if (opts.tgUserId) {
-    const { data: fan } = await db
-      .from("tg_users")
-      .select("username, first_name, telegram_id")
-      .eq("id", opts.tgUserId)
-      .maybeSingle();
-    if (fan) {
-      fanLabel = fan.username ? `@${fan.username}` : (fan.first_name ?? "unbekannt");
-      telegramId = fan.telegram_id;
-    }
+  const vars = await buildVars(db, { tokenId: opts.tokenId, tgUserId: opts.tgUserId, detail: opts.detail });
+  const body = renderTemplate(kind, vars, "admin") ?? "";
+  const recipients = await resolveRecipients(db, opts.tokenId, settings.admin_chat_id ?? "");
+
+  // Opt-in/Opt-out je Empfänger
+  const ids = recipients.map((r) => r.id).filter(Boolean) as string[];
+  const prefs = ids.length
+    ? ((await db.from("notification_prefs").select("recipient_id, kind, enabled").in("recipient_id", ids)).data ?? [])
+    : [];
+  const optedOut = new Set(
+    prefs.filter((p: any) => p.kind === kind && p.enabled === false).map((p: any) => p.recipient_id),
+  );
+
+  for (const r of recipients) {
+    const skipped = r.id ? optedOut.has(r.id) : false;
+    const { data: row } = await db
+      .from("notification_deliveries")
+      .insert({
+        recipient_id: r.id,
+        recipient_label: r.label,
+        kind,
+        channel: r.channel,
+        target: r.target,
+        token_id: opts.tokenId ?? null,
+        tg_user_id: opts.tgUserId ?? null,
+        body,
+        status: skipped ? "skipped_optout" : "queued",
+      })
+      .select("id")
+      .single();
+    if (skipped || !row) continue;
+    await deliverOnce(db, {
+      id: row.id,
+      channel: r.channel,
+      target: r.target,
+      body,
+      attempt: 0,
+      recipient_id: r.id,
+    });
   }
 
-  const text = copy[kind];
-  await send(settings.admin_chat_id, text.admin(fanLabel, opts.detail ?? ""));
-  if (opts.notifyUser !== false && telegramId && text.user) await send(telegramId, text.user);
+  // Fan-Nachricht bleibt wie bisher optional und unabhängig vom Protokoll.
+  const userText = renderTemplate(kind, vars, "user");
+  if (opts.notifyUser !== false && userText && opts.tgUserId) {
+    const { data: fan } = await db.from("tg_users").select("telegram_id").eq("id", opts.tgUserId).maybeSingle();
+    if (fan?.telegram_id) {
+      try {
+        await sendTelegram(fan.telegram_id, userText);
+      } catch {
+        /* Fan-Benachrichtigung darf den Zugriffsfluss nie blockieren */
+      }
+    }
+  }
+}
+
+/** Arbeitet fällige Wiederholungen ab (vom Cron-Endpunkt aufgerufen). */
+export async function processRetryQueue(db: any, limit = 50) {
+  const { data: due } = await db
+    .from("notification_deliveries")
+    .select("id, channel, target, body, attempt, recipient_id")
+    .eq("status", "retrying")
+    .lte("next_retry_at", new Date().toISOString())
+    .order("next_retry_at", { ascending: true })
+    .limit(limit);
+
+  let sent = 0;
+  let failed = 0;
+  for (const d of due ?? []) {
+    const res = await deliverOnce(db, d);
+    if (res.ok) sent += 1;
+    else failed += 1;
+  }
+  return { processed: (due ?? []).length, sent, failed };
 }
