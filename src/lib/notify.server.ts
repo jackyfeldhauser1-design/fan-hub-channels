@@ -195,12 +195,14 @@ export async function buildVars(
   return { fan, inhalt, ticket, ablauf, grund: opts.detail ?? "" };
 }
 
+export type NotifyChannel = "telegram" | "email" | "slack";
+
 type Recipient = {
   id: string | null;
   label: string;
-  channel: "telegram" | "email";
+  channel: NotifyChannel;
   target: string;
-  fallback_channel: "telegram" | "email" | null;
+  fallback_channel: NotifyChannel | null;
   fallback_target: string;
 };
 
@@ -218,7 +220,7 @@ export async function deliverOnce(
   db: any,
   delivery: {
     id: string;
-    channel: "telegram" | "email";
+    channel: NotifyChannel;
     target: string;
     body: string;
     attempt: number;
@@ -228,18 +230,20 @@ export async function deliverOnce(
   const attempt = (delivery.attempt ?? 0) + 1;
   let usedFallback = false;
   let error = "";
+  let result: SendResult = { messageId: "", response: "" };
 
-  const tryChannel = async (channel: "telegram" | "email", target: string) => {
+  const tryChannel = async (channel: NotifyChannel, target: string) => {
     if (channel === "email") throw new Error("E-Mail-Versand ist noch nicht eingerichtet (keine Absender-Domain)");
-    await sendTelegram(target, delivery.body);
+    if (channel === "slack") return sendSlack(target, delivery.body);
+    return sendTelegram(target, delivery.body);
   };
 
   try {
-    await tryChannel(delivery.channel, delivery.target);
+    result = await tryChannel(delivery.channel, delivery.target);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
     // Ersatzkanal versuchen
-    let fb: { channel: "telegram" | "email"; target: string } | null = null;
+    let fb: { channel: NotifyChannel; target: string } | null = null;
     if (delivery.recipient_id) {
       const { data: rec } = await db
         .from("notification_recipients")
@@ -252,7 +256,7 @@ export async function deliverOnce(
     }
     if (fb) {
       try {
-        await tryChannel(fb.channel, fb.target);
+        result = await tryChannel(fb.channel, fb.target);
         usedFallback = true;
         error = "";
       } catch (e2) {
@@ -264,8 +268,24 @@ export async function deliverOnce(
   if (!error) {
     await db
       .from("notification_deliveries")
-      .update({ status: "sent", attempt, error: "", used_fallback: usedFallback, next_retry_at: null })
+      .update({
+        status: "sent",
+        attempt,
+        error: "",
+        used_fallback: usedFallback,
+        next_retry_at: null,
+        provider_message_id: result.messageId,
+        provider_response: result.response,
+      })
       .eq("id", delivery.id);
+    await db.from("notification_events").insert({ delivery_id: delivery.id, event: "sent", detail: result.response });
+    await dispatchWebhooks(db, "delivery.sent", {
+      deliveryId: delivery.id,
+      channel: delivery.channel,
+      target: delivery.target,
+      usedFallback,
+      providerMessageId: result.messageId,
+    });
     return { ok: true, usedFallback };
   }
 
@@ -279,8 +299,20 @@ export async function deliverOnce(
       next_retry_at: retryAt,
     })
     .eq("id", delivery.id);
+  await db
+    .from("notification_events")
+    .insert({ delivery_id: delivery.id, event: retryAt ? "retry" : "failed", detail: error.slice(0, 300) });
+  await dispatchWebhooks(db, "delivery.failed", {
+    deliveryId: delivery.id,
+    channel: delivery.channel,
+    target: delivery.target,
+    attempt,
+    willRetry: Boolean(retryAt),
+    error: error.slice(0, 300),
+  });
   return { ok: false, error };
 }
+
 
 /** Ermittelt alle aktiven Empfänger für einen Alarm (Admin-Chat + Standard + Zugangs-Zuordnung). */
 async function resolveRecipients(db: any, tokenId: string | null | undefined, adminChatId: string) {
