@@ -23,6 +23,7 @@ import { Route as SicherheitRouteImport } from './routes/sicherheit'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as VerbindenRouteImport } from './routes/verbinden'
 import { Route as VerkaeufeRouteImport } from './routes/verkaeufe'
 import { Route as WartelisteRouteImport } from './routes/warteliste'
 import { Route as WerbepartnerRouteImport } from './routes/werbepartner'
@@ -105,6 +106,11 @@ const TeamRoute = TeamRouteImport.update({
   path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
+const VerbindenRoute = VerbindenRouteImport.update({
+  id: '/verbinden',
+  path: '/verbinden',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerkaeufeRoute = VerkaeufeRouteImport.update({
   id: '/verkaeufe',
   path: '/verkaeufe',
@@ -179,6 +185,7 @@ export interface FileRoutesByFullPath {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -206,6 +213,7 @@ export interface FileRoutesByTo {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -234,6 +242,7 @@ export interface FileRoutesById {
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -263,6 +272,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/status'
     | '/team'
+    | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/status'
     | '/team'
+    | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -317,6 +328,7 @@ export interface FileRouteTypes {
     | '/sitemap.xml'
     | '/status'
     | '/team'
+    | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -345,6 +357,7 @@ export interface RootRouteChildren {
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StatusRoute: typeof StatusRoute
   TeamRoute: typeof TeamRoute
+  VerbindenRoute: typeof VerbindenRoute
   VerkaeufeRoute: typeof VerkaeufeRoute
   WartelisteRoute: typeof WartelisteRoute
   WerbepartnerRoute: typeof WerbepartnerRoute
@@ -458,6 +471,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/verbinden': {
+      id: '/verbinden'
+      path: '/verbinden'
+      fullPath: '/verbinden'
+      preLoaderRoute: typeof VerbindenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verkaeufe': {
       id: '/verkaeufe'
       path: '/verkaeufe'
@@ -553,6 +573,7 @@ const rootRouteChildren: RootRouteChildren = {
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StatusRoute: StatusRoute,
   TeamRoute: TeamRoute,
+  VerbindenRoute: VerbindenRoute,
   VerkaeufeRoute: VerkaeufeRoute,
   WartelisteRoute: WartelisteRoute,
   WerbepartnerRoute: WerbepartnerRoute,
