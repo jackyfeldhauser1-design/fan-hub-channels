@@ -86,11 +86,77 @@ const TEMPLATES: Record<NotifyKind, { admin: string; user: string | null }> = {
   },
 };
 
+export const DEFAULT_TEMPLATES = TEMPLATES;
+
+export function fillVars(raw: string, vars: NotifyVars) {
+  return raw.replace(/\{(fan|inhalt|ticket|ablauf|grund)\}/g, (_m, key: keyof NotifyVars) => vars[key] || "—");
+}
+
 export function renderTemplate(kind: NotifyKind, vars: NotifyVars, audience: "admin" | "user" = "admin") {
   const raw = audience === "user" ? TEMPLATES[kind].user : TEMPLATES[kind].admin;
   if (!raw) return null;
-  return raw.replace(/\{(fan|inhalt|ticket|ablauf|grund)\}/g, (_m, key: keyof NotifyVars) => vars[key] || "—");
+  return fillVars(raw, vars);
 }
+
+/** Lädt die (ggf. im Editor angepasste) Vorlage und füllt die Platzhalter. */
+export async function renderStoredTemplate(
+  db: any,
+  kind: NotifyKind,
+  vars: NotifyVars,
+  audience: "admin" | "user" = "admin",
+): Promise<{ body: string | null; linkUrl: string }> {
+  const { data: tpl } = await db
+    .from("notification_templates")
+    .select("body, link_url, active")
+    .eq("kind", kind)
+    .eq("audience", audience)
+    .maybeSingle();
+  if (tpl?.active && tpl.body) return { body: fillVars(tpl.body, vars), linkUrl: tpl.link_url ?? "" };
+  return { body: renderTemplate(kind, vars, audience), linkUrl: tpl?.link_url ?? "" };
+}
+
+/** Hängt einen messbaren Tracking-Link an die Nachricht. */
+export function withTracking(base: string, deliveryId: string, body: string, linkUrl: string) {
+  const root = String(base ?? "").replace(/\/$/, "");
+  if (!root) return body;
+  const target = linkUrl ? `?to=${encodeURIComponent(linkUrl)}` : "";
+  return `${body}\n\n👉 ${root}/api/public/n/${deliveryId}${target}`;
+}
+
+/** Benachrichtigt externe Systeme über Zustellergebnisse. */
+export async function dispatchWebhooks(db: any, event: string, payload: Record<string, unknown>) {
+  const { data: hooks } = await db.from("notification_webhooks").select("*").eq("active", true);
+  for (const hook of hooks ?? []) {
+    if (Array.isArray(hook.events) && hook.events.length && !hook.events.includes(event)) continue;
+    const bodyText = JSON.stringify({ event, sentAt: new Date().toISOString(), data: payload });
+    let status = "";
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (hook.secret) {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(hook.secret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"],
+        );
+        const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(bodyText));
+        headers["X-Signature-256"] = Array.from(new Uint8Array(sig))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+      const res = await fetch(hook.url, { method: "POST", headers, body: bodyText });
+      status = `${res.status}`;
+    } catch (e) {
+      status = `Fehler: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200);
+    }
+    await db
+      .from("notification_webhooks")
+      .update({ last_status: status, last_called_at: new Date().toISOString() })
+      .eq("id", hook.id);
+  }
+}
+
 
 /** Baut die Platzhalterwerte für einen Zugang (oder Beispielwerte). */
 export async function buildVars(
