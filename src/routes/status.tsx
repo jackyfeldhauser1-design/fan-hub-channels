@@ -200,6 +200,9 @@ function StatusPage() {
           ) : null}
         </div>
       </div>
+
+      <OpsPanel enabled={isAdmin} />
     </DashLayout>
+
   );
 }
