@@ -291,7 +291,10 @@ export const testWebhook = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "webhook_test", context.userId, 20, 600_000);
     const { dispatchWebhooks } = await import("@/lib/notify.server");
+
     const { data: hook } = await db.from("notification_webhooks").select("*").eq("id", data.id).maybeSingle();
     if (!hook) throw new Error("Webhook nicht gefunden");
     await dispatchWebhooks(db, "test.ping", { webhookId: hook.id, label: hook.label });
