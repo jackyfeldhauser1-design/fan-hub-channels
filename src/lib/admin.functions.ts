@@ -528,7 +528,15 @@ export const listAccessLog = createServerFn({ method: "POST" })
       db
         .from("order_events")
         .select("*, tg_users(username, first_name)")
-        .in("kind", ["access_opened", "access_denied", "access_revoked", "delivered", "delivery_failed"])
+        .in("kind", [
+          "access_opened",
+          "access_denied",
+          "access_revoked",
+          "delivered",
+          "delivery_failed",
+          "login_success",
+          "login_failed",
+        ])
         .order("created_at", { ascending: false })
         .limit(300),
     ]);
@@ -566,6 +574,8 @@ export const listAccessLog = createServerFn({ method: "POST" })
     const delivered = ev.filter((e: any) => e.kind === "delivered").length;
     const opens = ev.filter((e: any) => e.kind === "access_opened").length;
     const denied = ev.filter((e: any) => e.kind === "access_denied").length;
+    const loginOk = ev.filter((e: any) => e.kind === "login_success").length;
+    const loginFail = ev.filter((e: any) => e.kind === "login_failed").length;
     const total = list.length;
     const openRate = total ? Math.round((list.filter((t: any) => t.views > 0).length / total) * 100) : 0;
 
@@ -588,6 +598,8 @@ export const listAccessLog = createServerFn({ method: "POST" })
         delivered,
         opens,
         denied,
+        loginOk,
+        loginFail,
         openRate,
       },
     };

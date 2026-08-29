@@ -4,7 +4,9 @@ import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { lovable } from "@/integrations/lovable/index";
+import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/useAuth";
+import { logLoginAttempt } from "@/lib/auth-log.functions";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -31,10 +33,56 @@ function AuthPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
+  const [mfa, setMfa] = useState<{ factorId: string } | null>(null);
+  const [otp, setOtp] = useState("");
+  const logAttempt = useServerFn(logLoginAttempt);
+
+  function log(success: boolean, method: "password" | "google" | "2fa", reason = "") {
+    void logAttempt({ data: { email, success, method, reason } }).catch(() => {});
+  }
 
   useEffect(() => {
-    if (!loading && session) navigate({ to: "/" });
-  }, [loading, session, navigate]);
+    if (!loading && session && !mfa) navigate({ to: "/" });
+  }, [loading, session, mfa, navigate]);
+
+  /** Nach dem Passwort-Login prüfen, ob noch ein 2FA-Code nötig ist. */
+  async function continueAfterSignIn(method: "password" | "google") {
+    const { data: aal } = await supabase.auth.mfa.getAuthenticatorAssuranceLevel();
+    if (aal && aal.nextLevel === "aal2" && aal.nextLevel !== aal.currentLevel) {
+      const { data: factors } = await supabase.auth.mfa.listFactors();
+      const factor = (factors?.totp ?? []).find((f) => f.status === "verified");
+      if (factor) {
+        setMfa({ factorId: factor.id });
+        return;
+      }
+    }
+    log(true, method);
+    navigate({ to: "/" });
+  }
+
+  async function submitOtp(e: React.FormEvent) {
+    e.preventDefault();
+    if (!mfa) return;
+    setBusy(true);
+    try {
+      const challenge = await supabase.auth.mfa.challenge({ factorId: mfa.factorId });
+      if (challenge.error) throw challenge.error;
+      const { error } = await supabase.auth.mfa.verify({
+        factorId: mfa.factorId,
+        challengeId: challenge.data.id,
+        code: otp.trim(),
+      });
+      if (error) throw error;
+      log(true, "2fa");
+      setMfa(null);
+      navigate({ to: "/" });
+    } catch (err) {
+      log(false, "2fa", err instanceof Error ? err.message : "2FA fehlgeschlagen");
+      toast.error(err instanceof Error ? err.message : "Code ungültig");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   async function submit(e: React.FormEvent) {
     e.preventDefault();
@@ -42,8 +90,11 @@ function AuthPage() {
     try {
       if (mode === "login") {
         const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) throw error;
-        navigate({ to: "/" });
+        if (error) {
+          log(false, "password", error.message);
+          throw error;
+        }
+        await continueAfterSignIn("password");
       } else {
         const { error } = await supabase.auth.signUp({
           email,
@@ -64,11 +115,12 @@ function AuthPage() {
   async function google() {
     const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
     if (result.error) {
+      log(false, "google", "OAuth abgebrochen");
       toast.error("Google-Anmeldung fehlgeschlagen");
       return;
     }
     if (result.redirected) return;
-    navigate({ to: "/" });
+    await continueAfterSignIn("google");
   }
 
   return (
@@ -82,30 +134,53 @@ function AuthPage() {
           Verwalte deine Telegram-Kette: Gratis-Gruppe, VIP-Zugang, Stars & TON.
         </p>
 
-        <form onSubmit={submit} className="mt-6 space-y-4">
-          <div className="space-y-1.5">
-            <Label htmlFor="email">E-Mail</Label>
-            <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
-          </div>
-          <div className="space-y-1.5">
-            <Label htmlFor="password">Passwort</Label>
-            <Input
-              id="password"
-              type="password"
-              required
-              minLength={6}
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
-          <Button type="submit" className="w-full" disabled={busy}>
-            {mode === "login" ? "Anmelden" : "Konto erstellen"}
-          </Button>
-        </form>
+        {mfa ? (
+          <form onSubmit={submitOtp} className="mt-6 space-y-4">
+            <div className="space-y-1.5">
+              <Label htmlFor="otp">Zwei-Faktor-Code</Label>
+              <Input
+                id="otp"
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                maxLength={6}
+                required
+                value={otp}
+                onChange={(e) => setOtp(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">6-stelliger Code aus deiner Authenticator-App.</p>
+            </div>
+            <Button type="submit" className="w-full" disabled={busy}>
+              Bestätigen
+            </Button>
+          </form>
+        ) : (
+          <>
+            <form onSubmit={submit} className="mt-6 space-y-4">
+              <div className="space-y-1.5">
+                <Label htmlFor="email">E-Mail</Label>
+                <Input id="email" type="email" required value={email} onChange={(e) => setEmail(e.target.value)} />
+              </div>
+              <div className="space-y-1.5">
+                <Label htmlFor="password">Passwort</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  minLength={6}
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+              </div>
+              <Button type="submit" className="w-full" disabled={busy}>
+                {mode === "login" ? "Anmelden" : "Konto erstellen"}
+              </Button>
+            </form>
 
-        <Button variant="outline" className="mt-3 w-full" onClick={google}>
-          Mit Google fortfahren
-        </Button>
+            <Button variant="outline" className="mt-3 w-full" onClick={google}>
+              Mit Google fortfahren
+            </Button>
+          </>
+        )}
 
         <button
           className="mt-5 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"

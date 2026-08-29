@@ -189,13 +189,109 @@ export const openSecureContent = createServerFn({ method: "POST" })
       .eq("id", row.id);
     await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_opened", `view ${row.views + 1}/${row.max_views}`);
 
+    // Gekaufter Medien-Ordner: nur Metadaten ausliefern, keine Datei-URLs.
+    let folder: { id: string; title: string; files: { id: string; name: string; type: string; size: number }[] } | null =
+      null;
+    if (row.folder_id) {
+      const { data: f } = await db.from("media_folders").select("id, title").eq("id", row.folder_id).maybeSingle();
+      if (f) {
+        const { data: files } = await db
+          .from("media_files")
+          .select("id, display_name, mime_type, size_bytes")
+          .eq("folder_id", f.id)
+          .order("sort_order", { ascending: true });
+        folder = {
+          id: f.id,
+          title: f.title,
+          files: (files ?? []).map((x: any) => ({
+            id: x.id,
+            name: x.display_name,
+            type: x.mime_type,
+            size: x.size_bytes,
+          })),
+        };
+      }
+    }
+
     return {
       status: "ok" as const,
-      title: product?.title ?? "Dein Inhalt",
+      title: folder?.title ?? product?.title ?? "Dein Inhalt",
       description: product?.description ?? "",
       deliveryType: product?.delivery_type ?? "text",
       payload: product?.delivery_payload ?? "",
       viewsLeft: row.max_views - row.views - 1,
       expiresAt: row.expires_at,
+      folder,
     };
+  });
+
+/**
+ * Download-Schutz: erzeugt pro Datei einen nur 60 Sekunden gültigen Link,
+ * nachdem Token, Zahlung, Sperre und Gerätebindung erneut geprüft wurden.
+ * Jeder Versuch wird protokolliert.
+ */
+export const requestMediaDownload = createServerFn({ method: "POST" })
+  .inputValidator((input: unknown) =>
+    z.object({ token: z.string().min(10).max(200), fileId: z.string().uuid() }).parse(input),
+  )
+  .handler(async ({ data }) => {
+    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+    const { hashIp, logOrderEvent } = await import("@/lib/fulfillment.server");
+    const db = supabaseAdmin as any;
+    const ipHash = hashIp(clientIp());
+
+    const { data: row } = await db.from("access_tokens").select("*").eq("token", data.token).maybeSingle();
+    const { data: file } = await db.from("media_files").select("*").eq("id", data.fileId).maybeSingle();
+
+    async function deny(reason: string) {
+      await db.from("media_downloads").insert({
+        file_id: file?.id ?? null,
+        folder_id: file?.folder_id ?? null,
+        token_id: row?.id ?? null,
+        tg_user_id: row?.tg_user_id ?? null,
+        allowed: false,
+        reason,
+        ip_hash: ipHash,
+      });
+      if (row) await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_denied", `Download: ${reason}`);
+      return { status: "denied" as const, reason };
+    }
+
+    if (!row || !file) return deny("Ungültiger Link");
+    if (row.revoked) return deny("Zugang gesperrt");
+    if (new Date(row.expires_at).getTime() < Date.now()) return deny("Link abgelaufen");
+    if (row.folder_id !== file.folder_id) return deny("Datei gehört nicht zum Zugang");
+    if (row.last_ip_hash && ipHash && row.last_ip_hash !== ipHash) return deny("Anderes Gerät/Netz");
+
+    if (row.purchase_id) {
+      const { data: purchase } = await db
+        .from("purchases")
+        .select("status, delivery_status")
+        .eq("id", row.purchase_id)
+        .maybeSingle();
+      if (!purchase || purchase.status !== "paid" || purchase.delivery_status === "revoked")
+        return deny("Zahlung nicht bestätigt");
+    }
+    if (row.tg_user_id) {
+      const { data: fan } = await db.from("tg_users").select("blocked").eq("id", row.tg_user_id).maybeSingle();
+      if (fan?.blocked) return deny("Konto gesperrt");
+    }
+
+    const { data: signed, error } = await db.storage
+      .from("media-vault")
+      .createSignedUrl(file.storage_path, 60, { download: file.display_name || true });
+    if (error || !signed?.signedUrl) return deny("Datei nicht verfügbar");
+
+    await db.from("media_downloads").insert({
+      file_id: file.id,
+      folder_id: file.folder_id,
+      token_id: row.id,
+      tg_user_id: row.tg_user_id,
+      allowed: true,
+      reason: "ok",
+      ip_hash: ipHash,
+    });
+    await logOrderEvent(db, row.purchase_id, row.tg_user_id, "delivered", `Download: ${file.display_name}`);
+
+    return { status: "ok" as const, url: signed.signedUrl as string, expiresIn: 60 };
   });

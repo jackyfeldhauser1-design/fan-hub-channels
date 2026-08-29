@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Lock, ShieldCheck } from "lucide-react";
-import { openSecureContent } from "@/lib/public.functions";
+import { Lock, ShieldCheck, Download } from "lucide-react";
+import { openSecureContent, requestMediaDownload } from "@/lib/public.functions";
 
 export const Route = createFileRoute("/inhalt/$token")({
   
@@ -30,6 +31,9 @@ const messages: Record<string, string> = {
 function ContentPage() {
   const { token } = Route.useParams();
   const openFn = useServerFn(openSecureContent);
+  const downloadFn = useServerFn(requestMediaDownload);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { data, isPending } = useQuery({
     queryKey: ["secure", token],
     queryFn: () => openFn({ data: { token } }),
@@ -62,15 +66,49 @@ function ContentPage() {
         <h1 className="mt-4 text-3xl font-bold">{data.title}</h1>
         {data.description ? <p className="mt-2 text-sm text-muted-foreground">{data.description}</p> : null}
 
-        <div className="mt-6 rounded-xl border border-border p-5">
-          {data.deliveryType === "link" && data.payload ? (
-            <a className="break-all font-medium text-primary underline" href={data.payload}>
-              {data.payload}
-            </a>
-          ) : (
-            <p className="whitespace-pre-wrap text-sm">{data.payload}</p>
-          )}
-        </div>
+        {data.payload ? (
+          <div className="mt-6 rounded-xl border border-border p-5">
+            {data.deliveryType === "link" ? (
+              <a className="break-all font-medium text-primary underline" href={data.payload}>
+                {data.payload}
+              </a>
+            ) : (
+              <p className="whitespace-pre-wrap text-sm">{data.payload}</p>
+            )}
+          </div>
+        ) : null}
+
+        {data.folder ? (
+          <ul className="mt-6 divide-y divide-border/60 rounded-xl border border-border">
+            {data.folder.files.map((file) => (
+              <li key={file.id} className="flex items-center justify-between gap-3 px-4 py-3">
+                <span className="truncate text-sm">{file.name}</span>
+                <button
+                  type="button"
+                  className="inline-flex shrink-0 items-center gap-2 rounded-md border border-border px-3 py-1.5 text-sm"
+                  onClick={async () => {
+                    setBusy(file.id);
+                    try {
+                      const res = await downloadFn({ data: { token, fileId: file.id } });
+                      if (res.status === "ok") window.location.href = res.url;
+                      else setError(res.reason);
+                    } finally {
+                      setBusy(null);
+                    }
+                  }}
+                >
+                  <Download className="size-4" />
+                  {busy === file.id ? "Lädt…" : "Download"}
+                </button>
+              </li>
+            ))}
+            {data.folder.files.length === 0 && (
+              <li className="px-4 py-6 text-center text-sm text-muted-foreground">Dieser Ordner ist noch leer.</li>
+            )}
+          </ul>
+        ) : null}
+
+        {error ? <p className="mt-4 text-sm text-destructive">Download blockiert: {error}</p> : null}
 
         <p className="mt-6 text-xs text-muted-foreground">
           Bitte nicht weitergeben – der Link ist mit deinem Telegram-Konto verknüpft und wird bei Weitergabe automatisch

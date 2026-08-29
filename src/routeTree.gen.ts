@@ -15,6 +15,7 @@ import { Route as BestellungenRouteImport } from './routes/bestellungen'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as MedienRouteImport } from './routes/medien'
 import { Route as ProdukteRouteImport } from './routes/produkte'
 import { Route as SicherheitRouteImport } from './routes/sicherheit'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -25,6 +26,7 @@ import { Route as WartelisteRouteImport } from './routes/warteliste'
 import { Route as WerbepartnerRouteImport } from './routes/werbepartner'
 import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
+import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
@@ -56,6 +58,11 @@ const FansRoute = FansRouteImport.update({
 const LeadsRoute = LeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedienRoute = MedienRouteImport.update({
+  id: '/medien',
+  path: '/medien',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProdukteRoute = ProdukteRouteImport.update({
@@ -108,6 +115,11 @@ const ZugriffeRoute = ZugriffeRouteImport.update({
   path: '/zugriffe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ZweiFaktorRoute = ZweiFaktorRouteImport.update({
+  id: '/zwei-faktor',
+  path: '/zwei-faktor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InhaltTokenRoute = InhaltTokenRouteImport.update({
   id: '/inhalt/$token',
   path: '/inhalt/$token',
@@ -127,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/leads': typeof LeadsRoute
+  '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -137,6 +150,7 @@ export interface FileRoutesByFullPath {
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
   '/zugriffe': typeof ZugriffeRoute
+  '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -147,6 +161,7 @@ export interface FileRoutesByTo {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/leads': typeof LeadsRoute
+  '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -157,6 +172,7 @@ export interface FileRoutesByTo {
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
   '/zugriffe': typeof ZugriffeRoute
+  '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -168,6 +184,7 @@ export interface FileRoutesById {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/leads': typeof LeadsRoute
+  '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -178,6 +195,7 @@ export interface FileRoutesById {
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
   '/zugriffe': typeof ZugriffeRoute
+  '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -190,6 +208,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/leads'
+    | '/medien'
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
@@ -200,6 +219,7 @@ export interface FileRouteTypes {
     | '/werbepartner'
     | '/werbeposts'
     | '/zugriffe'
+    | '/zwei-faktor'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -210,6 +230,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/leads'
+    | '/medien'
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
@@ -220,6 +241,7 @@ export interface FileRouteTypes {
     | '/werbepartner'
     | '/werbeposts'
     | '/zugriffe'
+    | '/zwei-faktor'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   id:
@@ -230,6 +252,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/leads'
+    | '/medien'
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
@@ -240,6 +263,7 @@ export interface FileRouteTypes {
     | '/werbepartner'
     | '/werbeposts'
     | '/zugriffe'
+    | '/zwei-faktor'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -251,6 +275,7 @@ export interface RootRouteChildren {
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
   LeadsRoute: typeof LeadsRoute
+  MedienRoute: typeof MedienRoute
   ProdukteRoute: typeof ProdukteRoute
   SicherheitRoute: typeof SicherheitRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -261,6 +286,7 @@ export interface RootRouteChildren {
   WerbepartnerRoute: typeof WerbepartnerRoute
   WerbepostsRoute: typeof WerbepostsRoute
   ZugriffeRoute: typeof ZugriffeRoute
+  ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -307,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medien': {
+      id: '/medien'
+      path: '/medien'
+      fullPath: '/medien'
+      preLoaderRoute: typeof MedienRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produkte': {
@@ -379,6 +412,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ZugriffeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/zwei-faktor': {
+      id: '/zwei-faktor'
+      path: '/zwei-faktor'
+      fullPath: '/zwei-faktor'
+      preLoaderRoute: typeof ZweiFaktorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inhalt/$token': {
       id: '/inhalt/$token'
       path: '/inhalt/$token'
@@ -403,6 +443,7 @@ const rootRouteChildren: RootRouteChildren = {
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
   LeadsRoute: LeadsRoute,
+  MedienRoute: MedienRoute,
   ProdukteRoute: ProdukteRoute,
   SicherheitRoute: SicherheitRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
@@ -413,6 +454,7 @@ const rootRouteChildren: RootRouteChildren = {
   WerbepartnerRoute: WerbepartnerRoute,
   WerbepostsRoute: WerbepostsRoute,
   ZugriffeRoute: ZugriffeRoute,
+  ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
