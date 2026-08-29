@@ -118,7 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@type": "Organization",
           name: "Telegram Fan Funnel Studio",
           url: "https://fan-hub-channels.lovable.app",
-          logo: "https://fan-hub-channels.lovable.app/favicon.ico",
+          logo: "https://fan-hub-channels.lovable.app/app-icon-512.png",
           description:
             "Telegram-Bot-Kette mit Gratis-Gruppe, VIP-Verkauf über Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
         }),
