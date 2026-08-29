@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { CheckCircle2, XCircle, Loader2, Slack, Webhook, Send } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { ConnectPanel } from "@/components/ConnectPanel";
+import { GuidedSetupWizard } from "@/components/GuidedSetupWizard";
+
 import { useAdmin } from "@/lib/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,10 +114,12 @@ function ConnectWizardPage() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">
             Schritt 1 · Telegram
           </h2>
+          <GuidedSetupWizard />
           <ConnectPanel
             defaultBaseUrl={typeof window !== "undefined" ? window.location.origin : ""}
             onConnected={() => overview.refetch()}
           />
+
           {telegram ? (
             <div className="panel p-6">
               <ul className="divide-y divide-border">

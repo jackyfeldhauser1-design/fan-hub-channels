@@ -1,11 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { createHash, timingSafeEqual } from "crypto";
-
-const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
-
-function deriveSecret(apiKey: string) {
-  return createHash("sha256").update(`telegram-webhook:${apiKey}`).digest("base64url");
-}
+import { timingSafeEqual } from "crypto";
+import { tgSafe } from "@/lib/telegram.server";
 
 function safeEqual(a: string, b: string) {
   const left = Buffer.from(a);
@@ -14,27 +9,9 @@ function safeEqual(a: string, b: string) {
 }
 
 async function tg(method: string, body: Record<string, unknown>) {
-  const res = await fetch(`${GATEWAY}/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
-      "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  if (!res.ok) {
-    console.error(`Telegram ${method} failed [${res.status}]: ${text}`);
-    return null;
-  }
-  const json = JSON.parse(text) as { ok: boolean; result?: unknown; description?: string };
-  if (!json.ok) {
-    console.error(`Telegram ${method} error: ${json.description}`);
-    return null;
-  }
-  return json.result as Record<string, unknown>;
+  return (await tgSafe(method, body)) as Record<string, unknown> | null;
 }
+
 
 function code() {
   return Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -60,10 +37,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const apiKey = process.env["TELEGRAM_API_KEY"];
-        if (!apiKey) return new Response("not configured", { status: 500 });
+        const { validWebhookSecrets } = await import("@/lib/telegram.server");
+        const secrets = await validWebhookSecrets();
+        if (secrets.length === 0) return new Response("not configured", { status: 500 });
         const got = request.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
-        if (!safeEqual(got, deriveSecret(apiKey))) return new Response("Unauthorized", { status: 401 });
+        if (!secrets.some((s) => safeEqual(got, s))) return new Response("Unauthorized", { status: 401 });
+
 
         const raw = await request.text();
         if (raw.length > 200_000) return new Response("payload too large", { status: 413 });
@@ -109,6 +88,28 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           },
           { onConflict: "update_id" },
         );
+
+        /* ---- Geführtes Setup: Bot wurde einer Gruppe/Kanal hinzugefügt ---- */
+        const setupText: string = msg?.text ?? "";
+        const setupMatch = /^\/start(?:@\w+)?\s+(S[A-Z0-9]{6,12})\b/i.exec(setupText.trim());
+        const groupAddChat =
+          update.my_chat_member?.chat ?? (msg?.new_chat_members?.length ? msg.chat : null);
+        const memberStatus = update.my_chat_member?.new_chat_member?.status;
+
+        if (setupMatch && msg?.chat) {
+          const { redeemSetupCode } = await import("@/lib/setup.server");
+          const res = await redeemSetupCode(db, setupMatch[1]!, msg.chat);
+          if (res.ok) return Response.json({ ok: true, setup: (res as any).target });
+        } else if (groupAddChat && (!memberStatus || ["member", "administrator", "creator"].includes(memberStatus))) {
+          const { claimPendingForChat } = await import("@/lib/setup.server");
+          const res = await claimPendingForChat(
+            db,
+            String(groupAddChat.id),
+            groupAddChat.title ?? "",
+            groupAddChat.type ?? "",
+          );
+          if (res.ok) return Response.json({ ok: true, setup: (res as any).target });
+        }
 
 
         const settings =

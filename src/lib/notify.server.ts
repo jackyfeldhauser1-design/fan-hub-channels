@@ -1,25 +1,17 @@
-const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
+import { tgApi } from "@/lib/telegram.server";
 
 export type SendResult = { messageId: string; response: string };
 
 /** Sendet eine Telegram-Nachricht, wirft bei Fehlern (für Retry/Fallback). */
 export async function sendTelegram(chatId: string | number, text: string): Promise<SendResult> {
   if (!chatId) throw new Error("Keine Chat-ID hinterlegt");
-  const res = await fetch(`${GATEWAY}/sendMessage`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
-      "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify({ chat_id: chatId, text, parse_mode: "HTML" }),
-  });
-  const body = await res.text();
-  if (!res.ok) throw new Error(`Telegram [${res.status}]: ${body.slice(0, 300)}`);
-  const parsed = JSON.parse(body) as { ok: boolean; description?: string; result?: { message_id?: number } };
-  if (!parsed.ok) throw new Error(parsed.description ?? "Telegram lehnte den Versand ab");
-  return { messageId: String(parsed.result?.message_id ?? ""), response: body.slice(0, 500) };
+  const parsed = await tgApi("sendMessage", { chat_id: chatId, text, parse_mode: "HTML" });
+  return {
+    messageId: String(parsed.result?.message_id ?? ""),
+    response: JSON.stringify(parsed.result ?? {}).slice(0, 500),
+  };
 }
+
 
 /** Sendet eine Slack-Nachricht über eine Incoming-Webhook-URL. */
 export async function sendSlack(webhookUrl: string, text: string): Promise<SendResult> {

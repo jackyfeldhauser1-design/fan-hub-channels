@@ -198,6 +198,30 @@ export type Database = {
         }
         Relationships: []
       }
+      bot_credentials: {
+        Row: {
+          bot_token: string
+          bot_username: string
+          created_at: string
+          id: boolean
+          updated_at: string
+        }
+        Insert: {
+          bot_token?: string
+          bot_username?: string
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+        }
+        Update: {
+          bot_token?: string
+          bot_username?: string
+          created_at?: string
+          id?: boolean
+          updated_at?: string
+        }
+        Relationships: []
+      }
       bot_settings: {
         Row: {
           affiliate_percent: number
@@ -299,6 +323,51 @@ export type Database = {
             referencedColumns: ["id"]
           },
         ]
+      }
+      chat_setup_codes: {
+        Row: {
+          chat_id: string
+          chat_title: string
+          code: string
+          created_at: string
+          created_by: string | null
+          detail: string
+          expires_at: string
+          id: string
+          status: string
+          target: string
+          updated_at: string
+          used_at: string | null
+        }
+        Insert: {
+          chat_id?: string
+          chat_title?: string
+          code: string
+          created_at?: string
+          created_by?: string | null
+          detail?: string
+          expires_at: string
+          id?: string
+          status?: string
+          target: string
+          updated_at?: string
+          used_at?: string | null
+        }
+        Update: {
+          chat_id?: string
+          chat_title?: string
+          code?: string
+          created_at?: string
+          created_by?: string | null
+          detail?: string
+          expires_at?: string
+          id?: string
+          status?: string
+          target?: string
+          updated_at?: string
+          used_at?: string | null
+        }
+        Relationships: []
       }
       job_runs: {
         Row: {

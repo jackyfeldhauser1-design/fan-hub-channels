@@ -3,21 +3,10 @@
  * Veröffentlichung in Ankündigungs- und Trailer-Channel.
  */
 
-const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
-async function tg(method: string, body: Record<string, unknown>) {
-  const res = await fetch(`${GATEWAY}/${method}`, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
-      "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
-      "Content-Type": "application/json",
-    },
-    body: JSON.stringify(body),
-  });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Telegram ${method} [${res.status}]: ${text.slice(0, 300)}`);
-  return JSON.parse(text) as { ok: boolean; result?: any };
+async function tg(method: string, body: Record<string, unknown> = {}) {
+  const { tgApi } = await import("@/lib/telegram.server");
+  return tgApi(method, body);
 }
 
 export type DropItem = {
