@@ -89,6 +89,28 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           { onConflict: "update_id" },
         );
 
+        /* ---- Geführtes Setup: Bot wurde einer Gruppe/Kanal hinzugefügt ---- */
+        const setupText: string = msg?.text ?? "";
+        const setupMatch = /^\/start(?:@\w+)?\s+(S[A-Z0-9]{6,12})\b/i.exec(setupText.trim());
+        const groupAddChat =
+          update.my_chat_member?.chat ?? (msg?.new_chat_members?.length ? msg.chat : null);
+        const memberStatus = update.my_chat_member?.new_chat_member?.status;
+
+        if (setupMatch && msg?.chat) {
+          const { redeemSetupCode } = await import("@/lib/setup.server");
+          const res = await redeemSetupCode(db, setupMatch[1]!, msg.chat);
+          if (res.ok) return Response.json({ ok: true, setup: res.target });
+        } else if (groupAddChat && (!memberStatus || ["member", "administrator", "creator"].includes(memberStatus))) {
+          const { claimPendingForChat } = await import("@/lib/setup.server");
+          const res = await claimPendingForChat(
+            db,
+            String(groupAddChat.id),
+            groupAddChat.title ?? "",
+            groupAddChat.type ?? "",
+          );
+          if (res.ok) return Response.json({ ok: true, setup: (res as any).target });
+        }
+
 
         const settings =
           (await db.from("bot_settings").select("*").eq("id", true).maybeSingle()).data ?? {};
