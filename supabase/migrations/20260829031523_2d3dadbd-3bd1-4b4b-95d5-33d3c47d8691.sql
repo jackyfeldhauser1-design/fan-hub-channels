@@ -1,0 +1,4 @@
+CREATE POLICY "admins read media vault" ON storage.objects FOR SELECT TO authenticated USING (bucket_id = 'media-vault' AND public.is_admin());
+CREATE POLICY "admins upload media vault" ON storage.objects FOR INSERT TO authenticated WITH CHECK (bucket_id = 'media-vault' AND public.is_admin());
+CREATE POLICY "admins update media vault" ON storage.objects FOR UPDATE TO authenticated USING (bucket_id = 'media-vault' AND public.is_admin()) WITH CHECK (bucket_id = 'media-vault' AND public.is_admin());
+CREATE POLICY "admins delete media vault" ON storage.objects FOR DELETE TO authenticated USING (bucket_id = 'media-vault' AND public.is_admin());
