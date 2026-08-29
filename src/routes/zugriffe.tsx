@@ -2,10 +2,15 @@ import { createFileRoute } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { KeyRound } from "lucide-react";
+import { KeyRound, Download, RotateCcw, AlertTriangle } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { useAdmin } from "@/lib/useAdmin";
-import { listAccessLog, revokeAccessToken } from "@/lib/admin.functions";
+import {
+  listAccessLog,
+  revokeAccessToken,
+  reactivateAccessToken,
+  exportAccessCsv,
+} from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -16,10 +21,11 @@ export const Route = createFileRoute("/zugriffe")({
       { title: "Zugriffe & Auslieferung – Telegram Fan Funnel Studio" },
       {
         name: "description",
-        content: "Protokoll aller Einmal-Zugänge: wer welchen bezahlten Inhalt wann geöffnet hat und welche Zugriffe blockiert wurden.",
+        content:
+          "KPIs, Lieferprotokoll und CSV-Export für alle Einmal-Zugänge: Ausgaben, Öffnungen, blockierte Versuche und abgelaufene Links.",
       },
       { property: "og:title", content: "Zugriffe & Auslieferung – Telegram Fan Funnel Studio" },
-      { property: "og:description", content: "Zugriffsschutz und Lieferprotokoll für bezahlte Inhalte." },
+      { property: "og:description", content: "Zugriffsschutz, KPIs und Lieferprotokoll für bezahlte Inhalte." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
     ],
@@ -35,54 +41,139 @@ const stateTone: Record<string, string> = {
   aufgebraucht: "bg-muted text-muted-foreground",
 };
 
+const eventLabel: Record<string, string> = {
+  delivered: "Ausgeliefert",
+  delivery_failed: "Lieferung fehlgeschlagen",
+  access_opened: "Inhalt geöffnet",
+  access_denied: "Zugriff verweigert",
+  access_revoked: "Zugang geändert",
+};
+
+function download(filename: string, content: string) {
+  const blob = new Blob(["\ufeff" + content], { type: "text/csv;charset=utf-8;" });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement("a");
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
 function AccessPage() {
   const qc = useQueryClient();
   const listFn = useServerFn(listAccessLog);
   const revokeFn = useServerFn(revokeAccessToken);
-  const { isAdmin } = useAdmin();
+  const reactivateFn = useServerFn(reactivateAccessToken);
+  const exportFn = useServerFn(exportAccessCsv);
+  const { canRead, canOperate } = useAdmin();
   const { data } = useQuery({
     queryKey: ["access-log"],
     queryFn: () => listFn({ data: undefined as never }),
-    enabled: isAdmin,
+    enabled: canRead,
   });
-
-  async function revoke(id: string) {
-    await revokeFn({ data: { id } });
-    toast.success("Zugang gesperrt");
-    qc.invalidateQueries({ queryKey: ["access-log"] });
-  }
 
   const tokens = data?.tokens ?? [];
   const events = data?.events ?? [];
+  const stats = data?.stats;
+  const needsAction = tokens.filter((t: any) => t.state === "abgelaufen" || t.state === "aufgebraucht");
+
+  async function revoke(id: string) {
+    try {
+      await revokeFn({ data: { id } });
+      toast.success("Zugang gesperrt");
+      qc.invalidateQueries({ queryKey: ["access-log"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+    }
+  }
+
+  async function reactivate(id: string) {
+    try {
+      const res = await reactivateFn({ data: { id } });
+      toast.success(`Zugang für ${res.hours} Stunden neu aktiviert`);
+      qc.invalidateQueries({ queryKey: ["access-log"] });
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+    }
+  }
+
+  async function exportCsv(kind: "tokens" | "events") {
+    try {
+      const res = await exportFn({ data: { kind } });
+      download(res.filename, res.content);
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Export fehlgeschlagen");
+    }
+  }
+
+  const kpis = [
+    { label: "Gesamtzugriffe", value: stats?.total ?? 0, hint: "ausgegebene Zugangslinks" },
+    { label: "Erfolgreiche Ausgaben", value: stats?.delivered ?? 0, hint: "bestätigte Auslieferungen" },
+    { label: "Öffnungen", value: stats?.opens ?? 0, hint: `${stats?.openRate ?? 0} % der Links geöffnet` },
+    { label: "Blockierte Versuche", value: stats?.denied ?? 0, hint: "unbezahlt, gesperrt oder abgelaufen" },
+  ];
 
   return (
     <DashLayout
       title="Zugriffe & Auslieferung"
-      subtitle="Nur bezahlte Bestellungen erhalten Zugang – hier siehst du jeden Aufruf und jede Blockade."
+      subtitle="Nur bezahlte Bestellungen erhalten Zugang – hier siehst du jeden Aufruf, jede Blockade und alle Reports."
     >
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        {[
-          { label: "Aktive Zugänge", value: data?.stats.active ?? 0 },
-          { label: "Gesperrte Zugänge", value: data?.stats.revoked ?? 0 },
-          { label: "Öffnungen", value: data?.stats.opens ?? 0 },
-          { label: "Blockierte Versuche", value: data?.stats.denied ?? 0 },
-        ].map((s) => (
-          <div key={s.label} className="panel p-5">
-            <p className="text-sm text-muted-foreground">{s.label}</p>
-            <p className="mt-1 text-3xl font-bold">{s.value}</p>
+        {kpis.map((k) => (
+          <div key={k.label} className="panel p-5">
+            <p className="text-sm text-muted-foreground">{k.label}</p>
+            <p className="mt-1 text-3xl font-bold">{k.value}</p>
+            <p className="mt-1 text-xs text-muted-foreground">{k.hint}</p>
           </div>
         ))}
       </div>
 
-      <div className="panel mt-4 flex items-center gap-3 p-5 text-sm text-muted-foreground">
-        <KeyRound className="size-5 shrink-0 text-primary" />
-        Zugriff wird nur gewährt, wenn die Zahlung bestätigt ist, das Fan-Konto nicht gesperrt ist, der Link noch gültig
-        ist und das Aufruf-Limit nicht erreicht wurde. Ein Gerätewechsel sperrt den Link automatisch.
+      <div className="mt-4 grid gap-4 lg:grid-cols-3">
+        <div className="panel flex items-center gap-3 p-5 text-sm text-muted-foreground lg:col-span-2">
+          <KeyRound className="size-5 shrink-0 text-primary" />
+          Zugriff wird nur gewährt, wenn die Zahlung bestätigt ist, das Fan-Konto nicht gesperrt ist, der Link noch
+          gültig ist und das Aufruf-Limit nicht erreicht wurde. Ein Gerätewechsel sperrt den Link automatisch. Aktive
+          Zugänge: {stats?.active ?? 0} · gesperrt: {stats?.revoked ?? 0} · abgelaufen: {stats?.expired ?? 0}.
+        </div>
+        <div className="panel space-y-2 p-5">
+          <p className="text-sm font-medium">Reports</p>
+          <Button variant="outline" className="w-full justify-start" onClick={() => exportCsv("tokens")}>
+            <Download className="mr-2 size-4" /> Zugriffslogs als CSV
+          </Button>
+          <Button variant="outline" className="w-full justify-start" onClick={() => exportCsv("events")}>
+            <Download className="mr-2 size-4" /> Lieferprotokoll als CSV
+          </Button>
+        </div>
       </div>
+
+      {needsAction.length > 0 ? (
+        <div className="panel mt-4 border-primary/40 p-5">
+          <div className="flex items-start gap-3">
+            <AlertTriangle className="mt-0.5 size-5 shrink-0 text-primary" />
+            <div className="w-full">
+              <p className="font-medium">{needsAction.length} Zugänge sind abgelaufen oder aufgebraucht</p>
+              <p className="text-sm text-muted-foreground">
+                Aktiviere sie neu, wenn der Fan bezahlt hat – der Fan wird automatisch im Bot informiert.
+              </p>
+              <div className="mt-3 space-y-2">
+                {needsAction.slice(0, 5).map((t: any) => (
+                  <div key={t.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                    <span className="font-medium">{t.product}</span>
+                    <span className="text-muted-foreground">{t.fan}</span>
+                    <Button size="sm" disabled={!canOperate} onClick={() => reactivate(t.id)}>
+                      <RotateCcw className="mr-1 size-3.5" /> Neu aktivieren
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       <h2 className="mt-8 text-lg font-semibold">Ausgegebene Zugänge</h2>
       <div className="panel mt-3 hidden overflow-x-auto md:block">
-        <table className="w-full min-w-[760px] text-sm">
+        <table className="w-full min-w-[820px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
               <th className="px-4 py-3">Inhalt</th>
@@ -103,18 +194,20 @@ function AccessPage() {
                 <td className="px-4 py-3">
                   {t.views}/{t.maxViews}
                 </td>
-                <td className="px-4 py-3 text-muted-foreground">
-                  {new Date(t.expiresAt).toLocaleString("de-DE")}
-                </td>
+                <td className="px-4 py-3 text-muted-foreground">{new Date(t.expiresAt).toLocaleString("de-DE")}</td>
                 <td className="px-4 py-3">
                   <Badge className={stateTone[t.state] ?? "bg-muted text-muted-foreground"}>{t.state}</Badge>
                 </td>
                 <td className="px-4 py-3 text-right">
                   {t.state === "aktiv" ? (
-                    <Button size="sm" variant="outline" onClick={() => revoke(t.id)}>
+                    <Button size="sm" variant="outline" disabled={!canOperate} onClick={() => revoke(t.id)}>
                       Sperren
                     </Button>
-                  ) : null}
+                  ) : (
+                    <Button size="sm" variant="outline" disabled={!canOperate} onClick={() => reactivate(t.id)}>
+                      Neu aktivieren
+                    </Button>
+                  )}
                 </td>
               </tr>
             ))}
@@ -143,11 +236,15 @@ function AccessPage() {
               {t.views}/{t.maxViews} Aufrufe · {t.paid ? t.amount : "Zahlung offen"} · bis{" "}
               {new Date(t.expiresAt).toLocaleString("de-DE")}
             </p>
-            {t.state === "aktiv" ? (
-              <Button size="sm" variant="outline" className="mt-3 w-full" onClick={() => revoke(t.id)}>
-                Zugang sperren
-              </Button>
-            ) : null}
+            <Button
+              size="sm"
+              variant="outline"
+              className="mt-3 w-full"
+              disabled={!canOperate}
+              onClick={() => (t.state === "aktiv" ? revoke(t.id) : reactivate(t.id))}
+            >
+              {t.state === "aktiv" ? "Zugang sperren" : "Zugang neu aktivieren"}
+            </Button>
           </div>
         ))}
         {tokens.length === 0 ? (
@@ -159,15 +256,7 @@ function AccessPage() {
       <div className="panel mt-3 divide-y divide-border/60">
         {events.map((e: any) => (
           <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
-            <span className="font-medium">
-              {e.kind === "delivered"
-                ? "Ausgeliefert"
-                : e.kind === "access_opened"
-                  ? "Inhalt geöffnet"
-                  : e.kind === "access_denied"
-                    ? "Zugriff verweigert"
-                    : "Zugang gesperrt"}
-            </span>
+            <span className="font-medium">{eventLabel[e.kind] ?? e.kind}</span>
             <span className="text-muted-foreground">{e.fan}</span>
             <span className="text-muted-foreground">{e.detail}</span>
             <span className="text-xs text-muted-foreground">{new Date(e.createdAt).toLocaleString("de-DE")}</span>

@@ -12,5 +12,14 @@ export function useAdmin() {
     queryFn: () => accessFn({ data: undefined as never }),
     enabled: Boolean(session),
   });
-  return { session, isAdmin: Boolean(access.data?.isAdmin), ready: access.isSuccess };
+  const role = (access.data as any)?.role as "admin" | "operator" | "viewer" | null | undefined;
+  return {
+    session,
+    isAdmin: Boolean(access.data?.isAdmin),
+    role: role ?? null,
+    /** Viewer dürfen lesen, Operator zusätzlich Zugänge steuern. */
+    canRead: Boolean(role),
+    canOperate: role === "admin" || role === "operator",
+    ready: access.isSuccess,
+  };
 }

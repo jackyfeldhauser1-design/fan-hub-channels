@@ -114,6 +114,27 @@ function SettingsPage() {
             </div>
           </div>
           <div className="space-y-1.5">
+            <Label>Admin-Chat-ID für Benachrichtigungen</Label>
+            <Input value={form.admin_chat_id ?? ""} onChange={(e) => setForm({ ...form, admin_chat_id: e.target.value })} inputMode="numeric" placeholder="z. B. deine Telegram-ID" />
+          </div>
+          <div className="grid gap-2 sm:grid-cols-3">
+            {([
+              ["notify_blocked", "Alarm bei gesperrtem Konto"],
+              ["notify_unpaid", "Alarm bei fehlender Zahlung"],
+              ["notify_expired", "Alarm bei abgelaufenem Zugang"],
+            ] as const).map(([key, label]) => (
+              <label key={key} className="flex items-center gap-2 rounded-lg border border-border px-3 py-2 text-sm">
+                <input
+                  type="checkbox"
+                  className="size-4 accent-[hsl(var(--primary))]"
+                  checked={Boolean(form[key])}
+                  onChange={(e) => setForm({ ...form, [key]: e.target.checked })}
+                />
+                {label}
+              </label>
+            ))}
+          </div>
+          <div className="space-y-1.5">
             <Label>Upsell-Text nach dem Kauf</Label>
             <Input value={form.upsell_message} onChange={(e) => setForm({ ...form, upsell_message: e.target.value })} />
           </div>
@@ -137,6 +158,10 @@ function SettingsPage() {
                     link_ttl_hours: Number(form.link_ttl_hours),
                     link_max_views: Number(form.link_max_views),
                     max_purchases_per_hour: Number(form.max_purchases_per_hour),
+                    admin_chat_id: form.admin_chat_id ?? "",
+                    notify_blocked: Boolean(form.notify_blocked),
+                    notify_unpaid: Boolean(form.notify_unpaid),
+                    notify_expired: Boolean(form.notify_expired),
                   },
                 });
                 toast.success("Einstellungen gespeichert");
