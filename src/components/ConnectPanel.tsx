@@ -6,7 +6,7 @@ import { CheckCircle2, XCircle, Plug, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { autoConnectTelegram } from "@/lib/ops.functions";
+import { autoConnectTelegram, resetChatStructure } from "@/lib/ops.functions";
 
 type Step = { key: string; label: string; ok: boolean; detail: string };
 type Result = {
@@ -26,6 +26,7 @@ export function ConnectPanel({
   onConnected?: (v: { community: string; shop: string; control: string }) => void;
 }) {
   const connectFn = useServerFn(autoConnectTelegram);
+  const resetFn = useServerFn(resetChatStructure);
   const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
   const [res, setRes] = useState<Result | null>(null);
 
@@ -39,6 +40,16 @@ export function ConnectPanel({
       else toast.message(failed[0]!.detail || "Verbindung teilweise eingerichtet");
     },
     onError: (e: any) => toast.error(e?.message ?? "Verbindung fehlgeschlagen"),
+  });
+
+  const reset = useMutation({
+    mutationFn: () => resetFn({ data: undefined as never }),
+    onSuccess: () => {
+      setRes(null);
+      onConnected?.({ community: "", shop: "", control: "" });
+      toast.success("Kanal-Zuordnung zurückgesetzt");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Zurücksetzen fehlgeschlagen"),
   });
 
   return (
@@ -59,7 +70,13 @@ export function ConnectPanel({
         </div>
         <Button disabled={disabled || connect.isPending} onClick={() => connect.mutate()} className="gap-2">
           {connect.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />}
-          {connect.isPending ? "Verbinde…" : "Jetzt verbinden"}
+          {connect.isPending ? "Verbinde…" : "Kanäle erkennen & verbinden"}
+        </Button>
+      </div>
+
+      <div>
+        <Button variant="ghost" size="sm" disabled={disabled || reset.isPending} onClick={() => reset.mutate()}>
+          {reset.isPending ? "Setze zurück…" : "Zuordnung zurücksetzen"}
         </Button>
       </div>
 
