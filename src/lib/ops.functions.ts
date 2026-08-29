@@ -134,7 +134,7 @@ export const checkChatIds = createServerFn({ method: "POST" })
     const { db } = await requireRole(context, "admin");
     const { data: s } = await db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id")
+      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -731,6 +731,8 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
         free_chat_id: data.free.trim(),
         vip_chat_id: data.vip.trim(),
         admin_chat_id: data.admin.trim(),
+        announce_chat_id: data.announce.trim(),
+        preview_chat_id: data.preview.trim(),
       })
       .eq("id", true);
     if (saveError) throw new Error(saveError.message);
@@ -864,7 +866,7 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id")
+      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -878,6 +880,8 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
         free: settings?.free_chat_id ?? "",
         vip: settings?.vip_chat_id ?? "",
         admin: settings?.admin_chat_id ?? "",
+        announce: settings?.announce_chat_id ?? "",
+        preview: settings?.preview_chat_id ?? "",
       },
     };
   });
@@ -903,7 +907,7 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id")
+      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -911,6 +915,8 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
       free: settings?.free_chat_id ?? "",
       vip: settings?.vip_chat_id ?? "",
       admin: settings?.admin_chat_id ?? "",
+      announce: settings?.announce_chat_id ?? "",
+      preview: settings?.preview_chat_id ?? "",
     });
 
     const text =
@@ -1042,7 +1048,7 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
 
     const { data: settings } = await db
       .from("bot_settings")
-      .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id")
+      .select("app_base_url, free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id")
       .eq("id", true)
       .maybeSingle();
 
@@ -1120,18 +1126,35 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
     const groups = chats.filter((c) => c.type === "group" || c.type === "supergroup" || c.type === "channel");
     const privates = chats.filter((c) => c.type === "private");
     const isVip = (t: string) => /vip|premium|plus/i.test(t);
+    const isAnnounce = (t: string) => /news|ank|announc|update|info/i.test(t);
+    const isPreview = (t: string) => /trailer|preview|vorschau|teaser/i.test(t);
+    const channels = chats.filter((c) => c.type === "channel");
     const vipCandidate = groups.find((c) => isVip(c.title));
-    const freeCandidate = groups.find((c) => c !== vipCandidate);
+    const announceCandidate = channels.find((c) => isAnnounce(c.title) && c !== vipCandidate);
+    const previewCandidate = channels.find(
+      (c) => isPreview(c.title) && c !== vipCandidate && c !== announceCandidate,
+    );
+    const freeCandidate = groups.find(
+      (c) => c !== vipCandidate && c !== announceCandidate && c !== previewCandidate,
+    );
     const assigned = {
       free: (settings?.free_chat_id || freeCandidate?.chatId || "").trim(),
       vip: (settings?.vip_chat_id || vipCandidate?.chatId || "").trim(),
       admin: (settings?.admin_chat_id || privates[0]?.chatId || "").trim(),
+      announce: (settings?.announce_chat_id || announceCandidate?.chatId || "").trim(),
+      preview: (settings?.preview_chat_id || previewCandidate?.chatId || "").trim(),
     };
 
-    if (assigned.free || assigned.vip || assigned.admin) {
+    if (assigned.free || assigned.vip || assigned.admin || assigned.announce || assigned.preview) {
       const { error } = await db
         .from("bot_settings")
-        .update({ free_chat_id: assigned.free, vip_chat_id: assigned.vip, admin_chat_id: assigned.admin })
+        .update({
+          free_chat_id: assigned.free,
+          vip_chat_id: assigned.vip,
+          admin_chat_id: assigned.admin,
+          announce_chat_id: assigned.announce,
+          preview_chat_id: assigned.preview,
+        })
         .eq("id", true);
       add("save", "Chats zugeordnet", !error, error ? error.message : "Gratis, VIP und Admin gespeichert");
     } else {
