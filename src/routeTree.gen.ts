@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenachrichtigungenRouteImport } from './routes/benachrichtigungen'
 import { Route as BestellungenRouteImport } from './routes/bestellungen'
+import { Route as DropsRouteImport } from './routes/drops'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
 import { Route as KampagnenRouteImport } from './routes/kampagnen'
@@ -54,6 +55,11 @@ const BenachrichtigungenRoute = BenachrichtigungenRouteImport.update({
 const BestellungenRoute = BestellungenRouteImport.update({
   id: '/bestellungen',
   path: '/bestellungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DropsRoute = DropsRouteImport.update({
+  id: '/drops',
+  path: '/drops',
   getParentRoute: () => rootRouteImport,
 } as any)
 const EinstellungenRoute = EinstellungenRouteImport.update({
@@ -175,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
+  '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
@@ -203,6 +210,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
+  '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
@@ -232,6 +240,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
+  '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
@@ -262,6 +271,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
+    | '/drops'
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
@@ -290,6 +300,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
+    | '/drops'
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
@@ -318,6 +329,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
+    | '/drops'
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
@@ -347,6 +359,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BenachrichtigungenRoute: typeof BenachrichtigungenRoute
   BestellungenRoute: typeof BestellungenRoute
+  DropsRoute: typeof DropsRoute
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
   KampagnenRoute: typeof KampagnenRoute
@@ -399,6 +412,13 @@ declare module '@tanstack/react-router' {
       path: '/bestellungen'
       fullPath: '/bestellungen'
       preLoaderRoute: typeof BestellungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/drops': {
+      id: '/drops'
+      path: '/drops'
+      fullPath: '/drops'
+      preLoaderRoute: typeof DropsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/einstellungen': {
@@ -563,6 +583,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BenachrichtigungenRoute: BenachrichtigungenRoute,
   BestellungenRoute: BestellungenRoute,
+  DropsRoute: DropsRoute,
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
   KampagnenRoute: KampagnenRoute,
