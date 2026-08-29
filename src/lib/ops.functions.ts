@@ -894,6 +894,29 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
       });
     }
 
+    const actor = { id: context.userId, email: context.claims?.email ?? null };
+    for (const r of results) {
+      if (!r.configured) continue;
+      await auditLog(db, {
+        actorId: actor.id,
+        actorEmail: actor.email,
+        action: r.testSent === null ? "chat_verify" : "chat_test_post",
+        target: r.label,
+        chatId: r.chatId,
+        status: r.reachable && r.canPost && r.testSent !== false ? "ok" : r.reachable ? "warn" : "error",
+        detail: r.testError || r.error || `${r.type} · ${r.title}`,
+        meta: { reachable: r.reachable, canPost: r.canPost, testSent: r.testSent },
+      });
+      await auditMembershipChange(db, actor, {
+        chatId: r.chatId,
+        label: r.label,
+        reachable: r.reachable,
+        canPost: r.canPost,
+      });
+    }
+
+
+
     const active = results.filter((r) => r.configured);
     return {
       results,
