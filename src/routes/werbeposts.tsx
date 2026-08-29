@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { useAdmin } from "@/lib/useAdmin";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Megaphone } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
-import { listSponsoredPosts, updateSponsoredPost, publishSponsoredPost } from "@/lib/admin.functions";
+import {
+  listSponsoredPosts,
+  updateSponsoredPost,
+  publishSponsoredPost,
+  scheduleSponsoredPost,
+} from "@/lib/admin.functions";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
