@@ -1190,3 +1190,39 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
 
     return { steps, bot, chats, assigned, posts };
   });
+
+/* --------------------------- Struktur zurücksetzen ------------------------- */
+
+/** Leert alle drei Kanal-Zuordnungen und sichert den alten Stand im Audit-Log. */
+export const resetChatStructure = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "chat_reset", context.userId, 5, 3_600_000);
+
+    const { data: before } = await db
+      .from("bot_settings")
+      .select("community_chat_id, shop_chat_id, control_chat_id")
+      .eq("id", true)
+      .maybeSingle();
+
+    const { error } = await db
+      .from("bot_settings")
+      .update({ community_chat_id: "", shop_chat_id: "", control_chat_id: "" })
+      .eq("id", true);
+    if (error) throw new Error(error.message);
+
+    await auditLog(db, {
+      actorId: context.userId,
+      actorEmail: context.claims?.email ?? null,
+      action: "chat_structure_reset",
+      target: "bot_settings",
+      chatId: "",
+      status: "ok",
+      detail: "Kanal-Zuordnungen zurückgesetzt",
+      meta: { before: before ?? {} },
+    });
+
+    return { reset: true, before: before ?? null };
+  });
