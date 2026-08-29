@@ -415,15 +415,23 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             .insert({
               tg_user_id: user.id,
               product_id: product?.id ?? null,
-              title_snapshot: product?.title ?? (payload.startsWith("lead:") ? "Early-Access-Slot" : payload.startsWith("sp:") ? "Werbepost" : "Trinkgeld"),
+              title_snapshot:
+                product?.title ??
+                (payload.startsWith("vip:")
+                  ? "VIP"
+                  : payload.startsWith("lead:")
+                    ? "Early-Access-Slot"
+                    : payload.startsWith("sp:")
+                      ? "Werbepost"
+                      : "Trinkgeld"),
               currency: "stars",
               amount_stars: sp.total_amount,
               status: "paid",
               telegram_charge_id: sp.telegram_payment_charge_id,
               referrer_id: user.referred_by,
               commission_stars: commission,
-              delivery_status: product ? "pending" : "delivered",
-              delivered_at: product ? null : new Date().toISOString(),
+              delivery_status: product || payload.startsWith("vip:") ? "pending" : "delivered",
+              delivered_at: product || payload.startsWith("vip:") ? null : new Date().toISOString(),
             })
             .select("id, tg_user_id")
             .single();
@@ -431,7 +439,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
           await flagRepeatPayment(db, user, product?.id ?? null);
 
-          if (product) await deliver(chatId, product, purchase);
+          if (payload.startsWith("vip:")) {
+            const { grantVipAccess } = await import("@/lib/vip.server");
+            await grantVipAccess(db, tg as any, chatId, user, settings, purchase?.id ?? null);
+          } else if (product) await deliver(chatId, product, purchase);
           else if (payload.startsWith("lead:"))
             await tg("sendMessage", {
               chat_id: chatId,
@@ -443,6 +454,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               text: "✅ Deine Werbebuchung ist bezahlt und wird nach Freigabe veröffentlicht.",
             });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
+
 
           if (user.referred_by && commission > 0) {
             const { data: ref } = await db
