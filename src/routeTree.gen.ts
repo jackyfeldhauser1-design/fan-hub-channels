@@ -23,6 +23,7 @@ import { Route as VerkaeufeRouteImport } from './routes/verkaeufe'
 import { Route as WartelisteRouteImport } from './routes/warteliste'
 import { Route as WerbepartnerRouteImport } from './routes/werbepartner'
 import { Route as WerbepostsRouteImport } from './routes/werbeposts'
+import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
@@ -96,6 +97,11 @@ const WerbepostsRoute = WerbepostsRouteImport.update({
   path: '/werbeposts',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ZugriffeRoute = ZugriffeRouteImport.update({
+  id: '/zugriffe',
+  path: '/zugriffe',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InhaltTokenRoute = InhaltTokenRouteImport.update({
   id: '/inhalt/$token',
   path: '/inhalt/$token',
@@ -123,6 +129,7 @@ export interface FileRoutesByFullPath {
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
+  '/zugriffe': typeof ZugriffeRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -141,6 +148,7 @@ export interface FileRoutesByTo {
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
+  '/zugriffe': typeof ZugriffeRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -160,6 +168,7 @@ export interface FileRoutesById {
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
+  '/zugriffe': typeof ZugriffeRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -180,6 +189,7 @@ export interface FileRouteTypes {
     | '/warteliste'
     | '/werbepartner'
     | '/werbeposts'
+    | '/zugriffe'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -198,6 +208,7 @@ export interface FileRouteTypes {
     | '/warteliste'
     | '/werbepartner'
     | '/werbeposts'
+    | '/zugriffe'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   id:
@@ -216,6 +227,7 @@ export interface FileRouteTypes {
     | '/warteliste'
     | '/werbepartner'
     | '/werbeposts'
+    | '/zugriffe'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -235,6 +247,7 @@ export interface RootRouteChildren {
   WartelisteRoute: typeof WartelisteRoute
   WerbepartnerRoute: typeof WerbepartnerRoute
   WerbepostsRoute: typeof WerbepostsRoute
+  ZugriffeRoute: typeof ZugriffeRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -339,6 +352,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof WerbepostsRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/zugriffe': {
+      id: '/zugriffe'
+      path: '/zugriffe'
+      fullPath: '/zugriffe'
+      preLoaderRoute: typeof ZugriffeRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inhalt/$token': {
       id: '/inhalt/$token'
       path: '/inhalt/$token'
@@ -371,6 +391,7 @@ const rootRouteChildren: RootRouteChildren = {
   WartelisteRoute: WartelisteRoute,
   WerbepartnerRoute: WerbepartnerRoute,
   WerbepostsRoute: WerbepostsRoute,
+  ZugriffeRoute: ZugriffeRoute,
   InhaltTokenRoute: InhaltTokenRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
