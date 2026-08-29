@@ -204,6 +204,8 @@ export type Database = {
           bot_username: string
           created_at: string
           id: boolean
+          previous_token: string
+          previous_valid_until: string | null
           updated_at: string
         }
         Insert: {
@@ -211,6 +213,8 @@ export type Database = {
           bot_username?: string
           created_at?: string
           id?: boolean
+          previous_token?: string
+          previous_valid_until?: string | null
           updated_at?: string
         }
         Update: {
@@ -218,6 +222,8 @@ export type Database = {
           bot_username?: string
           created_at?: string
           id?: boolean
+          previous_token?: string
+          previous_valid_until?: string | null
           updated_at?: string
         }
         Relationships: []
@@ -366,6 +372,30 @@ export type Database = {
           target?: string
           updated_at?: string
           used_at?: string | null
+        }
+        Relationships: []
+      }
+      chat_templates: {
+        Row: {
+          created_at: string
+          pin_message: boolean
+          target: string
+          updated_at: string
+          welcome_body: string
+        }
+        Insert: {
+          created_at?: string
+          pin_message?: boolean
+          target: string
+          updated_at?: string
+          welcome_body?: string
+        }
+        Update: {
+          created_at?: string
+          pin_message?: boolean
+          target?: string
+          updated_at?: string
+          welcome_body?: string
         }
         Relationships: []
       }
