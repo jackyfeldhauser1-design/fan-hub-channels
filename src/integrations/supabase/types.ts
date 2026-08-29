@@ -202,6 +202,7 @@ export type Database = {
         Row: {
           admin_chat_id: string
           affiliate_percent: number
+          announce_chat_id: string
           app_base_url: string
           early_access_price_stars: number
           free_chat_id: string
@@ -213,6 +214,7 @@ export type Database = {
           notify_blocked: boolean
           notify_expired: boolean
           notify_unpaid: boolean
+          preview_chat_id: string
           sponsor_price_stars: number
           tip_message: string
           ton_wallet: string
@@ -225,6 +227,7 @@ export type Database = {
         Insert: {
           admin_chat_id?: string
           affiliate_percent?: number
+          announce_chat_id?: string
           app_base_url?: string
           early_access_price_stars?: number
           free_chat_id?: string
@@ -236,6 +239,7 @@ export type Database = {
           notify_blocked?: boolean
           notify_expired?: boolean
           notify_unpaid?: boolean
+          preview_chat_id?: string
           sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
@@ -248,6 +252,7 @@ export type Database = {
         Update: {
           admin_chat_id?: string
           affiliate_percent?: number
+          announce_chat_id?: string
           app_base_url?: string
           early_access_price_stars?: number
           free_chat_id?: string
@@ -259,6 +264,7 @@ export type Database = {
           notify_blocked?: boolean
           notify_expired?: boolean
           notify_unpaid?: boolean
+          preview_chat_id?: string
           sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
@@ -500,10 +506,15 @@ export type Database = {
           created_at: string
           description: string
           id: string
+          preview_file_id: string | null
           price_stars: number
           price_ton: number
           product_id: string | null
+          sale_price_stars: number
+          sale_until: string | null
           sort_order: number
+          stock_limit: number
+          stock_sold: number
           title: string
           updated_at: string
         }
@@ -513,10 +524,15 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          preview_file_id?: string | null
           price_stars?: number
           price_ton?: number
           product_id?: string | null
+          sale_price_stars?: number
+          sale_until?: string | null
           sort_order?: number
+          stock_limit?: number
+          stock_sold?: number
           title: string
           updated_at?: string
         }
@@ -526,14 +542,26 @@ export type Database = {
           created_at?: string
           description?: string
           id?: string
+          preview_file_id?: string | null
           price_stars?: number
           price_ton?: number
           product_id?: string | null
+          sale_price_stars?: number
+          sale_until?: string | null
           sort_order?: number
+          stock_limit?: number
+          stock_sold?: number
           title?: string
           updated_at?: string
         }
         Relationships: [
+          {
+            foreignKeyName: "media_folders_preview_file_id_fkey"
+            columns: ["preview_file_id"]
+            isOneToOne: false
+            referencedRelation: "media_files"
+            referencedColumns: ["id"]
+          },
           {
             foreignKeyName: "media_folders_product_id_fkey"
             columns: ["product_id"]
@@ -993,7 +1021,11 @@ export type Database = {
           kind: Database["public"]["Enums"]["product_kind"]
           price_stars: number
           price_ton: number
+          sale_price_stars: number
+          sale_until: string | null
           sort_order: number
+          stock_limit: number
+          stock_sold: number
           title: string
           updated_at: string
           upsell_product_id: string | null
@@ -1008,7 +1040,11 @@ export type Database = {
           kind?: Database["public"]["Enums"]["product_kind"]
           price_stars?: number
           price_ton?: number
+          sale_price_stars?: number
+          sale_until?: string | null
           sort_order?: number
+          stock_limit?: number
+          stock_sold?: number
           title: string
           updated_at?: string
           upsell_product_id?: string | null
@@ -1023,7 +1059,11 @@ export type Database = {
           kind?: Database["public"]["Enums"]["product_kind"]
           price_stars?: number
           price_ton?: number
+          sale_price_stars?: number
+          sale_until?: string | null
           sort_order?: number
+          stock_limit?: number
+          stock_sold?: number
           title?: string
           updated_at?: string
           upsell_product_id?: string | null
