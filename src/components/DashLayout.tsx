@@ -13,6 +13,7 @@ import {
   Sparkles,
   Truck,
   ShieldAlert,
+  ShieldCheck,
   KeyRound,
   UserCog,
   Megaphone,
