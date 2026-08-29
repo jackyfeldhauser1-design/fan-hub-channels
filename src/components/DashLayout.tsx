@@ -21,7 +21,9 @@ import {
   Megaphone,
   Rocket,
   MoreHorizontal,
+  Star,
   Plug,
+
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/useAuth";
@@ -35,6 +37,8 @@ const nav = [
   { to: "/verbinden", label: "Verbinden", icon: Plug },
   { to: "/drops", label: "Drops", icon: Rocket },
   { to: "/produkte", label: "Inhalte & Preise", icon: Package },
+  { to: "/stars", label: "Stars & Preise", icon: Star },
+
   { to: "/medien", label: "Medien-Ordner", icon: FolderLock },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
   { to: "/bestellungen", label: "Bestellungen", icon: Truck },

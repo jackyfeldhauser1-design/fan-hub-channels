@@ -21,7 +21,7 @@ type Btn = { text: string; callback_data?: string; url?: string; pay?: boolean }
 
 const mainMenu = (free: string, vip: string): Btn[][] => {
   const rows: Btn[][] = [];
-  if (free) rows.push([{ text: "🎁 Gratis-Gruppe für Fans", url: free }]);
+  rows.push([{ text: "🎁 Gratis-Gruppe beitreten", callback_data: "join_free" }]);
   rows.push([{ text: "🛍 Shop", callback_data: "shop" }, { text: "🔓 Pay-per-View", callback_data: "ppv" }]);
   rows.push([{ text: "⭐ VIP-Zugang", callback_data: "vip" }, { text: "💛 Trinkgeld", callback_data: "tips" }]);
   rows.push([{ text: "🤝 Empfehlen & verdienen", callback_data: "ref" }]);
@@ -29,9 +29,12 @@ const mainMenu = (free: string, vip: string): Btn[][] => {
     { text: "🚀 Early Access", callback_data: "ea" },
     { text: "📣 Werbung buchen", callback_data: "ads" },
   ]);
-  if (vip) rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
+  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
+  void free;
+  void vip;
   return rows;
 };
+
 
 export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
@@ -218,30 +221,41 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             }
           }
 
-          if (d === "shop") await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
-          else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
-          else if (d === "vip") {
-            const { data: vipProducts } = await db
-              .from("products")
-              .select("*")
-              .eq("active", true)
-              .eq("delivery_type", "link")
-              .order("sort_order");
-            if (vipProducts?.length) {
+          if (d === "join_free") {
+            const { personalInvite } = await import("@/lib/vip.server");
+            const label = cq.from.username ? `@${cq.from.username}` : (cq.from.first_name ?? "Fan");
+            const invite = await personalInvite(settings, "community", `Fan ${label}`);
+            if (invite.url) {
+              await db.from("tg_users").update({ joined_free: true }).eq("id", user.id);
+              await logOrderEvent(db, null, user.id, "free_invite", invite.personal ? "persönlich" : "fallback");
               await tg("sendMessage", {
                 chat_id: chatId,
-                text: "⭐ <b>VIP-Zugang</b>\nBezahle mit Telegram Stars oder TON und du bekommst deinen Zugangslink sofort im Chat.",
+                text: "🎁 <b>Willkommen!</b>\nHier ist dein Zugang zur kostenlosen Fan-Gruppe.",
                 parse_mode: "HTML",
-                reply_markup: {
-                  inline_keyboard: vipProducts.map((p: any) => [
-                    { text: `${p.title} — ⭐ ${p.price_stars}`, callback_data: `buy_${p.id}` },
-                  ]),
-                },
+                reply_markup: { inline_keyboard: [[{ text: "Gratis-Gruppe öffnen", url: invite.url }]] },
               });
             } else {
-              await tg("sendMessage", { chat_id: chatId, text: "VIP-Zugang wird gerade vorbereitet." });
+              await tg("sendMessage", { chat_id: chatId, text: "Die Gratis-Gruppe wird gerade eingerichtet." });
+            }
+          } else if (d === "shop") await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
+          else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
+          else if (d === "vip") {
+            const { hasVipAccess, grantVipAccess } = await import("@/lib/vip.server");
+            if (await hasVipAccess(db, user.id)) {
+              await grantVipAccess(db, tg as any, chatId, user, settings, null);
+            } else {
+              const price = Math.max(1, Number(settings.vip_price_stars ?? 450));
+              await tg("sendInvoice", {
+                chat_id: chatId,
+                title: String(settings.vip_product_title ?? "VIP-Zugang").slice(0, 32),
+                description: "Dauerhafter Zugang zum VIP-Shop-Channel mit allen Drops und Angeboten.",
+                payload: "vip:access",
+                currency: "XTR",
+                prices: [{ label: "VIP-Zugang", amount: price }],
+              });
             }
           } else if (d === "tips") {
+
             await tg("sendMessage", {
               chat_id: chatId,
               text: settings.tip_message ?? "Danke für deine Unterstützung!",
@@ -401,15 +415,23 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             .insert({
               tg_user_id: user.id,
               product_id: product?.id ?? null,
-              title_snapshot: product?.title ?? (payload.startsWith("lead:") ? "Early-Access-Slot" : payload.startsWith("sp:") ? "Werbepost" : "Trinkgeld"),
+              title_snapshot:
+                product?.title ??
+                (payload.startsWith("vip:")
+                  ? "VIP"
+                  : payload.startsWith("lead:")
+                    ? "Early-Access-Slot"
+                    : payload.startsWith("sp:")
+                      ? "Werbepost"
+                      : "Trinkgeld"),
               currency: "stars",
               amount_stars: sp.total_amount,
               status: "paid",
               telegram_charge_id: sp.telegram_payment_charge_id,
               referrer_id: user.referred_by,
               commission_stars: commission,
-              delivery_status: product ? "pending" : "delivered",
-              delivered_at: product ? null : new Date().toISOString(),
+              delivery_status: product || payload.startsWith("vip:") ? "pending" : "delivered",
+              delivered_at: product || payload.startsWith("vip:") ? null : new Date().toISOString(),
             })
             .select("id, tg_user_id")
             .single();
@@ -417,7 +439,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
           await flagRepeatPayment(db, user, product?.id ?? null);
 
-          if (product) await deliver(chatId, product, purchase);
+          if (payload.startsWith("vip:")) {
+            const { grantVipAccess } = await import("@/lib/vip.server");
+            await grantVipAccess(db, tg as any, chatId, user, settings, purchase?.id ?? null);
+          } else if (product) await deliver(chatId, product, purchase);
           else if (payload.startsWith("lead:"))
             await tg("sendMessage", {
               chat_id: chatId,
@@ -429,6 +454,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               text: "✅ Deine Werbebuchung ist bezahlt und wird nach Freigabe veröffentlicht.",
             });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
+
 
           if (user.referred_by && commission > 0) {
             const { data: ref } = await db
@@ -450,7 +476,37 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (text.startsWith("/start")) {
           const payload = text.split(" ")[1];
           const user = await ensureUser(msg.from, payload);
+          // Direkter Kauf-Link aus einem Shop-/Community-Post: /start p_<id>
+          if (payload?.startsWith("p_")) {
+            const { data: p } = await db.from("products").select("*").eq("id", payload.slice(2)).maybeSingle();
+            if (p?.active) {
+              await tg("sendInvoice", {
+                chat_id: chatId,
+                title: String(p.title).slice(0, 32),
+                description: String(p.description || p.title).slice(0, 255),
+                payload: `p:${p.id}`,
+                currency: "XTR",
+                prices: [{ label: String(p.title).slice(0, 32), amount: Math.max(1, Number(p.price_stars)) }],
+              });
+              return Response.json({ ok: true });
+            }
+          }
+          if (payload === "vip") {
+            const { hasVipAccess, grantVipAccess } = await import("@/lib/vip.server");
+            if (await hasVipAccess(db, user.id)) await grantVipAccess(db, tg as any, chatId, user, settings, null);
+            else
+              await tg("sendInvoice", {
+                chat_id: chatId,
+                title: String(settings.vip_product_title ?? "VIP-Zugang").slice(0, 32),
+                description: "Dauerhafter Zugang zum VIP-Shop-Channel mit allen Drops und Angeboten.",
+                payload: "vip:access",
+                currency: "XTR",
+                prices: [{ label: "VIP-Zugang", amount: Math.max(1, Number(settings.vip_price_stars ?? 450)) }],
+              });
+            return Response.json({ ok: true });
+          }
           if (payload?.startsWith("ea_")) {
+
             const { data: lead } = await db
               .from("leads")
               .select("*")

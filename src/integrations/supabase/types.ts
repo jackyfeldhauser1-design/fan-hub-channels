@@ -250,6 +250,9 @@ export type Database = {
           updated_at: string
           upsell_message: string
           vip_group_url: string
+          vip_invite_ttl_hours: number
+          vip_price_stars: number
+          vip_product_title: string
           welcome_message: string
         }
         Insert: {
@@ -273,6 +276,9 @@ export type Database = {
           updated_at?: string
           upsell_message?: string
           vip_group_url?: string
+          vip_invite_ttl_hours?: number
+          vip_price_stars?: number
+          vip_product_title?: string
           welcome_message?: string
         }
         Update: {
@@ -296,6 +302,9 @@ export type Database = {
           updated_at?: string
           upsell_message?: string
           vip_group_url?: string
+          vip_invite_ttl_hours?: number
+          vip_price_stars?: number
+          vip_product_title?: string
           welcome_message?: string
         }
         Relationships: []
@@ -1350,8 +1359,12 @@ export type Database = {
           id: string
           link_url: string
           media_url: string
+          next_run_at: string | null
+          paused: boolean
           price_stars: number
           published_at: string | null
+          repeat_hours: number
+          repeat_until: string | null
           scheduled_at: string | null
           status: Database["public"]["Enums"]["sponsor_status"]
           target: Database["public"]["Enums"]["audience"]
@@ -1366,8 +1379,12 @@ export type Database = {
           id?: string
           link_url?: string
           media_url?: string
+          next_run_at?: string | null
+          paused?: boolean
           price_stars?: number
           published_at?: string | null
+          repeat_hours?: number
+          repeat_until?: string | null
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["sponsor_status"]
           target?: Database["public"]["Enums"]["audience"]
@@ -1382,8 +1399,12 @@ export type Database = {
           id?: string
           link_url?: string
           media_url?: string
+          next_run_at?: string | null
+          paused?: boolean
           price_stars?: number
           published_at?: string | null
+          repeat_hours?: number
+          repeat_until?: string | null
           scheduled_at?: string | null
           status?: Database["public"]["Enums"]["sponsor_status"]
           target?: Database["public"]["Enums"]["audience"]

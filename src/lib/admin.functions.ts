@@ -137,10 +137,38 @@ const settingsSchema = z.object({
   tip_message: z.string().max(500),
   upsell_message: z.string().max(500),
   control_chat_id: z.string().max(60),
+  vip_price_stars: z.number().int().min(1).max(1000000).default(450),
+  vip_product_title: z.string().max(60).default("VIP-Zugang"),
+  vip_invite_ttl_hours: z.number().int().min(1).max(720).default(24),
   notify_blocked: z.boolean(),
   notify_unpaid: z.boolean(),
   notify_expired: z.boolean(),
 });
+
+/** Nur die Preis-/Stars-Einstellungen (eigene Seite im Admin-Board). */
+const starsSchema = z.object({
+  vip_price_stars: z.number().int().min(1).max(1000000),
+  vip_product_title: z.string().min(1).max(60),
+  vip_invite_ttl_hours: z.number().int().min(1).max(720),
+  early_access_price_stars: z.number().int().min(0).max(1000000),
+  sponsor_price_stars: z.number().int().min(0).max(1000000),
+  affiliate_percent: z.number().int().min(0).max(90),
+  link_ttl_hours: z.number().int().min(1).max(720),
+  link_max_views: z.number().int().min(1).max(50),
+  max_purchases_per_hour: z.number().int().min(1).max(100),
+  tip_message: z.string().max(500),
+});
+
+export const saveStarsSettings = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) => starsSchema.parse(input))
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    const { error } = await db.from("bot_settings").update(data).eq("id", true);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
 
 export const saveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
@@ -413,30 +441,49 @@ export const publishSponsoredPost = createServerFn({ method: "POST" })
       db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
     ]);
     if (!post) throw new Error("Buchung nicht gefunden");
-    if (post.status !== "paid" && post.status !== "approved") throw new Error("Buchung ist noch nicht bezahlt.");
-
-    const targets: string[] = [];
-    if (post.target === "free" || post.target === "both") targets.push(settings?.community_chat_id);
-    if (post.target === "vip" || post.target === "both") targets.push(settings?.shop_chat_id);
-    const valid = targets.filter(Boolean);
-    if (!valid.length) throw new Error("Bitte zuerst die Chat-ID der Gruppe im Bot-Setup hinterlegen.");
-
-    for (const chatId of valid) {
-      await tg("sendMessage", {
-        chat_id: chatId,
-        text: `📣 <b>Anzeige</b> · ${post.advertiser}\n\n${post.content}`,
-        parse_mode: "HTML",
-        ...(post.link_url
-          ? { reply_markup: { inline_keyboard: [[{ text: "Mehr erfahren", url: post.link_url }]] } }
-          : {}),
-      });
-    }
-    await db
-      .from("sponsored_posts")
-      .update({ status: "published", published_at: new Date().toISOString() })
-      .eq("id", post.id);
-    return { ok: true, count: valid.length };
+    if (post.status !== "paid" && post.status !== "approved" && post.status !== "published")
+      throw new Error("Buchung ist noch nicht bezahlt.");
+    const { publishAd } = await import("@/lib/ads.server");
+    const res = await publishAd(db, post, settings);
+    if (res.error && res.sent === 0) throw new Error(res.error);
+    return { ok: true, count: res.sent };
   });
+
+/** Wiederholung eines Werbepostens planen, pausieren oder beenden. */
+export const scheduleSponsoredPost = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        repeat_hours: z.number().int().min(0).max(720),
+        repeat_until: z.string().datetime().nullable().default(null),
+        paused: z.boolean().default(false),
+        start_now: z.boolean().default(false),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const db = await requireAdmin(context);
+    const next =
+      data.repeat_hours > 0 && !data.paused
+        ? data.start_now
+          ? new Date().toISOString()
+          : new Date(Date.now() + data.repeat_hours * 3_600_000).toISOString()
+        : null;
+    const { error } = await db
+      .from("sponsored_posts")
+      .update({
+        repeat_hours: data.repeat_hours,
+        repeat_until: data.repeat_until,
+        paused: data.paused,
+        next_run_at: next,
+      })
+      .eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true, nextRunAt: next };
+  });
+
 
 // ---------- Leads / Warteliste ----------
 

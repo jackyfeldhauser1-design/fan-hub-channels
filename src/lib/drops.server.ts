@@ -103,16 +103,17 @@ export async function writeDropPricing(
   return { saved: true };
 }
 
-async function botLink(db: any) {
+async function botLink(db: any, payload = "drop") {
   try {
     const me = await tg("getMe", {});
     const username = me.result?.username ?? "";
-    return username ? `https://t.me/${username}?start=drop` : "";
+    return username ? `https://t.me/${username}?start=${payload}` : "";
   } catch {
     void db;
     return "";
   }
 }
+
 
 /** Baut den Nachrichtentext für einen Drop-Post. */
 export function dropMessage(item: DropItem, variant: "drop" | "teaser", link: string) {
@@ -138,7 +139,7 @@ export async function publishDropPost(
   const item = items.find((i) => i.id === input.id && i.kind === input.kind);
   if (!item) throw new Error("Eintrag nicht gefunden");
 
-  const link = await botLink(db);
+  const link = await botLink(db, input.kind === "product" ? `p_${item.id}` : "drop");
   const { auditLog } = await import("@/lib/security.server");
   const posts: { target: string; chatId: string; ok: boolean; error: string }[] = [];
 
@@ -149,12 +150,26 @@ export async function publishDropPost(
       posts.push({ target: label, chatId: "", ok: false, error: "Channel nicht verbunden" });
       continue;
     }
-    const text = dropMessage(item, t === "shop" ? "drop" : "teaser", link);
+    const text = dropMessage(item, t === "shop" ? "drop" : "teaser", "");
     let ok = true;
     let err = "";
     let messageId = "";
     try {
-      const res = await tg("sendMessage", { chat_id: chatId, text, disable_web_page_preview: false });
+      const res = await tg("sendMessage", {
+        chat_id: chatId,
+        text,
+        disable_web_page_preview: false,
+        ...(link
+          ? {
+              reply_markup: {
+                inline_keyboard: [
+                  [{ text: `⭐ Freikaufen — ${item.effectivePrice}`, url: link }],
+                ],
+              },
+            }
+          : {}),
+      });
+
       messageId = String(res.result?.message_id ?? "");
     } catch (e) {
       ok = false;

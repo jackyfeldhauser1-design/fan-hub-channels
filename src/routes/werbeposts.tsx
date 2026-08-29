@@ -1,11 +1,18 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useRef } from "react";
 import { useAdmin } from "@/lib/useAdmin";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { Megaphone } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
-import { listSponsoredPosts, updateSponsoredPost, publishSponsoredPost } from "@/lib/admin.functions";
+import {
+  listSponsoredPosts,
+  updateSponsoredPost,
+  publishSponsoredPost,
+  scheduleSponsoredPost,
+} from "@/lib/admin.functions";
+
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 
@@ -31,9 +38,12 @@ const target: Record<string, string> = { free: "Fan-Gruppe", vip: "VIP-Gruppe", 
 
 function SponsorPage() {
   const qc = useQueryClient();
+  const repeatRef = useRef<Record<string, number>>({});
   const listFn = useServerFn(listSponsoredPosts);
   const updateFn = useServerFn(updateSponsoredPost);
   const publishFn = useServerFn(publishSponsoredPost);
+  const scheduleFn = useServerFn(scheduleSponsoredPost);
+
   const { isAdmin } = useAdmin();
   const { data } = useQuery({ queryKey: ["sponsors"], queryFn: () => listFn({ data: undefined as never }), enabled: isAdmin });
 
@@ -89,7 +99,7 @@ function SponsorPage() {
                   </Button>
                 </>
               ) : null}
-              {p.status === "paid" || p.status === "approved" ? (
+              {p.status === "paid" || p.status === "approved" || p.status === "published" ? (
                 <Button
                   size="sm"
                   onClick={async () => {
@@ -106,6 +116,67 @@ function SponsorPage() {
                 </Button>
               ) : null}
             </div>
+            <div className="flex flex-wrap items-end gap-2 border-t pt-3">
+              <div>
+                <label className="text-xs text-muted-foreground" htmlFor={`rep-${p.id}`}>
+                  Wiederholen alle (Std.)
+                </label>
+                <input
+                  id={`rep-${p.id}`}
+                  type="number"
+                  min={0}
+                  max={720}
+                  defaultValue={p.repeat_hours ?? 0}
+                  className="h-9 w-24 rounded-md border bg-background px-2 text-sm"
+                  onChange={(e) => (repeatRef.current[p.id] = Number(e.target.value))}
+                />
+              </div>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  const hours = repeatRef.current[p.id] ?? Number(p.repeat_hours ?? 0);
+                  const res = await scheduleFn({
+                    data: { id: p.id, repeat_hours: hours, repeat_until: null, paused: false, start_now: false },
+                  });
+                  toast.success(
+                    res.nextRunAt
+                      ? `Nächster Post: ${new Date(res.nextRunAt).toLocaleString("de-DE")}`
+                      : "Wiederholung deaktiviert",
+                  );
+                  refresh();
+                }}
+              >
+                Zeitplan speichern
+              </Button>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  await scheduleFn({
+                    data: {
+                      id: p.id,
+                      repeat_hours: Number(p.repeat_hours ?? 0),
+                      repeat_until: null,
+                      paused: !p.paused,
+                      start_now: false,
+                    },
+                  });
+                  toast.success(p.paused ? "Fortgesetzt" : "Pausiert");
+                  refresh();
+                }}
+              >
+                {p.paused ? "Fortsetzen" : "Pausieren"}
+              </Button>
+              <span className="text-xs text-muted-foreground">
+                {p.paused
+                  ? "pausiert"
+                  : p.next_run_at
+                    ? `nächster Post: ${new Date(p.next_run_at).toLocaleString("de-DE")}`
+                    : "keine Wiederholung"}
+              </span>
+            </div>
+
           </div>
         ))}
         {data?.length === 0 ? (
