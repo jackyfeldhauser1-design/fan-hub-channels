@@ -651,6 +651,10 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => chatInput.extend({ message: z.string().max(500).default("") }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "chat_setup_save", context.userId, 15, 600_000);
+
+
 
     const targets = chatTargets(data);
     const checks = [];
