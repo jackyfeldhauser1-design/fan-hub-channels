@@ -14,6 +14,39 @@ export type Database = {
   }
   public: {
     Tables: {
+      access_token_recipients: {
+        Row: {
+          created_at: string
+          recipient_id: string
+          token_id: string
+        }
+        Insert: {
+          created_at?: string
+          recipient_id: string
+          token_id: string
+        }
+        Update: {
+          created_at?: string
+          recipient_id?: string
+          token_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "access_token_recipients_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "notification_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "access_token_recipients_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
       access_tokens: {
         Row: {
           created_at: string
@@ -438,6 +471,166 @@ export type Database = {
           },
         ]
       }
+      notification_deliveries: {
+        Row: {
+          attempt: number
+          body: string
+          channel: Database["public"]["Enums"]["notify_channel"]
+          created_at: string
+          error: string
+          id: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          next_retry_at: string | null
+          recipient_id: string | null
+          recipient_label: string
+          status: Database["public"]["Enums"]["notify_status"]
+          target: string
+          tg_user_id: string | null
+          token_id: string | null
+          updated_at: string
+          used_fallback: boolean
+        }
+        Insert: {
+          attempt?: number
+          body?: string
+          channel?: Database["public"]["Enums"]["notify_channel"]
+          created_at?: string
+          error?: string
+          id?: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          next_retry_at?: string | null
+          recipient_id?: string | null
+          recipient_label?: string
+          status?: Database["public"]["Enums"]["notify_status"]
+          target?: string
+          tg_user_id?: string | null
+          token_id?: string | null
+          updated_at?: string
+          used_fallback?: boolean
+        }
+        Update: {
+          attempt?: number
+          body?: string
+          channel?: Database["public"]["Enums"]["notify_channel"]
+          created_at?: string
+          error?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["notify_kind"]
+          next_retry_at?: string | null
+          recipient_id?: string | null
+          recipient_label?: string
+          status?: Database["public"]["Enums"]["notify_status"]
+          target?: string
+          tg_user_id?: string | null
+          token_id?: string | null
+          updated_at?: string
+          used_fallback?: boolean
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_deliveries_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "notification_recipients"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_deliveries_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_deliveries_token_id_fkey"
+            columns: ["token_id"]
+            isOneToOne: false
+            referencedRelation: "access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_prefs: {
+        Row: {
+          created_at: string
+          enabled: boolean
+          id: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          recipient_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          recipient_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          enabled?: boolean
+          id?: string
+          kind?: Database["public"]["Enums"]["notify_kind"]
+          recipient_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_prefs_recipient_id_fkey"
+            columns: ["recipient_id"]
+            isOneToOne: false
+            referencedRelation: "notification_recipients"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_recipients: {
+        Row: {
+          active: boolean
+          channel: Database["public"]["Enums"]["notify_channel"]
+          chat_id: string
+          created_at: string
+          email: string
+          fallback_channel: Database["public"]["Enums"]["notify_channel"] | null
+          fallback_target: string
+          id: string
+          is_default: boolean
+          label: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          channel?: Database["public"]["Enums"]["notify_channel"]
+          chat_id?: string
+          created_at?: string
+          email?: string
+          fallback_channel?:
+            | Database["public"]["Enums"]["notify_channel"]
+            | null
+          fallback_target?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          channel?: Database["public"]["Enums"]["notify_channel"]
+          chat_id?: string
+          created_at?: string
+          email?: string
+          fallback_channel?:
+            | Database["public"]["Enums"]["notify_channel"]
+            | null
+          fallback_target?: string
+          id?: string
+          is_default?: boolean
+          label?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       order_events: {
         Row: {
           created_at: string
@@ -832,6 +1025,9 @@ export type Database = {
       audience: "free" | "vip" | "both"
       delivery_kind: "text" | "file" | "link"
       delivery_state: "pending" | "delivered" | "failed" | "revoked"
+      notify_channel: "telegram" | "email"
+      notify_kind: "expiring" | "expired" | "unpaid" | "blocked" | "reactivated"
+      notify_status: "queued" | "sent" | "retrying" | "dead" | "skipped_optout"
       pay_currency: "stars" | "ton"
       pay_status: "pending" | "paid" | "failed" | "refunded"
       product_kind: "single" | "bundle" | "ppv" | "tip"
@@ -972,6 +1168,9 @@ export const Constants = {
       audience: ["free", "vip", "both"],
       delivery_kind: ["text", "file", "link"],
       delivery_state: ["pending", "delivered", "failed", "revoked"],
+      notify_channel: ["telegram", "email"],
+      notify_kind: ["expiring", "expired", "unpaid", "blocked", "reactivated"],
+      notify_status: ["queued", "sent", "retrying", "dead", "skipped_optout"],
       pay_currency: ["stars", "ton"],
       pay_status: ["pending", "paid", "failed", "refunded"],
       product_kind: ["single", "bundle", "ppv", "tip"],
