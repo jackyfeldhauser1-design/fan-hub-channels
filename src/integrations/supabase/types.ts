@@ -261,6 +261,39 @@ export type Database = {
           },
         ]
       }
+      job_runs: {
+        Row: {
+          created_at: string
+          detail: string
+          failed: number
+          id: string
+          job: string
+          ok: boolean
+          processed: number
+          sent: number
+        }
+        Insert: {
+          created_at?: string
+          detail?: string
+          failed?: number
+          id?: string
+          job: string
+          ok?: boolean
+          processed?: number
+          sent?: number
+        }
+        Update: {
+          created_at?: string
+          detail?: string
+          failed?: number
+          id?: string
+          job?: string
+          ok?: boolean
+          processed?: number
+          sent?: number
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           amount_stars: number
@@ -962,6 +995,73 @@ export type Database = {
             columns: ["upsell_product_id"]
             isOneToOne: false
             referencedRelation: "products"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      purchase_attributions: {
+        Row: {
+          amount_stars: number
+          audience: string
+          campaign_id: string | null
+          channel: Database["public"]["Enums"]["notify_channel"] | null
+          created_at: string
+          delivery_id: string | null
+          kind: Database["public"]["Enums"]["notify_kind"] | null
+          minutes_to_purchase: number
+          purchase_id: string
+          template_source: string
+          touch: string
+          touched_at: string | null
+        }
+        Insert: {
+          amount_stars?: number
+          audience?: string
+          campaign_id?: string | null
+          channel?: Database["public"]["Enums"]["notify_channel"] | null
+          created_at?: string
+          delivery_id?: string | null
+          kind?: Database["public"]["Enums"]["notify_kind"] | null
+          minutes_to_purchase?: number
+          purchase_id: string
+          template_source?: string
+          touch?: string
+          touched_at?: string | null
+        }
+        Update: {
+          amount_stars?: number
+          audience?: string
+          campaign_id?: string | null
+          channel?: Database["public"]["Enums"]["notify_channel"] | null
+          created_at?: string
+          delivery_id?: string | null
+          kind?: Database["public"]["Enums"]["notify_kind"] | null
+          minutes_to_purchase?: number
+          purchase_id?: string
+          template_source?: string
+          touch?: string
+          touched_at?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "purchase_attributions_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "notification_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_attributions_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "notification_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "purchase_attributions_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: true
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
         ]
