@@ -8,7 +8,7 @@ export async function readHealth(db: any) {
   const [{ data: settings }, { data: runs }, { data: failed }, { count: queued }] = await Promise.all([
     db
       .from("bot_settings")
-      .select("free_chat_id, vip_chat_id, admin_chat_id, announce_chat_id, preview_chat_id, app_base_url")
+      .select("community_chat_id, shop_chat_id, control_chat_id, app_base_url")
       .eq("id", true)
       .maybeSingle(),
     db.from("job_runs").select("job, ok, processed, sent, failed, created_at").order("created_at", { ascending: false }).limit(50),
@@ -32,7 +32,7 @@ export async function readHealth(db: any) {
     };
   });
 
-  const chatKeys = ["free_chat_id", "vip_chat_id", "admin_chat_id", "announce_chat_id", "preview_chat_id"];
+  const chatKeys = ["community_chat_id", "shop_chat_id", "control_chat_id"];
   const chatsSet = chatKeys.filter((k) => settings?.[k]).length;
 
   const checks: HealthCheck[] = [
@@ -40,7 +40,7 @@ export async function readHealth(db: any) {
       key: "chats",
       label: "Telegram-Ziele",
       ok: chatsSet >= 3,
-      detail: `${chatsSet}/5 Ziele gesetzt (Gratis, VIP, Admin, Ankündigungen, Trailer)`,
+      detail: `${chatsSet}/3 Ziele gesetzt (Community, Shop, Kontrollraum)`,
     },
     {
       key: "cron",

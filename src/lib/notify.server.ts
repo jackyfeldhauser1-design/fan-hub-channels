@@ -390,7 +390,7 @@ export async function notifyAccessIssue(
   const tpl = await renderStoredTemplate(db, kind, vars, "admin");
   const body = tpl.body ?? "";
   const base = String(settings.app_base_url ?? "");
-  const recipients = await resolveRecipients(db, opts.tokenId, settings.admin_chat_id ?? "");
+  const recipients = await resolveRecipients(db, opts.tokenId, settings.control_chat_id ?? "");
 
   // Opt-in/Opt-out je Empfänger
   const ids = recipients.map((r) => r.id).filter(Boolean) as string[];
@@ -478,7 +478,7 @@ export async function notifyAccessIssue(
 export async function runCampaign(db: any, campaignId: string) {
   const { data: c } = await db.from("notification_campaigns").select("*").eq("id", campaignId).maybeSingle();
   if (!c) throw new Error("Kampagne nicht gefunden");
-  const { data: settings } = await db.from("bot_settings").select("app_base_url, admin_chat_id").eq("id", true).maybeSingle();
+  const { data: settings } = await db.from("bot_settings").select("app_base_url, control_chat_id").eq("id", true).maybeSingle();
   const base = String(settings?.app_base_url ?? "");
   const nowIso = new Date().toISOString();
 
@@ -499,7 +499,7 @@ export async function runCampaign(db: any, campaignId: string) {
     const body = fillVars(c.body || "", vars);
     const { data: fan } = await db.from("tg_users").select("telegram_id, blocked").eq("id", t.tg_user_id).maybeSingle();
     const target =
-      c.audience === "user" ? String(fan?.telegram_id ?? "") : String(settings?.admin_chat_id ?? "");
+      c.audience === "user" ? String(fan?.telegram_id ?? "") : String(settings?.control_chat_id ?? "");
     if (!target || (c.audience === "user" && fan?.blocked)) continue;
     const { data: row } = await db
       .from("notification_deliveries")

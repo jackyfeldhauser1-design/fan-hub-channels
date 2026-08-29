@@ -200,12 +200,11 @@ export type Database = {
       }
       bot_settings: {
         Row: {
-          admin_chat_id: string
           affiliate_percent: number
-          announce_chat_id: string
           app_base_url: string
+          community_chat_id: string
+          control_chat_id: string
           early_access_price_stars: number
-          free_chat_id: string
           free_group_url: string
           id: boolean
           link_max_views: number
@@ -214,23 +213,21 @@ export type Database = {
           notify_blocked: boolean
           notify_expired: boolean
           notify_unpaid: boolean
-          preview_chat_id: string
+          shop_chat_id: string
           sponsor_price_stars: number
           tip_message: string
           ton_wallet: string
           updated_at: string
           upsell_message: string
-          vip_chat_id: string
           vip_group_url: string
           welcome_message: string
         }
         Insert: {
-          admin_chat_id?: string
           affiliate_percent?: number
-          announce_chat_id?: string
           app_base_url?: string
+          community_chat_id?: string
+          control_chat_id?: string
           early_access_price_stars?: number
-          free_chat_id?: string
           free_group_url?: string
           id?: boolean
           link_max_views?: number
@@ -239,23 +236,21 @@ export type Database = {
           notify_blocked?: boolean
           notify_expired?: boolean
           notify_unpaid?: boolean
-          preview_chat_id?: string
+          shop_chat_id?: string
           sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
           updated_at?: string
           upsell_message?: string
-          vip_chat_id?: string
           vip_group_url?: string
           welcome_message?: string
         }
         Update: {
-          admin_chat_id?: string
           affiliate_percent?: number
-          announce_chat_id?: string
           app_base_url?: string
+          community_chat_id?: string
+          control_chat_id?: string
           early_access_price_stars?: number
-          free_chat_id?: string
           free_group_url?: string
           id?: boolean
           link_max_views?: number
@@ -264,13 +259,12 @@ export type Database = {
           notify_blocked?: boolean
           notify_expired?: boolean
           notify_unpaid?: boolean
-          preview_chat_id?: string
+          shop_chat_id?: string
           sponsor_price_stars?: number
           tip_message?: string
           ton_wallet?: string
           updated_at?: string
           upsell_message?: string
-          vip_chat_id?: string
           vip_group_url?: string
           welcome_message?: string
         }

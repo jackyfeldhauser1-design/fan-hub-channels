@@ -49,7 +49,7 @@ export function ChatHealthPanel({ enabled = true }: { enabled?: boolean }) {
         <div>
           <CardTitle className="text-base">Chat-Verbindungsstatus</CardTitle>
           <CardDescription>
-            Automatische Prüfung, ob der Bot in Gratis-, VIP- und Admin-Chat Mitglied ist und posten darf.
+            Automatische Prüfung, ob der Bot in Community, Shop und Kontrollraum Mitglied ist und posten darf.
           </CardDescription>
         </div>
         <div className="flex gap-2">

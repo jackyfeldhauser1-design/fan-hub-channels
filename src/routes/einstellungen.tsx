@@ -63,11 +63,9 @@ function SettingsPage() {
           onConnected={(v) =>
             setForm({
               ...form,
-              free_chat_id: v.free,
-              vip_chat_id: v.vip,
-              admin_chat_id: v.admin,
-              announce_chat_id: v.announce,
-              preview_chat_id: v.preview,
+              community_chat_id: v.community,
+              shop_chat_id: v.shop,
+              control_chat_id: v.control,
             })
           }
         />
@@ -79,21 +77,17 @@ function SettingsPage() {
         <div className="mt-2">
           <ChatSetupWizard
             initial={{
-              free: form.free_chat_id ?? "",
-              vip: form.vip_chat_id ?? "",
-              admin: form.admin_chat_id ?? "",
-              announce: form.announce_chat_id ?? "",
-              preview: form.preview_chat_id ?? "",
+              community: form.community_chat_id ?? "",
+              shop: form.shop_chat_id ?? "",
+              control: form.control_chat_id ?? "",
             }}
             disabled={!isAdmin}
             onSaved={(v) =>
               setForm({
                 ...form,
-                free_chat_id: v.free,
-                vip_chat_id: v.vip,
-                admin_chat_id: v.admin,
-                announce_chat_id: v.announce,
-                preview_chat_id: v.preview,
+                community_chat_id: v.community,
+                shop_chat_id: v.shop,
+                control_chat_id: v.control,
               })
             }
           />
@@ -134,12 +128,12 @@ function SettingsPage() {
           </div>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <Label>Chat-ID Gratis-Gruppe</Label>
-              <Input value={form.free_chat_id} onChange={(e) => setForm({ ...form, free_chat_id: e.target.value })} inputMode="numeric" placeholder="-100…" />
+              <Label>Chat-ID Community</Label>
+              <Input value={form.community_chat_id} onChange={(e) => setForm({ ...form, community_chat_id: e.target.value })} inputMode="numeric" placeholder="-100…" />
             </div>
             <div className="space-y-1.5">
-              <Label>Chat-ID VIP-Gruppe</Label>
-              <Input value={form.vip_chat_id} onChange={(e) => setForm({ ...form, vip_chat_id: e.target.value })} inputMode="numeric" placeholder="-100…" />
+              <Label>Chat-ID Shop</Label>
+              <Input value={form.shop_chat_id} onChange={(e) => setForm({ ...form, shop_chat_id: e.target.value })} inputMode="numeric" placeholder="-100…" />
             </div>
             <div className="space-y-1.5">
               <Label>Öffentliche App-Adresse (für Einmal-Links)</Label>
@@ -166,29 +160,9 @@ function SettingsPage() {
               <Input type="number" inputMode="numeric" value={form.link_max_views} onChange={(e) => setForm({ ...form, link_max_views: e.target.value })} />
             </div>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="space-y-1.5">
-              <Label>Chat-ID Ankündigungs-Channel</Label>
-              <Input
-                value={form.announce_chat_id ?? ""}
-                onChange={(e) => setForm({ ...form, announce_chat_id: e.target.value })}
-                inputMode="numeric"
-                placeholder="-100…"
-              />
-            </div>
-            <div className="space-y-1.5">
-              <Label>Chat-ID Trailer-Channel</Label>
-              <Input
-                value={form.preview_chat_id ?? ""}
-                onChange={(e) => setForm({ ...form, preview_chat_id: e.target.value })}
-                inputMode="numeric"
-                placeholder="-100…"
-              />
-            </div>
-          </div>
           <div className="space-y-1.5">
-            <Label>Admin-Chat-ID für Benachrichtigungen</Label>
-            <Input value={form.admin_chat_id ?? ""} onChange={(e) => setForm({ ...form, admin_chat_id: e.target.value })} inputMode="numeric" placeholder="z. B. deine Telegram-ID" />
+            <Label>Chat-ID Kontrollraum (Alarme)</Label>
+            <Input value={form.control_chat_id ?? ""} onChange={(e) => setForm({ ...form, control_chat_id: e.target.value })} inputMode="numeric" placeholder="z. B. deine Telegram-ID" />
           </div>
           <div className="grid gap-2 sm:grid-cols-3">
             {([
@@ -223,17 +197,15 @@ function SettingsPage() {
                     affiliate_percent: Number(form.affiliate_percent),
                     tip_message: form.tip_message,
                     upsell_message: form.upsell_message,
-                    free_chat_id: form.free_chat_id,
-                    vip_chat_id: form.vip_chat_id,
+                    community_chat_id: form.community_chat_id,
+                    shop_chat_id: form.shop_chat_id,
                     app_base_url: form.app_base_url,
                     early_access_price_stars: Number(form.early_access_price_stars),
                     sponsor_price_stars: Number(form.sponsor_price_stars),
                     link_ttl_hours: Number(form.link_ttl_hours),
                     link_max_views: Number(form.link_max_views),
                     max_purchases_per_hour: Number(form.max_purchases_per_hour),
-                    admin_chat_id: form.admin_chat_id ?? "",
-                    announce_chat_id: form.announce_chat_id ?? "",
-                    preview_chat_id: form.preview_chat_id ?? "",
+                    control_chat_id: form.control_chat_id ?? "",
                     notify_blocked: Boolean(form.notify_blocked),
                     notify_unpaid: Boolean(form.notify_unpaid),
                     notify_expired: Boolean(form.notify_expired),

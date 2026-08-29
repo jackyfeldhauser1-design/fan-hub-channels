@@ -133,8 +133,8 @@ export const getSettings = createServerFn({ method: "POST" })
 
 const settingsSchema = z.object({
   welcome_message: z.string().max(2000),
-  free_chat_id: z.string().max(60),
-  vip_chat_id: z.string().max(60),
+  community_chat_id: z.string().max(60),
+  shop_chat_id: z.string().max(60),
   app_base_url: z.string().max(300),
   early_access_price_stars: z.number().int().min(0).max(1000000),
   sponsor_price_stars: z.number().int().min(0).max(1000000),
@@ -147,9 +147,7 @@ const settingsSchema = z.object({
   affiliate_percent: z.number().int().min(0).max(90),
   tip_message: z.string().max(500),
   upsell_message: z.string().max(500),
-  admin_chat_id: z.string().max(60),
-  announce_chat_id: z.string().max(60).default(""),
-  preview_chat_id: z.string().max(60).default(""),
+  control_chat_id: z.string().max(60),
   notify_blocked: z.boolean(),
   notify_unpaid: z.boolean(),
   notify_expired: z.boolean(),
@@ -429,8 +427,8 @@ export const publishSponsoredPost = createServerFn({ method: "POST" })
     if (post.status !== "paid" && post.status !== "approved") throw new Error("Buchung ist noch nicht bezahlt.");
 
     const targets: string[] = [];
-    if (post.target === "free" || post.target === "both") targets.push(settings?.free_chat_id);
-    if (post.target === "vip" || post.target === "both") targets.push(settings?.vip_chat_id);
+    if (post.target === "free" || post.target === "both") targets.push(settings?.community_chat_id);
+    if (post.target === "vip" || post.target === "both") targets.push(settings?.shop_chat_id);
     const valid = targets.filter(Boolean);
     if (!valid.length) throw new Error("Bitte zuerst die Chat-ID der Gruppe im Bot-Setup hinterlegen.");
 

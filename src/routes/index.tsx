@@ -55,7 +55,7 @@ function Overview() {
   const { data } = useQuery({ queryKey: ["overview"], queryFn: () => fn({ data: undefined as never }), enabled: isAdmin });
 
   return (
-    <DashLayout title="Übersicht" subtitle="Deine Telegram-Kette von der Gratis-Gruppe bis zum VIP-Kauf.">
+    <DashLayout title="Übersicht" subtitle="Deine Telegram-Kette: Community → Shop → Kontrollraum.">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat icon={Star} label="Umsatz (Stars)" value={`⭐ ${data?.stars ?? 0}`} hint={`${data?.weekStars ?? 0} in 7 Tagen`} />
         <Stat icon={Gem} label="Umsatz (TON)" value={`${(data?.ton ?? 0).toFixed(2)}`} hint={`${data?.pendingTon ?? 0} offene Zahlungen`} />
