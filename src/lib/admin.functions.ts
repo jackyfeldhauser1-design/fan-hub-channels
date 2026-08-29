@@ -688,7 +688,7 @@ export const reactivateAccessToken = createServerFn({ method: "POST" })
     const { logOrderEvent } = await import("@/lib/fulfillment.server");
     const { notifyAccessIssue } = await import("@/lib/notify.server");
     await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_revoked", `Neu aktiviert für ${hours} h`);
-    await notifyAccessIssue(db, "reactivated", { tgUserId: row.tg_user_id, detail: `Gültig für ${hours} Stunden` });
+    await notifyAccessIssue(db, "reactivated", { tokenId: row.id, tgUserId: row.tg_user_id, detail: `Gültig für ${hours} Stunden` });
     return { ok: true, hours };
   });
 
