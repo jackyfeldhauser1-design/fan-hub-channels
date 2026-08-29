@@ -72,7 +72,7 @@ export async function readDrops(db: any) {
       .order("sort_order"),
     db
       .from("bot_settings")
-      .select("shop_chat_id, control_chat_id, app_base_url")
+      .select("shop_chat_id, community_chat_id, app_base_url")
       .eq("id", true)
       .maybeSingle(),
   ]);
@@ -84,7 +84,7 @@ export async function readDrops(db: any) {
     ],
     channels: {
       shop: settings?.shop_chat_id ?? "",
-      control: settings?.control_chat_id ?? "",
+      community: settings?.community_chat_id ?? "",
       baseUrl: settings?.app_base_url ?? "",
     },
   };
@@ -126,23 +126,23 @@ async function botLink(db: any) {
 }
 
 /** Baut den Nachrichtentext für einen Drop-Post. */
-export function dropMessage(item: DropItem, variant: "drop" | "preview", link: string) {
+export function dropMessage(item: DropItem, variant: "drop" | "teaser", link: string) {
   const price = item.saleActive
     ? `⭐ ${item.effectivePrice} statt ⭐ ${item.priceStars}`
     : `⭐ ${item.priceStars}`;
   const rest =
     item.stockLimit > 0 ? `\nNoch ${Math.max(item.stockLimit - item.stockSold, 0)} von ${item.stockLimit} verfügbar.` : "";
   const until = item.saleActive && item.saleUntil ? `\nAktion bis ${new Date(item.saleUntil).toLocaleString("de-DE")}.` : "";
-  const head = variant === "preview" ? "🎬 Vorschau" : "🔥 Neuer Drop";
+  const head = variant === "teaser" ? "🎬 Vorschau" : "🔥 Neuer Drop";
   const body = item.description ? `\n\n${item.description.slice(0, 500)}` : "";
   const cta = link ? `\n\n👉 Jetzt sichern: ${link}` : "";
   return `${head}: ${item.title}\n${price}${until}${rest}${body}${cta}`;
 }
 
-/** Postet einen Drop in Ankündigungs- und/oder Trailer-Channel. */
+/** Postet einen Drop in den Shop-Kanal und/oder als Teaser in die Community. */
 export async function publishDropPost(
   db: any,
-  input: { id: string; kind: "product" | "folder"; targets: ("announce" | "preview")[] },
+  input: { id: string; kind: "product" | "folder"; targets: ("shop" | "community")[] },
   actor: { id: string | null; email: string | null },
 ) {
   const { items, channels } = await readDrops(db);
@@ -154,13 +154,13 @@ export async function publishDropPost(
   const posts: { target: string; chatId: string; ok: boolean; error: string }[] = [];
 
   for (const t of input.targets) {
-    const chatId = t === "announce" ? channels.announce : channels.preview;
-    const label = t === "announce" ? "Ankündigungs-Channel" : "Trailer-Channel";
+    const chatId = t === "shop" ? channels.shop : channels.community;
+    const label = t === "shop" ? "Shop" : "Community";
     if (!chatId) {
       posts.push({ target: label, chatId: "", ok: false, error: "Channel nicht verbunden" });
       continue;
     }
-    const text = dropMessage(item, t, link);
+    const text = dropMessage(item, t === "shop" ? "drop" : "teaser", link);
     let ok = true;
     let err = "";
     let messageId = "";

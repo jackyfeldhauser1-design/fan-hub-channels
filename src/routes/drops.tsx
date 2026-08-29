@@ -78,7 +78,7 @@ function DropCard({ item, disabled, onChanged }: { item: Item; disabled: boolean
   });
 
   const publish = useMutation({
-    mutationFn: (targets: ("announce" | "preview")[]) =>
+    mutationFn: (targets: ("shop" | "community")[]) =>
       publishFn({ data: { id: item.id, kind: item.kind, targets } }),
     onSuccess: (res: any) => {
       const failed = (res.posts ?? []).filter((p: any) => !p.ok);
@@ -121,13 +121,13 @@ function DropCard({ item, disabled, onChanged }: { item: Item; disabled: boolean
           {save.isPending ? <Loader2 className="size-4 animate-spin" /> : <Save className="size-4" />}
           Aktion speichern
         </Button>
-        <Button className="gap-2" disabled={disabled || publish.isPending} onClick={() => publish.mutate(["announce"])}>
+        <Button className="gap-2" disabled={disabled || publish.isPending} onClick={() => publish.mutate(["shop"])}>
           {publish.isPending ? <Loader2 className="size-4 animate-spin" /> : <Megaphone className="size-4" />}
-          Ankündigen
+          Im Shop posten
         </Button>
-        <Button variant="outline" className="gap-2" disabled={disabled || publish.isPending} onClick={() => publish.mutate(["preview"])}>
+        <Button variant="outline" className="gap-2" disabled={disabled || publish.isPending} onClick={() => publish.mutate(["community"])}>
           <Clapperboard className="size-4" />
-          Trailer posten
+          Teaser in Community
         </Button>
       </div>
     </div>
@@ -190,9 +190,9 @@ function DropsPage() {
           </ul>
         </div>
 
-        {!channels?.announce && !channels?.preview ? (
+        {!channels?.shop && !channels?.community ? (
           <p className="text-sm text-muted-foreground">
-            Noch kein Ankündigungs- oder Trailer-Channel verbunden – lege ihn unter „Verbinden“ oder im Bot-Setup fest.
+            Noch kein Shop- oder Community-Kanal verbunden – lege ihn unter „Verbinden“ oder im Bot-Setup fest.
           </p>
         ) : null}
 

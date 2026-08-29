@@ -40,7 +40,7 @@ export const publishDrop = createServerFn({ method: "POST" })
       .object({
         id: z.string().uuid(),
         kind: z.enum(["product", "folder"]),
-        targets: z.array(z.enum(["announce", "preview"])).min(1).default(["announce"]),
+        targets: z.array(z.enum(["shop", "community"])).min(1).default(["shop"]),
       })
       .parse(d),
   )
