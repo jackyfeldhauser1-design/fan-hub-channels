@@ -7,6 +7,7 @@ import { CheckCircle2, XCircle, Loader2, Slack, Webhook, Send } from "lucide-rea
 import { DashLayout } from "@/components/DashLayout";
 import { ConnectPanel } from "@/components/ConnectPanel";
 import { GuidedSetupWizard } from "@/components/GuidedSetupWizard";
+import { SetupToolsPanel } from "@/components/SetupToolsPanel";
 
 import { useAdmin } from "@/lib/useAdmin";
 import { Button } from "@/components/ui/button";
@@ -115,6 +116,7 @@ function ConnectWizardPage() {
             Schritt 1 · Telegram
           </h2>
           <GuidedSetupWizard />
+          <SetupToolsPanel />
           <ConnectPanel
             defaultBaseUrl={typeof window !== "undefined" ? window.location.origin : ""}
             onConnected={() => overview.refetch()}

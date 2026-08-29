@@ -30,7 +30,7 @@ export const TARGETS: { key: SetupTarget; label: string; column: string; hint: s
   },
 ];
 
-const WELCOME: Record<SetupTarget, string> = {
+export const DEFAULT_WELCOME: Record<SetupTarget, string> = {
   community:
     "👋 <b>Willkommen in der Community!</b>\nHier gibt es kostenlose Updates, Teaser und Ankündigungen. Starte den Bot, um Zugänge und Drops zu erhalten.",
   shop:
@@ -38,6 +38,25 @@ const WELCOME: Record<SetupTarget, string> = {
   control:
     "🛠 <b>Kontrollraum verbunden</b>\nHier landen ab sofort Alarme, Zustellprotokolle, Testposts und Fehlermeldungen.",
 };
+
+/** Vorlage (Willkommenstext + Pin-Option) für ein Ziel laden. */
+export async function loadTemplate(db: any, target: SetupTarget) {
+  const { data } = await db.from("chat_templates").select("*").eq("target", target).maybeSingle();
+  const body = String(data?.welcome_body ?? "").trim();
+  return {
+    target,
+    welcomeBody: body || DEFAULT_WELCOME[target],
+    pinMessage: data?.pin_message ?? true,
+    isDefault: !body,
+  };
+}
+
+/** Alle drei Vorlagen für die Oberfläche. */
+export async function loadTemplates(db: any) {
+  return Promise.all(
+    TARGETS.map(async (t) => ({ ...(await loadTemplate(db, t.key)), label: t.label, hint: t.hint })),
+  );
+}
 
 function newCode() {
   const rnd = Math.random().toString(36).slice(2, 8).toUpperCase();
@@ -83,7 +102,7 @@ export async function createSetupCodes(db: any, targets: SetupTarget[], userId: 
   return { botUsername: username, targets: out };
 }
 
-async function canPost(chatId: string) {
+export async function canPost(chatId: string) {
   try {
     const me = await tgApi("getMe", {});
     const member = await tgApi("getChatMember", { chat_id: chatId, user_id: me.result?.id });
@@ -123,6 +142,7 @@ export async function applyTarget(db: any, row: any, chatId: string, title: stri
   const def = TARGETS.find((t) => t.key === target)!;
 
   const perms = await canPost(chatId);
+  const tpl = await loadTemplate(db, target);
   await db
     .from("bot_settings")
     .update({ [def.column]: chatId })
@@ -132,12 +152,12 @@ export async function applyTarget(db: any, row: any, chatId: string, title: stri
   if (perms.ok) {
     const sent = await tgSafe("sendMessage", {
       chat_id: chatId,
-      text: WELCOME[target],
+      text: tpl.welcomeBody,
       parse_mode: "HTML",
       disable_notification: true,
     });
     posted = Boolean(sent?.message_id);
-    if (posted && type !== "private") {
+    if (posted && tpl.pinMessage && type !== "private") {
       await tgSafe("pinChatMessage", { chat_id: chatId, message_id: sent.message_id, disable_notification: true });
     }
   }
@@ -209,4 +229,96 @@ export async function readSetupProgress(db: any) {
     total: items.length,
     items,
   };
+}
+
+/** Vollständige Prüfung: Token, Webhook, Chats, Rechte – mit klaren Fehlern. */
+export async function verifySetup(db: any) {
+  const { getBotToken, tgApi, currentWebhookSecret } = await import("@/lib/telegram.server");
+  const checks: { key: string; label: string; ok: boolean; detail: string }[] = [];
+  const { token, username } = await getBotToken();
+
+  let botOk = false;
+  let botName = username;
+  try {
+    const me = await tgApi("getMe", {});
+    botOk = true;
+    botName = String(me.result?.username ?? username);
+    checks.push({ key: "bot", label: "Bot erreichbar", ok: true, detail: `@${botName}${token ? "" : " (Connector-Fallback)"}` });
+  } catch (e) {
+    checks.push({
+      key: "bot",
+      label: "Bot erreichbar",
+      ok: false,
+      detail: e instanceof Error ? e.message.slice(0, 200) : "Bot-API antwortet nicht – Token prüfen.",
+    });
+  }
+
+  const { data: settings } = await db
+    .from("bot_settings")
+    .select("community_chat_id, shop_chat_id, control_chat_id, app_base_url")
+    .eq("id", true)
+    .maybeSingle();
+  const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
+  const expectedUrl = base ? `${base}/api/public/telegram/webhook` : "";
+
+  if (botOk) {
+    try {
+      const info = await tgApi("getWebhookInfo", {});
+      const url = String(info.result?.url ?? "");
+      const pending = Number(info.result?.pending_update_count ?? 0);
+      const lastError = String(info.result?.last_error_message ?? "");
+      const match = Boolean(url) && (!expectedUrl || url === expectedUrl);
+      checks.push({
+        key: "webhook",
+        label: "Webhook aktiv",
+        ok: match && !lastError,
+        detail: !url
+          ? "Kein Webhook gesetzt – Token erneut speichern."
+          : !match
+            ? `Webhook zeigt auf ${url}, erwartet ${expectedUrl}`
+            : lastError
+              ? `Telegram meldet: ${lastError}`
+              : `${url} · ${pending} offene Updates`,
+      });
+      const secretOk = Boolean(await currentWebhookSecret());
+      checks.push({
+        key: "secret",
+        label: "Webhook-Signatur",
+        ok: secretOk,
+        detail: secretOk ? "Geheimnis aus aktuellem Token abgeleitet" : "Kein Schlüssel vorhanden",
+      });
+    } catch (e) {
+      checks.push({
+        key: "webhook",
+        label: "Webhook aktiv",
+        ok: false,
+        detail: e instanceof Error ? e.message.slice(0, 200) : "Webhook-Status nicht abrufbar",
+      });
+    }
+  }
+
+  const chats: { target: SetupTarget; label: string; chatId: string; ok: boolean; detail: string }[] = [];
+  for (const t of TARGETS) {
+    const chatId = String(settings?.[t.column] ?? "").trim();
+    if (!chatId) {
+      chats.push({ target: t.key, label: t.label, chatId: "", ok: false, detail: "Nicht zugeordnet – Setup-Link nutzen." });
+      continue;
+    }
+    if (!botOk) {
+      chats.push({ target: t.key, label: t.label, chatId, ok: false, detail: "Bot nicht erreichbar" });
+      continue;
+    }
+    const perms = await canPost(chatId);
+    chats.push({ target: t.key, label: t.label, chatId, ok: perms.ok, detail: perms.detail });
+  }
+
+  const ok = checks.every((c) => c.ok) && chats.every((c) => c.ok);
+  await db.from("admin_audit").insert({
+    action: "setup_verify",
+    status: ok ? "ok" : "warn",
+    detail: ok ? "Alle Prüfungen bestanden" : "Prüfung mit Hinweisen",
+    meta: { checks, chats },
+  });
+
+  return { ok, botUsername: botName, expectedUrl, checks, chats };
 }
