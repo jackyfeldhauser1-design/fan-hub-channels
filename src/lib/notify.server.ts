@@ -1,7 +1,9 @@
 const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
+export type SendResult = { messageId: string; response: string };
+
 /** Sendet eine Telegram-Nachricht, wirft bei Fehlern (für Retry/Fallback). */
-export async function sendTelegram(chatId: string | number, text: string) {
+export async function sendTelegram(chatId: string | number, text: string): Promise<SendResult> {
   if (!chatId) throw new Error("Keine Chat-ID hinterlegt");
   const res = await fetch(`${GATEWAY}/sendMessage`, {
     method: "POST",
@@ -14,10 +16,25 @@ export async function sendTelegram(chatId: string | number, text: string) {
   });
   const body = await res.text();
   if (!res.ok) throw new Error(`Telegram [${res.status}]: ${body.slice(0, 300)}`);
-  const parsed = JSON.parse(body) as { ok: boolean; description?: string };
+  const parsed = JSON.parse(body) as { ok: boolean; description?: string; result?: { message_id?: number } };
   if (!parsed.ok) throw new Error(parsed.description ?? "Telegram lehnte den Versand ab");
-  return true;
+  return { messageId: String(parsed.result?.message_id ?? ""), response: body.slice(0, 500) };
 }
+
+/** Sendet eine Slack-Nachricht über eine Incoming-Webhook-URL. */
+export async function sendSlack(webhookUrl: string, text: string): Promise<SendResult> {
+  if (!webhookUrl.startsWith("https://")) throw new Error("Slack-Webhook-URL fehlt oder ist ungültig");
+  const plain = text.replace(/<\/?b>/g, "*").replace(/<[^>]+>/g, "");
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: plain }),
+  });
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Slack [${res.status}]: ${body.slice(0, 300)}`);
+  return { messageId: "", response: body.slice(0, 300) };
+}
+
 
 export type NotifyKind = "expiring" | "expired" | "unpaid" | "blocked" | "reactivated";
 
