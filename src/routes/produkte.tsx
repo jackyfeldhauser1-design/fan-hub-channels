@@ -166,15 +166,15 @@ function ProductsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Reihenfolge</Label>
-                <Input type="number" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
+                <Input type="number" inputMode="numeric" value={form.sort_order} onChange={(e) => setForm({ ...form, sort_order: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Preis in Stars</Label>
-                <Input type="number" value={form.price_stars} onChange={(e) => setForm({ ...form, price_stars: e.target.value })} />
+                <Input type="number" inputMode="numeric" value={form.price_stars} onChange={(e) => setForm({ ...form, price_stars: e.target.value })} />
               </div>
               <div className="space-y-1.5">
                 <Label>Preis in TON</Label>
-                <Input type="number" step="0.01" value={form.price_ton} onChange={(e) => setForm({ ...form, price_ton: e.target.value })} />
+                <Input type="number" inputMode="numeric" step="0.01" value={form.price_ton} onChange={(e) => setForm({ ...form, price_ton: e.target.value })} />
               </div>
             </div>
             <div className="space-y-1.5">
