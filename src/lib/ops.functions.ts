@@ -142,6 +142,8 @@ export const checkChatIds = createServerFn({ method: "POST" })
       { key: "free", label: "Gratis-Gruppe", chatId: s?.free_chat_id ?? "" },
       { key: "vip", label: "VIP-Gruppe", chatId: s?.vip_chat_id ?? "" },
       { key: "admin", label: "Admin-Chat", chatId: s?.admin_chat_id ?? "" },
+      { key: "announce", label: "Ankündigungs-Channel", chatId: s?.announce_chat_id ?? "" },
+      { key: "preview", label: "Trailer-Channel", chatId: s?.preview_chat_id ?? "" },
     ];
 
     const results = [];
