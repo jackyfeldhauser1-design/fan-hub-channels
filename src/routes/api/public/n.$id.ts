@@ -11,6 +11,12 @@ export const Route = createFileRoute("/api/public/n/$id")({
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const db = supabaseAdmin as any;
+
+        const clientIp = request.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown";
+        const { rateLimit, hashSubject } = await import("@/lib/security.server");
+        const gate = await rateLimit(db, "track_click", hashSubject(clientIp), 120, 600_000);
+        if (!gate.allowed) return new Response("Too many requests", { status: 429, headers: { "Retry-After": String(gate.retryAfterSec) } });
+
         const { data: row } = await db
           .from("notification_deliveries")
           .select("id, campaign_id, open_count, click_count, opened_at")

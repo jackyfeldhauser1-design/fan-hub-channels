@@ -303,7 +303,10 @@ export const sendBulkTest = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "bulk_test", context.userId, 10, 3_600_000);
     const { buildVars, renderStoredTemplate, deliverOnce } = await import("@/lib/notify.server");
+
 
     const { data: settings } = await db.from("bot_settings").select("admin_chat_id").eq("id", true).maybeSingle();
     const vars = await buildVars(db, { tokenId: null, tgUserId: null, detail: "Bulk-Test aus dem Dashboard" });
@@ -376,8 +379,49 @@ export const sendBulkTest = createServerFn({ method: "POST" })
       });
     }
 
+    await auditLog(db, {
+      actorId: context.userId,
+      actorEmail: context.claims?.email ?? null,
+      action: "bulk_test_send",
+      target: data.kind,
+      status: results.every((r) => r.ok) ? "ok" : "warn",
+      detail: `${results.filter((r) => r.ok).length}/${results.length} zugestellt`,
+      meta: { channels: data.channels },
+    });
+
     return { total: results.length, sent: results.filter((r) => r.ok).length, results };
   });
+
+/** Admin-Audit-Log: Prüfungen, Testposts und Mitgliedschaftsänderungen je Chat. */
+export const listAdminAudit = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({ chatId: z.string().max(64).default(""), action: z.string().max(40).default(""), limit: z.number().int().min(1).max(200).default(100) })
+      .parse(input ?? {}),
+  )
+  .handler(async ({ data, context }) => {
+    const { db } = await requireRole(context, "viewer");
+    let q = db.from("admin_audit").select("*").order("created_at", { ascending: false }).limit(data.limit);
+    if (data.chatId) q = q.eq("chat_id", data.chatId);
+    if (data.action) q = q.eq("action", data.action);
+    const { data: rows, error } = await q;
+    if (error) throw new Error(error.message);
+    return {
+      entries: (rows ?? []).map((r: any) => ({
+        id: r.id,
+        at: r.created_at,
+        action: r.action,
+        target: r.target ?? "—",
+        chatId: r.chat_id ?? "",
+        status: r.status,
+        detail: r.detail ?? "",
+        actor: r.actor_email ?? r.actor_id ?? "—",
+      })),
+    };
+  });
+
+
 
 /** Ordnet bezahlte Käufe der letzten 90 Tage der jeweils letzten Interaktion zu. */
 async function computeAttribution(db: any) {
@@ -455,7 +499,12 @@ export const getAttribution = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ recompute: z.boolean().default(true) }).parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { db, role } = await requireRole(context, "viewer");
-    if (data.recompute && RANK[role as TeamRole] >= RANK.operator) await computeAttribution(db);
+    if (data.recompute && RANK[role as TeamRole] >= RANK.operator) {
+      const { rateLimit } = await import("@/lib/security.server");
+      const gate = await rateLimit(db, "attribution_recompute", context.userId, 12, 600_000);
+      if (gate.allowed) await computeAttribution(db);
+    }
+
 
     const { data: rows } = await db
       .from("purchase_attributions")
@@ -615,11 +664,35 @@ export const validateChatIdsInput = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => chatInput.parse(d))
   .handler(async ({ context, data }) => {
-    await requireRole(context, "admin");
+    const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "chat_validate", context.userId, 30, 600_000);
+
     const results = [];
     for (const t of chatTargets(data)) results.push(await inspectChat(t));
+    const actor = { id: context.userId, email: context.claims?.email ?? null };
+    for (const r of results) {
+      if (!r.chatId.trim()) continue;
+      await auditLog(db, {
+        actorId: actor.id,
+        actorEmail: actor.email,
+        action: "chat_verify",
+        target: r.label,
+        chatId: r.chatId.trim(),
+        status: r.ok ? "ok" : "error",
+        detail: r.ok ? `${r.type} · ${r.title}` : r.error,
+        meta: { reachable: r.ok, canPost: r.canPost },
+      });
+      await auditMembershipChange(db, actor, {
+        chatId: r.chatId.trim(),
+        label: r.label,
+        reachable: r.ok,
+        canPost: r.canPost,
+      });
+    }
     return { results, allOk: results.filter((r) => r.chatId.trim()).every((r) => r.ok) };
   });
+
 
 /** Schritt 2: Chat-IDs speichern und sofort einen Testpost in jeden Chat senden. */
 export const saveChatIdsWithTest = createServerFn({ method: "POST" })
@@ -627,6 +700,10 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) => chatInput.extend({ message: z.string().max(500).default("") }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "chat_setup_save", context.userId, 15, 600_000);
+
+
 
     const targets = chatTargets(data);
     const checks = [];
@@ -676,10 +753,25 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
         provider_message_id: messageId,
       });
       posts.push({ key: c.key, label: c.label, chatId: c.chatId.trim(), title: c.title, ok: status === "sent", error: err });
+      await auditLog(db, {
+        actorId: context.userId,
+        actorEmail: context.claims?.email ?? null,
+        action: "chat_test_post",
+        target: c.label,
+        chatId: c.chatId.trim(),
+        status: status === "sent" ? "ok" : "error",
+        detail: err || `Testpost gesendet (msg ${messageId})`,
+        meta: { setup: true },
+      });
+      await auditMembershipChange(db,
+        { id: context.userId, email: context.claims?.email ?? null },
+        { chatId: c.chatId.trim(), label: c.label, reachable: c.ok, canPost: c.canPost },
+      );
     }
 
     return { saved: true, checks: filled, posts };
   });
+
 
 /* --------------------- Telegram-Infos automatisch holen -------------------- */
 
@@ -794,6 +886,10 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
+    await enforceRateLimit(db, data.sendTest ? "chat_test_post" : "chat_verify", context.userId, 20, 600_000);
+
+
 
     const { data: settings } = await db
       .from("bot_settings")
@@ -869,6 +965,29 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
         testError,
       });
     }
+
+    const actor = { id: context.userId, email: context.claims?.email ?? null };
+    for (const r of results) {
+      if (!r.configured) continue;
+      await auditLog(db, {
+        actorId: actor.id,
+        actorEmail: actor.email,
+        action: r.testSent === null ? "chat_verify" : "chat_test_post",
+        target: r.label,
+        chatId: r.chatId,
+        status: r.reachable && r.canPost && r.testSent !== false ? "ok" : r.reachable ? "warn" : "error",
+        detail: r.testError || r.error || `${r.type} · ${r.title}`,
+        meta: { reachable: r.reachable, canPost: r.canPost, testSent: r.testSent },
+      });
+      await auditMembershipChange(db, actor, {
+        chatId: r.chatId,
+        label: r.label,
+        reachable: r.reachable,
+        canPost: r.canPost,
+      });
+    }
+
+
 
     const active = results.filter((r) => r.configured);
     return {

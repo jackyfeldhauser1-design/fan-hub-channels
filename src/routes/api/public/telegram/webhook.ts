@@ -65,7 +65,15 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         const got = request.headers.get("X-Telegram-Bot-Api-Secret-Token") ?? "";
         if (!safeEqual(got, deriveSecret(apiKey))) return new Response("Unauthorized", { status: 401 });
 
-        const update = (await request.json()) as any;
+        const raw = await request.text();
+        if (raw.length > 200_000) return new Response("payload too large", { status: 413 });
+        let update: any;
+        try {
+          update = JSON.parse(raw);
+        } catch {
+          return new Response("bad request", { status: 400 });
+        }
+
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const {
           guardAction,
@@ -73,21 +81,35 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           deliverProduct,
           logOrderEvent,
         } = await import("@/lib/fulfillment.server");
+        const { acceptTelegramUpdate, rateLimit } = await import("@/lib/security.server");
         const db = supabaseAdmin as any;
 
         const msg = update.message ?? update.edited_message;
-        if (typeof update.update_id === "number") {
-          await db.from("telegram_updates").upsert(
-            {
-              update_id: update.update_id,
-              chat_id: msg?.chat?.id ?? update.callback_query?.message?.chat?.id ?? null,
-              telegram_user_id: msg?.from?.id ?? update.callback_query?.from?.id ?? null,
-              text: msg?.text ?? null,
-              raw: update,
-            },
-            { onConflict: "update_id" },
-          );
+
+        // Replay-Schutz: doppelte oder veraltete Updates werden verworfen.
+        const replay = await acceptTelegramUpdate(db, update);
+        if (!replay.accept) {
+          console.warn(`Telegram update abgewiesen: ${replay.reason}`);
+          return Response.json({ ok: true, ignored: replay.reason });
         }
+
+        const fromId = msg?.from?.id ?? update.callback_query?.from?.id ?? null;
+        if (fromId) {
+          const gate = await rateLimit(db, "tg_update", String(fromId), 60, 60_000);
+          if (!gate.allowed) return Response.json({ ok: true, ignored: "rate limited" });
+        }
+
+        await db.from("telegram_updates").upsert(
+          {
+            update_id: update.update_id,
+            chat_id: msg?.chat?.id ?? update.callback_query?.message?.chat?.id ?? null,
+            telegram_user_id: fromId,
+            text: msg?.text ?? null,
+            raw: update,
+          },
+          { onConflict: "update_id" },
+        );
+
 
         const settings =
           (await db.from("bot_settings").select("*").eq("id", true).maybeSingle()).data ?? {};
