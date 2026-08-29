@@ -19,6 +19,7 @@ import { Route as ProdukteRouteImport } from './routes/produkte'
 import { Route as SicherheitRouteImport } from './routes/sicherheit'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StatusRouteImport } from './routes/status'
+import { Route as TeamRouteImport } from './routes/team'
 import { Route as VerkaeufeRouteImport } from './routes/verkaeufe'
 import { Route as WartelisteRouteImport } from './routes/warteliste'
 import { Route as WerbepartnerRouteImport } from './routes/werbepartner'
@@ -77,6 +78,11 @@ const StatusRoute = StatusRouteImport.update({
   path: '/status',
   getParentRoute: () => rootRouteImport,
 } as any)
+const TeamRoute = TeamRouteImport.update({
+  id: '/team',
+  path: '/team',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerkaeufeRoute = VerkaeufeRouteImport.update({
   id: '/verkaeufe',
   path: '/verkaeufe',
@@ -125,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/status': typeof StatusRoute
+  '/team': typeof TeamRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -144,6 +151,7 @@ export interface FileRoutesByTo {
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/status': typeof StatusRoute
+  '/team': typeof TeamRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -164,6 +172,7 @@ export interface FileRoutesById {
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
   '/status': typeof StatusRoute
+  '/team': typeof TeamRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
   '/werbepartner': typeof WerbepartnerRoute
@@ -185,6 +194,7 @@ export interface FileRouteTypes {
     | '/sicherheit'
     | '/sitemap.xml'
     | '/status'
+    | '/team'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -204,6 +214,7 @@ export interface FileRouteTypes {
     | '/sicherheit'
     | '/sitemap.xml'
     | '/status'
+    | '/team'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -223,6 +234,7 @@ export interface FileRouteTypes {
     | '/sicherheit'
     | '/sitemap.xml'
     | '/status'
+    | '/team'
     | '/verkaeufe'
     | '/warteliste'
     | '/werbepartner'
@@ -243,6 +255,7 @@ export interface RootRouteChildren {
   SicherheitRoute: typeof SicherheitRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
   StatusRoute: typeof StatusRoute
+  TeamRoute: typeof TeamRoute
   VerkaeufeRoute: typeof VerkaeufeRoute
   WartelisteRoute: typeof WartelisteRoute
   WerbepartnerRoute: typeof WerbepartnerRoute
@@ -324,6 +337,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof StatusRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/team': {
+      id: '/team'
+      path: '/team'
+      fullPath: '/team'
+      preLoaderRoute: typeof TeamRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verkaeufe': {
       id: '/verkaeufe'
       path: '/verkaeufe'
@@ -387,6 +407,7 @@ const rootRouteChildren: RootRouteChildren = {
   SicherheitRoute: SicherheitRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,
   StatusRoute: StatusRoute,
+  TeamRoute: TeamRoute,
   VerkaeufeRoute: VerkaeufeRoute,
   WartelisteRoute: WartelisteRoute,
   WerbepartnerRoute: WerbepartnerRoute,

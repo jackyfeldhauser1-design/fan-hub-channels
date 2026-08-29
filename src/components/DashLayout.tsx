@@ -14,6 +14,7 @@ import {
   Truck,
   ShieldAlert,
   KeyRound,
+  UserCog,
   Megaphone,
   Rocket,
   MoreHorizontal,
@@ -35,6 +36,7 @@ const nav = [
   { to: "/sicherheit", label: "Sicherheit", icon: ShieldAlert },
   { to: "/werbeposts", label: "Werbepartner", icon: Megaphone },
   { to: "/leads", label: "Warteliste", icon: Rocket },
+  { to: "/team", label: "Team & Rollen", icon: UserCog },
   { to: "/einstellungen", label: "Bot-Setup", icon: Settings2 },
 ] as const;
 
