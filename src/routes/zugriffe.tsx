@@ -95,7 +95,7 @@ function AccessPage() {
             </tr>
           </thead>
           <tbody>
-            {tokens.map((t) => (
+            {tokens.map((t: any) => (
               <tr key={t.id} className="border-b border-border/60">
                 <td className="px-4 py-3 font-medium">{t.product}</td>
                 <td className="px-4 py-3">{t.fan}</td>
@@ -130,7 +130,7 @@ function AccessPage() {
       </div>
 
       <div className="mt-3 grid gap-3 md:hidden">
-        {tokens.map((t) => (
+        {tokens.map((t: any) => (
           <div key={t.id} className="panel p-4">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -157,7 +157,7 @@ function AccessPage() {
 
       <h2 className="mt-8 text-lg font-semibold">Lieferprotokoll</h2>
       <div className="panel mt-3 divide-y divide-border/60">
-        {events.map((e) => (
+        {events.map((e: any) => (
           <div key={e.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
             <span className="font-medium">
               {e.kind === "delivered"
