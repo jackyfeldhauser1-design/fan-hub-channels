@@ -56,18 +56,37 @@ async function requireRole(context: any, min: TeamRole) {
   return { db: supabaseAdmin as any, role };
 }
 
-export const getAccess = createServerFn({ method: "POST" })
-  .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => {
-    const isAdmin = await isAdminUser(context);
-    const role = await roleOf(context);
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const { count } = await (supabaseAdmin as any)
-      .from("user_roles")
-      .select("id", { count: "exact", head: true })
-      .eq("role", "admin");
-    return { isAdmin: Boolean(isAdmin), role, adminExists: (count ?? 0) > 0 };
+/**
+ * Rolle des Aufrufers. Bewusst ohne requireSupabaseAuth: ohne Session liefert
+ * die Funktion einen leeren Status statt eines 401 (sonst Blank Screen beim
+ * Laden, bevor die Session im Browser bereitsteht).
+ */
+export const getAccess = createServerFn({ method: "POST" }).handler(async () => {
+  const { getRequestHeader } = await import("@tanstack/react-start/server");
+  const auth = getRequestHeader("authorization");
+  const empty = { isAdmin: false, role: null as TeamRole | null, adminExists: false, authenticated: false };
+  if (!auth?.startsWith("Bearer ")) return empty;
+
+  const { createClient } = await import("@supabase/supabase-js");
+  const supabase = createClient(process.env["SUPABASE_URL"]!, process.env["SUPABASE_PUBLISHABLE_KEY"]!, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    global: { headers: { Authorization: auth } },
   });
+  const { data: userRes } = await supabase.auth.getUser();
+  const userId = userRes.user?.id;
+  if (!userId) return empty;
+
+  const context = { supabase, userId };
+  const isAdmin = await isAdminUser(context);
+  const role = await roleOf(context);
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { count } = await (supabaseAdmin as any)
+    .from("user_roles")
+    .select("id", { count: "exact", head: true })
+    .eq("role", "admin");
+  return { isAdmin: Boolean(isAdmin), role, adminExists: (count ?? 0) > 0, authenticated: true };
+});
+
 
 export const claimAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
