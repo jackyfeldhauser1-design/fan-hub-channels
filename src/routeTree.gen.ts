@@ -29,6 +29,7 @@ import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
+import { Route as ApiPublicNIdRouteImport } from './routes/api/public/n.$id'
 import { Route as ApiPublicNotificationsRetryRouteImport } from './routes/api/public/notifications/retry'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
@@ -132,6 +133,11 @@ const InhaltTokenRoute = InhaltTokenRouteImport.update({
   path: '/inhalt/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNIdRoute = ApiPublicNIdRouteImport.update({
+  id: '/api/public/n/$id',
+  path: '/api/public/n/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicNotificationsRetryRoute =
   ApiPublicNotificationsRetryRouteImport.update({
     id: '/api/public/notifications/retry',
@@ -166,6 +172,7 @@ export interface FileRoutesByFullPath {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -190,6 +197,7 @@ export interface FileRoutesByTo {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -215,6 +223,7 @@ export interface FileRoutesById {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -241,6 +250,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/n/$id'
     | '/api/public/notifications/retry'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -265,6 +275,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/n/$id'
     | '/api/public/notifications/retry'
     | '/api/public/telegram/webhook'
   id:
@@ -289,6 +300,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/n/$id'
     | '/api/public/notifications/retry'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -314,6 +326,7 @@ export interface RootRouteChildren {
   ZugriffeRoute: typeof ZugriffeRoute
   ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
+  ApiPublicNIdRoute: typeof ApiPublicNIdRoute
   ApiPublicNotificationsRetryRoute: typeof ApiPublicNotificationsRetryRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -460,6 +473,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InhaltTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/n/$id': {
+      id: '/api/public/n/$id'
+      path: '/api/public/n/$id'
+      fullPath: '/api/public/n/$id'
+      preLoaderRoute: typeof ApiPublicNIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/notifications/retry': {
       id: '/api/public/notifications/retry'
       path: '/api/public/notifications/retry'
@@ -498,6 +518,7 @@ const rootRouteChildren: RootRouteChildren = {
   ZugriffeRoute: ZugriffeRoute,
   ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
+  ApiPublicNIdRoute: ApiPublicNIdRoute,
   ApiPublicNotificationsRetryRoute: ApiPublicNotificationsRetryRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }
