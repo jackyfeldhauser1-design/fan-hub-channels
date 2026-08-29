@@ -223,6 +223,8 @@ function SettingsPage() {
                     link_max_views: Number(form.link_max_views),
                     max_purchases_per_hour: Number(form.max_purchases_per_hour),
                     admin_chat_id: form.admin_chat_id ?? "",
+                    announce_chat_id: form.announce_chat_id ?? "",
+                    preview_chat_id: form.preview_chat_id ?? "",
                     notify_blocked: Boolean(form.notify_blocked),
                     notify_unpaid: Boolean(form.notify_unpaid),
                     notify_expired: Boolean(form.notify_expired),
