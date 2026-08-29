@@ -15,16 +15,14 @@ type Found = {
   error: string;
   updatesNote: string;
   chats: { chatId: string; title: string; type: string }[];
-  current: { free: string; vip: string; admin: string; announce: string; preview: string };
+  current: { community: string; shop: string; control: string };
 };
 type Post = { key: string; label: string; chatId: string; title: string; ok: boolean; error: string };
 
 const FIELDS = [
-  { key: "free", label: "Chat-ID Gratis-Gruppe", short: "Gratis", placeholder: "-100…" },
-  { key: "vip", label: "Chat-ID VIP-Gruppe", short: "VIP", placeholder: "-100…" },
-  { key: "admin", label: "Admin-Chat-ID", short: "Admin", placeholder: "z. B. deine Telegram-ID" },
-  { key: "announce", label: "Chat-ID Ankündigungs-Channel", short: "News", placeholder: "-100…" },
-  { key: "preview", label: "Chat-ID Trailer-Channel", short: "Trailer", placeholder: "-100…" },
+  { key: "community", label: "Chat-ID Community", short: "Community", placeholder: "-100…" },
+  { key: "shop", label: "Chat-ID Shop", short: "Shop", placeholder: "-100…" },
+  { key: "control", label: "Chat-ID Kontrollraum", short: "Kontrolle", placeholder: "z. B. deine Telegram-ID" },
 ] as const;
 
 function Row({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
@@ -48,9 +46,9 @@ export function ChatSetupWizard({
   disabled,
   onSaved,
 }: {
-  initial: { free: string; vip: string; admin: string; announce: string; preview: string };
+  initial: { community: string; shop: string; control: string };
   disabled?: boolean;
-  onSaved?: (v: { free: string; vip: string; admin: string; announce: string; preview: string }) => void;
+  onSaved?: (v: { community: string; shop: string; control: string }) => void;
 }) {
   const validateFn = useServerFn(validateChatIdsInput);
   const saveFn = useServerFn(saveChatIdsWithTest);
@@ -150,7 +148,7 @@ export function ChatSetupWizard({
                 "Bot in die Gruppe/Kanal aufnehmen (als Admin), dort eine Nachricht senden und hier erkennen lassen – die Chat-ID wird automatisch eingesetzt."}
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-3">
             {FIELDS.map((f) => (
               <div key={f.key} className="space-y-1.5">
                 <Label>{f.label}</Label>
@@ -204,7 +202,7 @@ export function ChatSetupWizard({
           </div>
           {!allOk ? (
             <p className="text-xs text-muted-foreground">
-              Füge den Bot als Administrator zur Gruppe hinzu und prüfe erneut. Für den Admin-Chat muss du dem Bot einmal
+              Füge den Bot als Administrator zur Gruppe hinzu und prüfe erneut. Für den Kontrollraum musst du dem Bot einmal
               /start geschrieben haben.
             </p>
           ) : null}
