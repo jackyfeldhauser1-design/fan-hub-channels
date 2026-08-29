@@ -134,6 +134,10 @@ const settingsSchema = z.object({
   affiliate_percent: z.number().int().min(0).max(90),
   tip_message: z.string().max(500),
   upsell_message: z.string().max(500),
+  admin_chat_id: z.string().max(60),
+  notify_blocked: z.boolean(),
+  notify_unpaid: z.boolean(),
+  notify_expired: z.boolean(),
 });
 
 export const saveSettings = createServerFn({ method: "POST" })
