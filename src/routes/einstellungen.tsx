@@ -7,6 +7,7 @@ import { toast } from "sonner";
 import { CheckCircle2, Link2 } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { ChatSetupWizard } from "@/components/ChatSetupWizard";
+import { ChatHealthPanel } from "@/components/ChatHealthPanel";
 
 import { getSettings, saveSettings, getBotStatus, setupWebhook } from "@/lib/admin.functions";
 import { Button } from "@/components/ui/button";
@@ -59,6 +60,9 @@ function SettingsPage() {
           disabled={!isAdmin}
           onSaved={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
         />
+      </div>
+      <div className="mb-4">
+        <ChatHealthPanel enabled={isAdmin} />
       </div>
       <div className="grid gap-4 lg:grid-cols-3">
 

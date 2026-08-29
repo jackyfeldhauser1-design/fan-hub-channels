@@ -703,27 +703,61 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
       error = e instanceof Error ? e.message.slice(0, 200) : "Bot nicht erreichbar";
     }
 
-    // Chats aus den letzten Updates sammeln (funktioniert nur ohne aktiven
-    // Webhook-Konflikt; bei gesetztem Webhook liefert Telegram eine leere Liste).
+    // Chats ermitteln. Ist ein Webhook aktiv, verbietet Telegram getUpdates
+    // (409 Conflict) – dann lesen wir die vom Webhook gespeicherten Updates.
     const seen = new Map<string, { chatId: string; title: string; type: string }>();
     let updatesNote = "";
+    let webhookActive = false;
     try {
-      const upd = await tg("getUpdates", { limit: 100, allowed_updates: [] });
-      for (const u of (upd.result ?? []) as any[]) {
-        const c = u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat ?? u.chat_member?.chat;
-        if (!c?.id) continue;
-        seen.set(String(c.id), {
-          chatId: String(c.id),
-          title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
-          type: c.type ?? "",
-        });
+      const info = await tg("getWebhookInfo", {});
+      webhookActive = Boolean(info.result?.url);
+    } catch {
+      webhookActive = false;
+    }
+
+    const addChat = (c: any) => {
+      if (!c?.id) return;
+      seen.set(String(c.id), {
+        chatId: String(c.id),
+        title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
+        type: c.type ?? "",
+      });
+    };
+
+    if (webhookActive) {
+      const { data: rows } = await db
+        .from("telegram_updates")
+        .select("raw")
+        .order("update_id", { ascending: false })
+        .limit(200);
+      for (const r of (rows ?? []) as any[]) {
+        const u = r.raw ?? {};
+        addChat(
+          u.message?.chat ??
+            u.edited_message?.chat ??
+            u.channel_post?.chat ??
+            u.callback_query?.message?.chat ??
+            u.my_chat_member?.chat ??
+            u.chat_member?.chat,
+        );
       }
       if (seen.size === 0) {
         updatesNote =
-          "Keine Chats gefunden. Schicke im Ziel-Chat eine Nachricht (bzw. füge den Bot als Admin hinzu) und klicke erneut auf Erkennen.";
+          "Webhook ist aktiv – erkannt werden Chats, in denen der Bot bereits eine Nachricht erhalten hat. Schreibe im Ziel-Chat kurz /start oder eine Nachricht und klicke erneut auf Erkennen.";
       }
-    } catch (e) {
-      updatesNote = e instanceof Error ? e.message.slice(0, 200) : "Updates nicht abrufbar";
+    } else {
+      try {
+        const upd = await tg("getUpdates", { limit: 100 });
+        for (const u of (upd.result ?? []) as any[]) {
+          addChat(u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat ?? u.chat_member?.chat);
+        }
+        if (seen.size === 0) {
+          updatesNote =
+            "Keine Chats gefunden. Schicke im Ziel-Chat eine Nachricht (bzw. füge den Bot als Admin hinzu) und klicke erneut auf Erkennen.";
+        }
+      } catch (e) {
+        updatesNote = e instanceof Error ? e.message.slice(0, 200) : "Updates nicht abrufbar";
+      }
     }
 
     const { data: settings } = await db
@@ -736,11 +770,111 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
       bot,
       error,
       updatesNote,
+      webhookActive,
       chats: [...seen.values()],
       current: {
         free: settings?.free_chat_id ?? "",
         vip: settings?.vip_chat_id ?? "",
         admin: settings?.admin_chat_id ?? "",
       },
+    };
+  });
+
+/* ------------------ Automatische Prüfung der gespeicherten Chats ----------- */
+
+/**
+ * Prüft für die gespeicherten Gratis-/VIP-/Admin-Chats, ob der Bot Mitglied ist
+ * und dort posten darf. Optional wird sofort ein Testpost gesendet und im
+ * Zustellprotokoll dokumentiert.
+ */
+export const verifyConfiguredChats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((d: unknown) =>
+    z.object({ sendTest: z.boolean().default(false), message: z.string().max(500).default("") }).parse(d ?? {}),
+  )
+  .handler(async ({ context, data }) => {
+    const { db } = await requireRole(context, "admin");
+
+    const { data: settings } = await db
+      .from("bot_settings")
+      .select("free_chat_id, vip_chat_id, admin_chat_id")
+      .eq("id", true)
+      .maybeSingle();
+
+    const targets = chatTargets({
+      free: settings?.free_chat_id ?? "",
+      vip: settings?.vip_chat_id ?? "",
+      admin: settings?.admin_chat_id ?? "",
+    });
+
+    const text =
+      data.message.trim() ||
+      "✅ Automatische Prüfung: Der Bot kann in diesem Chat posten.";
+
+    const results = [];
+    for (const t of targets) {
+      const configured = Boolean(t.chatId.trim());
+      const check = configured
+        ? await inspectChat(t)
+        : { ...t, ok: false, title: "", type: "", canPost: false, error: "Nicht konfiguriert" };
+
+      let testSent: boolean | null = null;
+      let testError = "";
+      if (configured && data.sendTest && check.ok) {
+        try {
+          const res = await tg("sendMessage", {
+            chat_id: t.chatId.trim(),
+            text,
+            disable_notification: true,
+          });
+          testSent = true;
+          await db.from("notification_deliveries").insert({
+            recipient_label: `Chat-Check: ${t.label}`,
+            kind: "reactivated",
+            channel: "telegram",
+            target: t.chatId.trim(),
+            body: text,
+            status: "sent",
+            attempt: 1,
+            error: "",
+            provider_message_id: String(res.result?.message_id ?? ""),
+          });
+        } catch (e) {
+          testSent = false;
+          testError = e instanceof Error ? e.message.slice(0, 300) : "Fehler";
+          await db.from("notification_deliveries").insert({
+            recipient_label: `Chat-Check: ${t.label}`,
+            kind: "reactivated",
+            channel: "telegram",
+            target: t.chatId.trim(),
+            body: text,
+            status: "dead",
+            attempt: 1,
+            error: testError,
+          });
+        }
+      }
+
+      results.push({
+        key: t.key,
+        label: t.label,
+        chatId: t.chatId.trim(),
+        configured,
+        reachable: check.ok,
+        canPost: check.canPost,
+        title: check.title,
+        type: check.type,
+        error: check.error,
+        testSent,
+        testError,
+      });
+    }
+
+    const active = results.filter((r) => r.configured);
+    return {
+      results,
+      checkedAt: new Date().toISOString(),
+      allOk: active.length > 0 && active.every((r) => r.reachable && r.canPost && r.testSent !== false),
+      missing: results.filter((r) => !r.configured).map((r) => r.label),
     };
   });

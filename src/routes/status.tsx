@@ -4,6 +4,7 @@ import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Circle, ShieldCheck, Bot, Users2, ArrowRight, RefreshCw } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { OpsPanel } from "@/components/OpsPanel";
+import { ChatHealthPanel } from "@/components/ChatHealthPanel";
 
 import { Button } from "@/components/ui/button";
 import { getAdminStatus, setupWebhook } from "@/lib/admin.functions";
@@ -203,6 +204,7 @@ function StatusPage() {
         </div>
       </div>
 
+      <ChatHealthPanel enabled={isAdmin} />
       <OpsPanel enabled={isAdmin} />
     </DashLayout>
 
