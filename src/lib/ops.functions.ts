@@ -703,27 +703,61 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
       error = e instanceof Error ? e.message.slice(0, 200) : "Bot nicht erreichbar";
     }
 
-    // Chats aus den letzten Updates sammeln (funktioniert nur ohne aktiven
-    // Webhook-Konflikt; bei gesetztem Webhook liefert Telegram eine leere Liste).
+    // Chats ermitteln. Ist ein Webhook aktiv, verbietet Telegram getUpdates
+    // (409 Conflict) – dann lesen wir die vom Webhook gespeicherten Updates.
     const seen = new Map<string, { chatId: string; title: string; type: string }>();
     let updatesNote = "";
+    let webhookActive = false;
     try {
-      const upd = await tg("getUpdates", { limit: 100, allowed_updates: [] });
-      for (const u of (upd.result ?? []) as any[]) {
-        const c = u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat ?? u.chat_member?.chat;
-        if (!c?.id) continue;
-        seen.set(String(c.id), {
-          chatId: String(c.id),
-          title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
-          type: c.type ?? "",
-        });
+      const info = await tg("getWebhookInfo", {});
+      webhookActive = Boolean(info.result?.url);
+    } catch {
+      webhookActive = false;
+    }
+
+    const addChat = (c: any) => {
+      if (!c?.id) return;
+      seen.set(String(c.id), {
+        chatId: String(c.id),
+        title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
+        type: c.type ?? "",
+      });
+    };
+
+    if (webhookActive) {
+      const { data: rows } = await db
+        .from("telegram_updates")
+        .select("raw")
+        .order("update_id", { ascending: false })
+        .limit(200);
+      for (const r of (rows ?? []) as any[]) {
+        const u = r.raw ?? {};
+        addChat(
+          u.message?.chat ??
+            u.edited_message?.chat ??
+            u.channel_post?.chat ??
+            u.callback_query?.message?.chat ??
+            u.my_chat_member?.chat ??
+            u.chat_member?.chat,
+        );
       }
       if (seen.size === 0) {
         updatesNote =
-          "Keine Chats gefunden. Schicke im Ziel-Chat eine Nachricht (bzw. füge den Bot als Admin hinzu) und klicke erneut auf Erkennen.";
+          "Webhook ist aktiv – erkannt werden Chats, in denen der Bot bereits eine Nachricht erhalten hat. Schreibe im Ziel-Chat kurz /start oder eine Nachricht und klicke erneut auf Erkennen.";
       }
-    } catch (e) {
-      updatesNote = e instanceof Error ? e.message.slice(0, 200) : "Updates nicht abrufbar";
+    } else {
+      try {
+        const upd = await tg("getUpdates", { limit: 100 });
+        for (const u of (upd.result ?? []) as any[]) {
+          addChat(u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat ?? u.chat_member?.chat);
+        }
+        if (seen.size === 0) {
+          updatesNote =
+            "Keine Chats gefunden. Schicke im Ziel-Chat eine Nachricht (bzw. füge den Bot als Admin hinzu) und klicke erneut auf Erkennen.";
+        }
+      } catch (e) {
+        updatesNote = e instanceof Error ? e.message.slice(0, 200) : "Updates nicht abrufbar";
+      }
     }
 
     const { data: settings } = await db
