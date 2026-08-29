@@ -303,7 +303,10 @@ export const sendBulkTest = createServerFn({ method: "POST" })
   )
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "bulk_test", context.userId, 10, 3_600_000);
     const { buildVars, renderStoredTemplate, deliverOnce } = await import("@/lib/notify.server");
+
 
     const { data: settings } = await db.from("bot_settings").select("admin_chat_id").eq("id", true).maybeSingle();
     const vars = await buildVars(db, { tokenId: null, tgUserId: null, detail: "Bulk-Test aus dem Dashboard" });
