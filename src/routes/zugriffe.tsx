@@ -113,6 +113,11 @@ function AccessPage() {
     { label: "Erfolgreiche Ausgaben", value: stats?.delivered ?? 0, hint: "bestätigte Auslieferungen" },
     { label: "Öffnungen", value: stats?.opens ?? 0, hint: `${stats?.openRate ?? 0} % der Links geöffnet` },
     { label: "Blockierte Versuche", value: stats?.denied ?? 0, hint: "unbezahlt, gesperrt oder abgelaufen" },
+    {
+      label: "Logins",
+      value: stats?.loginOk ?? 0,
+      hint: `${stats?.loginFail ?? 0} fehlgeschlagene Versuche`,
+    },
   ];
 
   return (
