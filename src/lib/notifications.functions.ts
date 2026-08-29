@@ -14,7 +14,7 @@ async function requireRole(context: any, min: TeamRole) {
   return { db: supabaseAdmin as any, role };
 }
 
-const channel = z.enum(["telegram", "email"]);
+const channel = z.enum(["telegram", "email", "slack"]);
 const kindEnum = z.enum(["expiring", "expired", "unpaid", "blocked", "reactivated"]);
 
 export const listNotificationCenter = createServerFn({ method: "POST" })
