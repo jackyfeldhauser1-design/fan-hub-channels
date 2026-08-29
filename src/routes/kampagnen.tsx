@@ -67,7 +67,7 @@ function Kpi({ label, value, hint }: { label: string; value: string | number; hi
 
 function CampaignsPage() {
   const qc = useQueryClient();
-  const { isAdmin, canOperate } = useAdmin();
+  const { isAdmin, canOperate, canRead } = useAdmin();
   const analyticsFn = useServerFn(getNotificationAnalytics);
   const configFn = useServerFn(listCampaignConfig);
   const saveTemplateFn = useServerFn(saveTemplate);
