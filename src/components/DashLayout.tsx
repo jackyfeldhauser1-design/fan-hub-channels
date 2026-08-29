@@ -22,6 +22,7 @@ import {
   Rocket,
   MoreHorizontal,
   Plug,
+  Rocket,
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { useAuth } from "@/lib/useAuth";
@@ -33,6 +34,7 @@ const nav = [
   { to: "/", label: "Übersicht", icon: LayoutDashboard },
   { to: "/status", label: "Status", icon: Activity },
   { to: "/verbinden", label: "Verbinden", icon: Plug },
+  { to: "/drops", label: "Drops", icon: Rocket },
   { to: "/produkte", label: "Inhalte & Preise", icon: Package },
   { to: "/medien", label: "Medien-Ordner", icon: FolderLock },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
