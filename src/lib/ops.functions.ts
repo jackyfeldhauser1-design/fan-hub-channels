@@ -615,11 +615,35 @@ export const validateChatIdsInput = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => chatInput.parse(d))
   .handler(async ({ context, data }) => {
-    await requireRole(context, "admin");
+    const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "chat_validate", context.userId, 30, 600_000);
+
     const results = [];
     for (const t of chatTargets(data)) results.push(await inspectChat(t));
+    const actor = { id: context.userId, email: context.claims?.email ?? null };
+    for (const r of results) {
+      if (!r.chatId.trim()) continue;
+      await auditLog(db, {
+        actorId: actor.id,
+        actorEmail: actor.email,
+        action: "chat_verify",
+        target: r.label,
+        chatId: r.chatId.trim(),
+        status: r.ok ? "ok" : "error",
+        detail: r.ok ? `${r.type} · ${r.title}` : r.error,
+        meta: { reachable: r.ok, canPost: r.canPost },
+      });
+      await auditMembershipChange(db, actor, {
+        chatId: r.chatId.trim(),
+        label: r.label,
+        reachable: r.ok,
+        canPost: r.canPost,
+      });
+    }
     return { results, allOk: results.filter((r) => r.chatId.trim()).every((r) => r.ok) };
   });
+
 
 /** Schritt 2: Chat-IDs speichern und sofort einen Testpost in jeden Chat senden. */
 export const saveChatIdsWithTest = createServerFn({ method: "POST" })
