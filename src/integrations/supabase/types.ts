@@ -261,6 +261,27 @@ export type Database = {
           },
         ]
       }
+      cron_tokens: {
+        Row: {
+          created_at: string
+          id: string
+          label: string
+          token_hash: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          label: string
+          token_hash: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          label?: string
+          token_hash?: string
+        }
+        Relationships: []
+      }
       leads: {
         Row: {
           amount_stars: number
