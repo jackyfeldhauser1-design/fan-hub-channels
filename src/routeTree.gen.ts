@@ -11,6 +11,7 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
+import { Route as BenachrichtigungenRouteImport } from './routes/benachrichtigungen'
 import { Route as BestellungenRouteImport } from './routes/bestellungen'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
@@ -39,6 +40,11 @@ const IndexRoute = IndexRouteImport.update({
 const AuthRoute = AuthRouteImport.update({
   id: '/auth',
   path: '/auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BenachrichtigungenRoute = BenachrichtigungenRouteImport.update({
+  id: '/benachrichtigungen',
+  path: '/benachrichtigungen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const BestellungenRoute = BestellungenRouteImport.update({
@@ -142,6 +148,7 @@ const ApiPublicTelegramWebhookRoute =
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -165,6 +172,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -189,6 +197,7 @@ export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
   '/auth': typeof AuthRoute
+  '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -214,6 +223,7 @@ export interface FileRouteTypes {
   fullPaths:
     | '/'
     | '/auth'
+    | '/benachrichtigungen'
     | '/bestellungen'
     | '/einstellungen'
     | '/fans'
@@ -237,6 +247,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/auth'
+    | '/benachrichtigungen'
     | '/bestellungen'
     | '/einstellungen'
     | '/fans'
@@ -260,6 +271,7 @@ export interface FileRouteTypes {
     | '__root__'
     | '/'
     | '/auth'
+    | '/benachrichtigungen'
     | '/bestellungen'
     | '/einstellungen'
     | '/fans'
@@ -284,6 +296,7 @@ export interface FileRouteTypes {
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AuthRoute: typeof AuthRoute
+  BenachrichtigungenRoute: typeof BenachrichtigungenRoute
   BestellungenRoute: typeof BestellungenRoute
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
@@ -319,6 +332,13 @@ declare module '@tanstack/react-router' {
       path: '/auth'
       fullPath: '/auth'
       preLoaderRoute: typeof AuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/benachrichtigungen': {
+      id: '/benachrichtigungen'
+      path: '/benachrichtigungen'
+      fullPath: '/benachrichtigungen'
+      preLoaderRoute: typeof BenachrichtigungenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/bestellungen': {
@@ -460,6 +480,7 @@ declare module '@tanstack/react-router' {
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AuthRoute: AuthRoute,
+  BenachrichtigungenRoute: BenachrichtigungenRoute,
   BestellungenRoute: BestellungenRoute,
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
