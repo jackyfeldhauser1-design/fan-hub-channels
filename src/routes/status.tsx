@@ -94,9 +94,9 @@ function StatusPage() {
       to: "/einstellungen",
     },
     {
-      label: "Gratis- und VIP-Gruppe hinterlegen",
+      label: "Community und Shop hinterlegen",
       done: groupsSet,
-      hint: groupsSet ? "Gruppen-Links und Chat-IDs sind gesetzt." : "Trage Free-/VIP-Gruppe (URL + Chat-ID) ein, damit der Bot weiterleiten kann.",
+      hint: groupsSet ? "Gruppen-Links und Chat-IDs sind gesetzt." : "Trage Community und Shop (URL + Chat-ID) ein, damit der Bot weiterleiten kann.",
       to: "/einstellungen",
     },
     {
@@ -144,7 +144,7 @@ function StatusPage() {
           icon={Users2}
           label="Funnel-Gruppen"
           ok={groupsSet}
-          detail={groupsSet ? "Free- und VIP-Gruppe konfiguriert" : "Gruppen noch nicht eingetragen"}
+          detail={groupsSet ? "Community und Shop konfiguriert" : "Gruppen noch nicht eingetragen"}
         />
         <StatusCard
           icon={Users2}
