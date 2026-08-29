@@ -598,6 +598,8 @@ export const listAccessLog = createServerFn({ method: "POST" })
         delivered,
         opens,
         denied,
+        loginOk,
+        loginFail,
         openRate,
       },
     };
