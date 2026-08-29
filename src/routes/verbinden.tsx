@@ -6,6 +6,8 @@ import { toast } from "sonner";
 import { CheckCircle2, XCircle, Loader2, Slack, Webhook, Send } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { ConnectPanel } from "@/components/ConnectPanel";
+import { GuidedSetupWizard } from "@/components/GuidedSetupWizard";
+
 import { useAdmin } from "@/lib/useAdmin";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
