@@ -25,6 +25,7 @@ import { Route as WartelisteRouteImport } from './routes/warteliste'
 import { Route as WerbepartnerRouteImport } from './routes/werbepartner'
 import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
+import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
@@ -108,6 +109,11 @@ const ZugriffeRoute = ZugriffeRouteImport.update({
   path: '/zugriffe',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ZweiFaktorRoute = ZweiFaktorRouteImport.update({
+  id: '/zwei-faktor',
+  path: '/zwei-faktor',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const InhaltTokenRoute = InhaltTokenRouteImport.update({
   id: '/inhalt/$token',
   path: '/inhalt/$token',
@@ -137,6 +143,7 @@ export interface FileRoutesByFullPath {
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
   '/zugriffe': typeof ZugriffeRoute
+  '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -157,6 +164,7 @@ export interface FileRoutesByTo {
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
   '/zugriffe': typeof ZugriffeRoute
+  '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -178,6 +186,7 @@ export interface FileRoutesById {
   '/werbepartner': typeof WerbepartnerRoute
   '/werbeposts': typeof WerbepostsRoute
   '/zugriffe': typeof ZugriffeRoute
+  '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -200,6 +209,7 @@ export interface FileRouteTypes {
     | '/werbepartner'
     | '/werbeposts'
     | '/zugriffe'
+    | '/zwei-faktor'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/werbepartner'
     | '/werbeposts'
     | '/zugriffe'
+    | '/zwei-faktor'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   id:
@@ -240,6 +251,7 @@ export interface FileRouteTypes {
     | '/werbepartner'
     | '/werbeposts'
     | '/zugriffe'
+    | '/zwei-faktor'
     | '/inhalt/$token'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -261,6 +273,7 @@ export interface RootRouteChildren {
   WerbepartnerRoute: typeof WerbepartnerRoute
   WerbepostsRoute: typeof WerbepostsRoute
   ZugriffeRoute: typeof ZugriffeRoute
+  ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -379,6 +392,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ZugriffeRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/zwei-faktor': {
+      id: '/zwei-faktor'
+      path: '/zwei-faktor'
+      fullPath: '/zwei-faktor'
+      preLoaderRoute: typeof ZweiFaktorRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/inhalt/$token': {
       id: '/inhalt/$token'
       path: '/inhalt/$token'
@@ -413,6 +433,7 @@ const rootRouteChildren: RootRouteChildren = {
   WerbepartnerRoute: WerbepartnerRoute,
   WerbepostsRoute: WerbepostsRoute,
   ZugriffeRoute: ZugriffeRoute,
+  ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }

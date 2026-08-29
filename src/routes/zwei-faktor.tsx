@@ -31,7 +31,7 @@ function TwoFactorPage() {
 
   async function refresh() {
     const { data } = await supabase.auth.mfa.listFactors();
-    setFactors(((data?.totp ?? []) as Factor[]) ?? []);
+    setFactors((data?.totp ?? []) as Factor[]);
   }
 
   useEffect(() => {
