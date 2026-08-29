@@ -37,6 +37,7 @@ const nav = [
   { to: "/werbeposts", label: "Werbepartner", icon: Megaphone },
   { to: "/leads", label: "Warteliste", icon: Rocket },
   { to: "/team", label: "Team & Rollen", icon: UserCog },
+  { to: "/zwei-faktor", label: "Zwei-Faktor", icon: ShieldCheck },
   { to: "/einstellungen", label: "Bot-Setup", icon: Settings2 },
 ] as const;
 
