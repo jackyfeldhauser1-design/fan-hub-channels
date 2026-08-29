@@ -47,6 +47,8 @@ const eventLabel: Record<string, string> = {
   access_opened: "Inhalt geöffnet",
   access_denied: "Zugriff verweigert",
   access_revoked: "Zugang geändert",
+  login_success: "Login erfolgreich",
+  login_failed: "Login fehlgeschlagen",
 };
 
 function download(filename: string, content: string) {
