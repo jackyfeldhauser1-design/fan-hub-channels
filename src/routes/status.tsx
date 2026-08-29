@@ -5,6 +5,7 @@ import { CheckCircle2, Circle, ShieldCheck, Bot, Users2, ArrowRight, RefreshCw }
 import { DashLayout } from "@/components/DashLayout";
 import { OpsPanel } from "@/components/OpsPanel";
 import { ChatHealthPanel } from "@/components/ChatHealthPanel";
+import { AuditLogPanel } from "@/components/AuditLogPanel";
 
 import { Button } from "@/components/ui/button";
 import { getAdminStatus, setupWebhook } from "@/lib/admin.functions";
@@ -206,6 +207,7 @@ function StatusPage() {
 
       <ChatHealthPanel enabled={isAdmin} />
       <OpsPanel enabled={isAdmin} />
+      <AuditLogPanel enabled={isAdmin} />
     </DashLayout>
 
   );
