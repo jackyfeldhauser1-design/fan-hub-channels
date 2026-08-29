@@ -31,9 +31,12 @@ const target: Record<string, string> = { free: "Fan-Gruppe", vip: "VIP-Gruppe", 
 
 function SponsorPage() {
   const qc = useQueryClient();
+  const repeatRef = useRef<Record<string, number>>({});
   const listFn = useServerFn(listSponsoredPosts);
   const updateFn = useServerFn(updateSponsoredPost);
   const publishFn = useServerFn(publishSponsoredPost);
+  const scheduleFn = useServerFn(scheduleSponsoredPost);
+
   const { isAdmin } = useAdmin();
   const { data } = useQuery({ queryKey: ["sponsors"], queryFn: () => listFn({ data: undefined as never }), enabled: isAdmin });
 
