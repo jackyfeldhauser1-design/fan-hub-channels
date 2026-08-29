@@ -1182,7 +1182,7 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
       actorEmail: context.claims?.email ?? null,
       action: "auto_connect",
       target: "telegram",
-      chatId: assigned.free || assigned.vip || assigned.admin || "",
+      chatId: assigned.community || assigned.shop || assigned.control || "",
       status: steps.every((s) => s.ok) ? "ok" : "error",
       detail: steps.map((s) => `${s.label}: ${s.ok ? "ok" : s.detail}`).join(" | ").slice(0, 500),
       meta: { assigned },
