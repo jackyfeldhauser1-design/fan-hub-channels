@@ -31,6 +31,9 @@ const messages: Record<string, string> = {
 function ContentPage() {
   const { token } = Route.useParams();
   const openFn = useServerFn(openSecureContent);
+  const downloadFn = useServerFn(requestMediaDownload);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
   const { data, isPending } = useQuery({
     queryKey: ["secure", token],
     queryFn: () => openFn({ data: { token } }),
