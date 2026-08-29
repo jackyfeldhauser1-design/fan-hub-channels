@@ -60,6 +60,9 @@ function SettingsPage() {
           onSaved={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
         />
       </div>
+      <div className="mb-4">
+        <ChatHealthPanel enabled={isAdmin} />
+      </div>
       <div className="grid gap-4 lg:grid-cols-3">
 
         <div className="panel space-y-4 p-6 lg:col-span-2">
