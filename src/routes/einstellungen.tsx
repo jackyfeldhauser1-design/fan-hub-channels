@@ -69,9 +69,24 @@ function SettingsPage() {
         </summary>
         <div className="mt-2">
           <ChatSetupWizard
-            initial={{ free: form.free_chat_id ?? "", vip: form.vip_chat_id ?? "", admin: form.admin_chat_id ?? "" }}
+            initial={{
+              free: form.free_chat_id ?? "",
+              vip: form.vip_chat_id ?? "",
+              admin: form.admin_chat_id ?? "",
+              announce: form.announce_chat_id ?? "",
+              preview: form.preview_chat_id ?? "",
+            }}
             disabled={!isAdmin}
-            onSaved={(v) => setForm({ ...form, free_chat_id: v.free, vip_chat_id: v.vip, admin_chat_id: v.admin })}
+            onSaved={(v) =>
+              setForm({
+                ...form,
+                free_chat_id: v.free,
+                vip_chat_id: v.vip,
+                admin_chat_id: v.admin,
+                announce_chat_id: v.announce,
+                preview_chat_id: v.preview,
+              })
+            }
           />
         </div>
       </details>
@@ -140,6 +155,26 @@ function SettingsPage() {
             <div className="space-y-1.5">
               <Label>Max. Aufrufe pro Zugangslink</Label>
               <Input type="number" inputMode="numeric" value={form.link_max_views} onChange={(e) => setForm({ ...form, link_max_views: e.target.value })} />
+            </div>
+          </div>
+          <div className="grid gap-4 sm:grid-cols-2">
+            <div className="space-y-1.5">
+              <Label>Chat-ID Ankündigungs-Channel</Label>
+              <Input
+                value={form.announce_chat_id ?? ""}
+                onChange={(e) => setForm({ ...form, announce_chat_id: e.target.value })}
+                inputMode="numeric"
+                placeholder="-100…"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Chat-ID Trailer-Channel</Label>
+              <Input
+                value={form.preview_chat_id ?? ""}
+                onChange={(e) => setForm({ ...form, preview_chat_id: e.target.value })}
+                inputMode="numeric"
+                placeholder="-100…"
+              />
             </div>
           </div>
           <div className="space-y-1.5">
