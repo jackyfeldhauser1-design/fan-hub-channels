@@ -15,6 +15,7 @@ import { Route as BestellungenRouteImport } from './routes/bestellungen'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
 import { Route as LeadsRouteImport } from './routes/leads'
+import { Route as MedienRouteImport } from './routes/medien'
 import { Route as ProdukteRouteImport } from './routes/produkte'
 import { Route as SicherheitRouteImport } from './routes/sicherheit'
 import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
@@ -57,6 +58,11 @@ const FansRoute = FansRouteImport.update({
 const LeadsRoute = LeadsRouteImport.update({
   id: '/leads',
   path: '/leads',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const MedienRoute = MedienRouteImport.update({
+  id: '/medien',
+  path: '/medien',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProdukteRoute = ProdukteRouteImport.update({
@@ -133,6 +139,7 @@ export interface FileRoutesByFullPath {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/leads': typeof LeadsRoute
+  '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -154,6 +161,7 @@ export interface FileRoutesByTo {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/leads': typeof LeadsRoute
+  '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -176,6 +184,7 @@ export interface FileRoutesById {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/leads': typeof LeadsRoute
+  '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
   '/sicherheit': typeof SicherheitRoute
   '/sitemap.xml': typeof SitemapDotxmlRoute
@@ -199,6 +208,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/leads'
+    | '/medien'
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
@@ -220,6 +230,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/leads'
+    | '/medien'
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
@@ -241,6 +252,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/leads'
+    | '/medien'
     | '/produkte'
     | '/sicherheit'
     | '/sitemap.xml'
@@ -263,6 +275,7 @@ export interface RootRouteChildren {
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
   LeadsRoute: typeof LeadsRoute
+  MedienRoute: typeof MedienRoute
   ProdukteRoute: typeof ProdukteRoute
   SicherheitRoute: typeof SicherheitRoute
   SitemapDotxmlRoute: typeof SitemapDotxmlRoute
@@ -320,6 +333,13 @@ declare module '@tanstack/react-router' {
       path: '/leads'
       fullPath: '/leads'
       preLoaderRoute: typeof LeadsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/medien': {
+      id: '/medien'
+      path: '/medien'
+      fullPath: '/medien'
+      preLoaderRoute: typeof MedienRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/produkte': {
@@ -423,6 +443,7 @@ const rootRouteChildren: RootRouteChildren = {
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
   LeadsRoute: LeadsRoute,
+  MedienRoute: MedienRoute,
   ProdukteRoute: ProdukteRoute,
   SicherheitRoute: SicherheitRoute,
   SitemapDotxmlRoute: SitemapDotxmlRoute,

@@ -30,6 +30,7 @@ const nav = [
   { to: "/", label: "Übersicht", icon: LayoutDashboard },
   { to: "/status", label: "Status", icon: Activity },
   { to: "/produkte", label: "Inhalte & Preise", icon: Package },
+  { to: "/medien", label: "Medien-Ordner", icon: FolderLock },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
   { to: "/bestellungen", label: "Bestellungen", icon: Truck },
   { to: "/fans", label: "Fans & Affiliates", icon: Users },
