@@ -12,3 +12,17 @@ Allow: /
 
 User-agent: *
 Allow: /
+Disallow: /auth
+Disallow: /inhalt/
+Disallow: /produkte
+Disallow: /bestellungen
+Disallow: /verkaeufe
+Disallow: /fans
+Disallow: /leads
+Disallow: /sicherheit
+Disallow: /werbeposts
+Disallow: /einstellungen
+Disallow: /status
+Disallow: /api/
+
+Sitemap: https://fan-hub-channels.lovable.app/sitemap.xml
