@@ -5,7 +5,7 @@ export const Route = createFileRoute("/api/public/notifications/retry")({
   server: {
     handlers: {
       POST: async ({ request }) => {
-        const unauthorized = await authenticateCronRequest(request);
+        const unauthorized = await authorizeCronRequest(request);
         if (unauthorized) return unauthorized;
 
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
