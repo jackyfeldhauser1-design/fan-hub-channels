@@ -90,6 +90,47 @@ function SalesPage() {
         </table>
         {data?.length === 0 ? <p className="p-6 text-sm text-muted-foreground">Noch keine Verkäufe.</p> : null}
       </div>
+
+      {/* Mobile Kartenliste */}
+      <div className="grid gap-3 md:hidden">
+        {(data ?? []).map((p: any) => (
+          <div key={p.id} className="panel p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">{p.title_snapshot}</p>
+                <p className="text-xs text-muted-foreground">
+                  {p.tg_users?.username ? `@${p.tg_users.username}` : (p.tg_users?.first_name ?? "—")} ·{" "}
+                  {new Date(p.created_at).toLocaleDateString("de-DE")}
+                </p>
+              </div>
+              <Badge variant={p.status === "paid" ? "default" : "secondary"}>{p.status}</Badge>
+            </div>
+            <div className="mt-3 flex items-center justify-between text-sm">
+              <span className="font-medium text-primary">
+                {p.currency === "ton" ? `${p.amount_ton} TON` : `⭐ ${p.amount_stars}`}
+              </span>
+              <span className="text-xs text-muted-foreground">Provision ⭐ {p.commission_stars}</span>
+            </div>
+            {p.status === "pending" && p.currency === "ton" ? (
+              <Button
+                className="mt-3 w-full"
+                onClick={async () => {
+                  try {
+                    await confirmFn({ data: { id: p.id } });
+                    toast.success("Zahlung bestätigt & Inhalt ausgeliefert");
+                    qc.invalidateQueries({ queryKey: ["purchases"] });
+                  } catch (e) {
+                    toast.error(e instanceof Error ? e.message : "Fehlgeschlagen");
+                  }
+                }}
+              >
+                Bestätigen
+              </Button>
+            ) : null}
+          </div>
+        ))}
+        {data?.length === 0 ? <p className="panel p-6 text-sm text-muted-foreground">Noch keine Verkäufe.</p> : null}
+      </div>
     </DashLayout>
   );
 }

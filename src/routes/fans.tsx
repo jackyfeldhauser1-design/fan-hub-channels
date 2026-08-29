@@ -57,6 +57,30 @@ function FansPage() {
         </table>
         {data?.length === 0 ? <p className="p-6 text-sm text-muted-foreground">Noch keine Fans im Bot.</p> : null}
       </div>
+
+      <div className="grid gap-3 md:hidden">
+        {(data ?? []).map((u: any) => (
+          <div key={u.id} className="panel p-4">
+            <p className="font-medium">{u.username ? `@${u.username}` : (u.first_name ?? u.telegram_id)}</p>
+            <p className="font-mono text-xs text-muted-foreground">{u.referral_code}</p>
+            <div className="mt-3 grid grid-cols-3 gap-2 text-center text-xs">
+              <div>
+                <p className="text-muted-foreground">Geworben</p>
+                <p className="text-sm font-semibold">{u.invited}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Ausgegeben</p>
+                <p className="text-sm font-semibold text-primary">⭐ {u.spent}</p>
+              </div>
+              <div>
+                <p className="text-muted-foreground">Verdient</p>
+                <p className="text-sm font-semibold">⭐ {u.earned}</p>
+              </div>
+            </div>
+          </div>
+        ))}
+        {data?.length === 0 ? <p className="panel p-6 text-sm text-muted-foreground">Noch keine Fans im Bot.</p> : null}
+      </div>
     </DashLayout>
   );
 }
