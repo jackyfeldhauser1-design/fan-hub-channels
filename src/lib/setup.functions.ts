@@ -15,7 +15,7 @@ export const saveBotToken = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
-    const { db } = await requireCallerRole("admin");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
     const { enforceRateLimit } = await import("@/lib/security.server");
     await enforceRateLimit(db, "save_bot_token", context.userId, 10, 600_000);
 
@@ -70,7 +70,7 @@ export const startGuidedSetup = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
-    const { db } = await requireCallerRole("admin");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
     const { enforceRateLimit } = await import("@/lib/security.server");
     await enforceRateLimit(db, "guided_setup", context.userId, 20, 600_000);
     const { createSetupCodes } = await import("@/lib/setup.server");
@@ -82,7 +82,7 @@ export const getSetupProgress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async () => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
-    const { db } = await requireCallerRole("viewer");
+    const { db } = (await requireCallerRole("viewer")) as unknown as { db: any };
     const { readSetupProgress } = await import("@/lib/setup.server");
     return readSetupProgress(db);
   });
@@ -92,7 +92,7 @@ export const resetGuidedSetup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
-    const { db } = await requireCallerRole("admin");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
     const { enforceRateLimit } = await import("@/lib/security.server");
     await enforceRateLimit(db, "guided_setup_reset", context.userId, 10, 600_000);
     const { data: before } = await db
