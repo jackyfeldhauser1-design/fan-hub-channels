@@ -96,7 +96,7 @@ function ProductsPage() {
         {(products ?? []).map((p: any) => (
           <div key={p.id} className="panel flex flex-col p-5">
             <div className="flex items-start justify-between gap-3">
-              <h3 className="font-semibold">{p.title}</h3>
+              <h2 className="font-semibold">{p.title}</h2>
               <Badge variant={p.active ? "default" : "secondary"}>{p.active ? "aktiv" : "pausiert"}</Badge>
             </div>
             <p className="mt-1 text-xs uppercase tracking-wide text-muted-foreground">{kindLabel[p.kind]}</p>

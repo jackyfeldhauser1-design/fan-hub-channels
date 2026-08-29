@@ -53,7 +53,7 @@ function SponsorPage() {
           <div key={p.id} className="panel space-y-3 p-5">
             <div className="flex items-start justify-between gap-3">
               <div>
-                <p className="font-semibold">{p.advertiser}</p>
+                <h2 className="font-semibold">{p.advertiser}</h2>
                 <p className="text-xs text-muted-foreground">
                   {target[p.target]} · ⭐ {p.price_stars} · {new Date(p.created_at).toLocaleDateString("de-DE")}
                 </p>
