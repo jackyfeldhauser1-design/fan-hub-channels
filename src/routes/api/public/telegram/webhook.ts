@@ -21,7 +21,7 @@ type Btn = { text: string; callback_data?: string; url?: string; pay?: boolean }
 
 const mainMenu = (free: string, vip: string): Btn[][] => {
   const rows: Btn[][] = [];
-  if (free) rows.push([{ text: "🎁 Gratis-Gruppe für Fans", url: free }]);
+  rows.push([{ text: "🎁 Gratis-Gruppe beitreten", callback_data: "join_free" }]);
   rows.push([{ text: "🛍 Shop", callback_data: "shop" }, { text: "🔓 Pay-per-View", callback_data: "ppv" }]);
   rows.push([{ text: "⭐ VIP-Zugang", callback_data: "vip" }, { text: "💛 Trinkgeld", callback_data: "tips" }]);
   rows.push([{ text: "🤝 Empfehlen & verdienen", callback_data: "ref" }]);
@@ -29,9 +29,12 @@ const mainMenu = (free: string, vip: string): Btn[][] => {
     { text: "🚀 Early Access", callback_data: "ea" },
     { text: "📣 Werbung buchen", callback_data: "ads" },
   ]);
-  if (vip) rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
+  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
+  void free;
+  void vip;
   return rows;
 };
+
 
 export const Route = createFileRoute("/api/public/telegram/webhook")({
   server: {
