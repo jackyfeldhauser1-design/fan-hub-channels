@@ -15,14 +15,16 @@ type Found = {
   error: string;
   updatesNote: string;
   chats: { chatId: string; title: string; type: string }[];
-  current: { free: string; vip: string; admin: string };
+  current: { free: string; vip: string; admin: string; announce: string; preview: string };
 };
 type Post = { key: string; label: string; chatId: string; title: string; ok: boolean; error: string };
 
 const FIELDS = [
-  { key: "free", label: "Chat-ID Gratis-Gruppe", placeholder: "-100…" },
-  { key: "vip", label: "Chat-ID VIP-Gruppe", placeholder: "-100…" },
-  { key: "admin", label: "Admin-Chat-ID", placeholder: "z. B. deine Telegram-ID" },
+  { key: "free", label: "Chat-ID Gratis-Gruppe", short: "Gratis", placeholder: "-100…" },
+  { key: "vip", label: "Chat-ID VIP-Gruppe", short: "VIP", placeholder: "-100…" },
+  { key: "admin", label: "Admin-Chat-ID", short: "Admin", placeholder: "z. B. deine Telegram-ID" },
+  { key: "announce", label: "Chat-ID Ankündigungs-Channel", short: "News", placeholder: "-100…" },
+  { key: "preview", label: "Chat-ID Trailer-Channel", short: "Trailer", placeholder: "-100…" },
 ] as const;
 
 function Row({ label, ok, detail }: { label: string; ok: boolean; detail: string }) {
@@ -46,9 +48,9 @@ export function ChatSetupWizard({
   disabled,
   onSaved,
 }: {
-  initial: { free: string; vip: string; admin: string };
+  initial: { free: string; vip: string; admin: string; announce: string; preview: string };
   disabled?: boolean;
-  onSaved?: (v: { free: string; vip: string; admin: string }) => void;
+  onSaved?: (v: { free: string; vip: string; admin: string; announce: string; preview: string }) => void;
 }) {
   const validateFn = useServerFn(validateChatIdsInput);
   const saveFn = useServerFn(saveChatIdsWithTest);
@@ -136,7 +138,7 @@ export function ChatSetupWizard({
                         variant="outline"
                         onClick={() => setIds({ ...ids, [f.key]: c.chatId })}
                       >
-                        → {f.key === "free" ? "Gratis" : f.key === "vip" ? "VIP" : "Admin"}
+                        → {f.short}
                       </Button>
                     ))}
                   </li>
@@ -148,7 +150,7 @@ export function ChatSetupWizard({
                 "Bot in die Gruppe/Kanal aufnehmen (als Admin), dort eine Nachricht senden und hier erkennen lassen – die Chat-ID wird automatisch eingesetzt."}
             </p>
           </div>
-          <div className="grid gap-4 sm:grid-cols-3">
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {FIELDS.map((f) => (
               <div key={f.key} className="space-y-1.5">
                 <Label>{f.label}</Label>
