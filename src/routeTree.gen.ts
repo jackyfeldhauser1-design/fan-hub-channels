@@ -15,6 +15,7 @@ import { Route as BenachrichtigungenRouteImport } from './routes/benachrichtigun
 import { Route as BestellungenRouteImport } from './routes/bestellungen'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
+import { Route as KampagnenRouteImport } from './routes/kampagnen'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as MedienRouteImport } from './routes/medien'
 import { Route as ProdukteRouteImport } from './routes/produkte'
@@ -29,6 +30,8 @@ import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
+import { Route as ApiPublicNIdRouteImport } from './routes/api/public/n.$id'
+import { Route as ApiPublicNotificationsCampaignsRouteImport } from './routes/api/public/notifications/campaigns'
 import { Route as ApiPublicNotificationsRetryRouteImport } from './routes/api/public/notifications/retry'
 import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/public/telegram/webhook'
 
@@ -60,6 +63,11 @@ const EinstellungenRoute = EinstellungenRouteImport.update({
 const FansRoute = FansRouteImport.update({
   id: '/fans',
   path: '/fans',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KampagnenRoute = KampagnenRouteImport.update({
+  id: '/kampagnen',
+  path: '/kampagnen',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeadsRoute = LeadsRouteImport.update({
@@ -132,6 +140,17 @@ const InhaltTokenRoute = InhaltTokenRouteImport.update({
   path: '/inhalt/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicNIdRoute = ApiPublicNIdRouteImport.update({
+  id: '/api/public/n/$id',
+  path: '/api/public/n/$id',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicNotificationsCampaignsRoute =
+  ApiPublicNotificationsCampaignsRouteImport.update({
+    id: '/api/public/notifications/campaigns',
+    path: '/api/public/notifications/campaigns',
+    getParentRoute: () => rootRouteImport,
+  } as any)
 const ApiPublicNotificationsRetryRoute =
   ApiPublicNotificationsRetryRouteImport.update({
     id: '/api/public/notifications/retry',
@@ -152,6 +171,7 @@ export interface FileRoutesByFullPath {
   '/bestellungen': typeof BestellungenRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
+  '/kampagnen': typeof KampagnenRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -166,6 +186,8 @@ export interface FileRoutesByFullPath {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/n/$id': typeof ApiPublicNIdRoute
+  '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -176,6 +198,7 @@ export interface FileRoutesByTo {
   '/bestellungen': typeof BestellungenRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
+  '/kampagnen': typeof KampagnenRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -190,6 +213,8 @@ export interface FileRoutesByTo {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/n/$id': typeof ApiPublicNIdRoute
+  '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -201,6 +226,7 @@ export interface FileRoutesById {
   '/bestellungen': typeof BestellungenRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
+  '/kampagnen': typeof KampagnenRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -215,6 +241,8 @@ export interface FileRoutesById {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/n/$id': typeof ApiPublicNIdRoute
+  '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
   '/api/public/telegram/webhook': typeof ApiPublicTelegramWebhookRoute
 }
@@ -227,6 +255,7 @@ export interface FileRouteTypes {
     | '/bestellungen'
     | '/einstellungen'
     | '/fans'
+    | '/kampagnen'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -241,6 +270,8 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/n/$id'
+    | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
     | '/api/public/telegram/webhook'
   fileRoutesByTo: FileRoutesByTo
@@ -251,6 +282,7 @@ export interface FileRouteTypes {
     | '/bestellungen'
     | '/einstellungen'
     | '/fans'
+    | '/kampagnen'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -265,6 +297,8 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/n/$id'
+    | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
     | '/api/public/telegram/webhook'
   id:
@@ -275,6 +309,7 @@ export interface FileRouteTypes {
     | '/bestellungen'
     | '/einstellungen'
     | '/fans'
+    | '/kampagnen'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -289,6 +324,8 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/n/$id'
+    | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
     | '/api/public/telegram/webhook'
   fileRoutesById: FileRoutesById
@@ -300,6 +337,7 @@ export interface RootRouteChildren {
   BestellungenRoute: typeof BestellungenRoute
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
+  KampagnenRoute: typeof KampagnenRoute
   LeadsRoute: typeof LeadsRoute
   MedienRoute: typeof MedienRoute
   ProdukteRoute: typeof ProdukteRoute
@@ -314,6 +352,8 @@ export interface RootRouteChildren {
   ZugriffeRoute: typeof ZugriffeRoute
   ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
+  ApiPublicNIdRoute: typeof ApiPublicNIdRoute
+  ApiPublicNotificationsCampaignsRoute: typeof ApiPublicNotificationsCampaignsRoute
   ApiPublicNotificationsRetryRoute: typeof ApiPublicNotificationsRetryRoute
   ApiPublicTelegramWebhookRoute: typeof ApiPublicTelegramWebhookRoute
 }
@@ -360,6 +400,13 @@ declare module '@tanstack/react-router' {
       path: '/fans'
       fullPath: '/fans'
       preLoaderRoute: typeof FansRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/kampagnen': {
+      id: '/kampagnen'
+      path: '/kampagnen'
+      fullPath: '/kampagnen'
+      preLoaderRoute: typeof KampagnenRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leads': {
@@ -460,6 +507,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InhaltTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/n/$id': {
+      id: '/api/public/n/$id'
+      path: '/api/public/n/$id'
+      fullPath: '/api/public/n/$id'
+      preLoaderRoute: typeof ApiPublicNIdRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/public/notifications/campaigns': {
+      id: '/api/public/notifications/campaigns'
+      path: '/api/public/notifications/campaigns'
+      fullPath: '/api/public/notifications/campaigns'
+      preLoaderRoute: typeof ApiPublicNotificationsCampaignsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/notifications/retry': {
       id: '/api/public/notifications/retry'
       path: '/api/public/notifications/retry'
@@ -484,6 +545,7 @@ const rootRouteChildren: RootRouteChildren = {
   BestellungenRoute: BestellungenRoute,
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
+  KampagnenRoute: KampagnenRoute,
   LeadsRoute: LeadsRoute,
   MedienRoute: MedienRoute,
   ProdukteRoute: ProdukteRoute,
@@ -498,6 +560,8 @@ const rootRouteChildren: RootRouteChildren = {
   ZugriffeRoute: ZugriffeRoute,
   ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
+  ApiPublicNIdRoute: ApiPublicNIdRoute,
+  ApiPublicNotificationsCampaignsRoute: ApiPublicNotificationsCampaignsRoute,
   ApiPublicNotificationsRetryRoute: ApiPublicNotificationsRetryRoute,
   ApiPublicTelegramWebhookRoute: ApiPublicTelegramWebhookRoute,
 }

@@ -1,0 +1,1 @@
+ALTER TYPE public.notify_channel ADD VALUE IF NOT EXISTS 'slack';

@@ -471,16 +471,74 @@ export type Database = {
           },
         ]
       }
+      notification_campaigns: {
+        Row: {
+          audience: string
+          body: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          last_error: string
+          last_run_at: string | null
+          link_url: string
+          name: string
+          scheduled_at: string | null
+          segment: string
+          sent_count: number
+          status: string
+          updated_at: string
+        }
+        Insert: {
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["notify_kind"]
+          last_error?: string
+          last_run_at?: string | null
+          link_url?: string
+          name: string
+          scheduled_at?: string | null
+          segment?: string
+          sent_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Update: {
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["notify_kind"]
+          last_error?: string
+          last_run_at?: string | null
+          link_url?: string
+          name?: string
+          scheduled_at?: string | null
+          segment?: string
+          sent_count?: number
+          status?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
       notification_deliveries: {
         Row: {
           attempt: number
           body: string
+          campaign_id: string | null
           channel: Database["public"]["Enums"]["notify_channel"]
+          click_count: number
+          clicked_at: string | null
           created_at: string
           error: string
           id: string
           kind: Database["public"]["Enums"]["notify_kind"]
           next_retry_at: string | null
+          open_count: number
+          opened_at: string | null
+          provider_message_id: string
+          provider_response: string
           recipient_id: string | null
           recipient_label: string
           status: Database["public"]["Enums"]["notify_status"]
@@ -493,12 +551,19 @@ export type Database = {
         Insert: {
           attempt?: number
           body?: string
+          campaign_id?: string | null
           channel?: Database["public"]["Enums"]["notify_channel"]
+          click_count?: number
+          clicked_at?: string | null
           created_at?: string
           error?: string
           id?: string
           kind: Database["public"]["Enums"]["notify_kind"]
           next_retry_at?: string | null
+          open_count?: number
+          opened_at?: string | null
+          provider_message_id?: string
+          provider_response?: string
           recipient_id?: string | null
           recipient_label?: string
           status?: Database["public"]["Enums"]["notify_status"]
@@ -511,12 +576,19 @@ export type Database = {
         Update: {
           attempt?: number
           body?: string
+          campaign_id?: string | null
           channel?: Database["public"]["Enums"]["notify_channel"]
+          click_count?: number
+          clicked_at?: string | null
           created_at?: string
           error?: string
           id?: string
           kind?: Database["public"]["Enums"]["notify_kind"]
           next_retry_at?: string | null
+          open_count?: number
+          opened_at?: string | null
+          provider_message_id?: string
+          provider_response?: string
           recipient_id?: string | null
           recipient_label?: string
           status?: Database["public"]["Enums"]["notify_status"]
@@ -546,6 +618,64 @@ export type Database = {
             columns: ["token_id"]
             isOneToOne: false
             referencedRelation: "access_tokens"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      notification_events: {
+        Row: {
+          amount_stars: number
+          campaign_id: string | null
+          created_at: string
+          delivery_id: string | null
+          detail: string
+          event: string
+          id: string
+          ip_hash: string
+          purchase_id: string | null
+        }
+        Insert: {
+          amount_stars?: number
+          campaign_id?: string | null
+          created_at?: string
+          delivery_id?: string | null
+          detail?: string
+          event: string
+          id?: string
+          ip_hash?: string
+          purchase_id?: string | null
+        }
+        Update: {
+          amount_stars?: number
+          campaign_id?: string | null
+          created_at?: string
+          delivery_id?: string | null
+          detail?: string
+          event?: string
+          id?: string
+          ip_hash?: string
+          purchase_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "notification_events_campaign_id_fkey"
+            columns: ["campaign_id"]
+            isOneToOne: false
+            referencedRelation: "notification_campaigns"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_events_delivery_id_fkey"
+            columns: ["delivery_id"]
+            isOneToOne: false
+            referencedRelation: "notification_deliveries"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "notification_events_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
             referencedColumns: ["id"]
           },
         ]
@@ -628,6 +758,78 @@ export type Database = {
           is_default?: boolean
           label?: string
           updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_templates: {
+        Row: {
+          active: boolean
+          audience: string
+          body: string
+          created_at: string
+          id: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          link_url: string
+          updated_at: string
+        }
+        Insert: {
+          active?: boolean
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          kind: Database["public"]["Enums"]["notify_kind"]
+          link_url?: string
+          updated_at?: string
+        }
+        Update: {
+          active?: boolean
+          audience?: string
+          body?: string
+          created_at?: string
+          id?: string
+          kind?: Database["public"]["Enums"]["notify_kind"]
+          link_url?: string
+          updated_at?: string
+        }
+        Relationships: []
+      }
+      notification_webhooks: {
+        Row: {
+          active: boolean
+          created_at: string
+          events: string[]
+          id: string
+          label: string
+          last_called_at: string | null
+          last_status: string
+          secret: string
+          updated_at: string
+          url: string
+        }
+        Insert: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          id?: string
+          label?: string
+          last_called_at?: string | null
+          last_status?: string
+          secret?: string
+          updated_at?: string
+          url: string
+        }
+        Update: {
+          active?: boolean
+          created_at?: string
+          events?: string[]
+          id?: string
+          label?: string
+          last_called_at?: string | null
+          last_status?: string
+          secret?: string
+          updated_at?: string
+          url?: string
         }
         Relationships: []
       }
@@ -1025,7 +1227,7 @@ export type Database = {
       audience: "free" | "vip" | "both"
       delivery_kind: "text" | "file" | "link"
       delivery_state: "pending" | "delivered" | "failed" | "revoked"
-      notify_channel: "telegram" | "email"
+      notify_channel: "telegram" | "email" | "slack"
       notify_kind: "expiring" | "expired" | "unpaid" | "blocked" | "reactivated"
       notify_status: "queued" | "sent" | "retrying" | "dead" | "skipped_optout"
       pay_currency: "stars" | "ton"
@@ -1168,7 +1370,7 @@ export const Constants = {
       audience: ["free", "vip", "both"],
       delivery_kind: ["text", "file", "link"],
       delivery_state: ["pending", "delivered", "failed", "revoked"],
-      notify_channel: ["telegram", "email"],
+      notify_channel: ["telegram", "email", "slack"],
       notify_kind: ["expiring", "expired", "unpaid", "blocked", "reactivated"],
       notify_status: ["queued", "sent", "retrying", "dead", "skipped_optout"],
       pay_currency: ["stars", "ton"],

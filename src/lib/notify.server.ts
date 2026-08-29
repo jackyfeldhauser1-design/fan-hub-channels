@@ -1,7 +1,9 @@
 const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
 
+export type SendResult = { messageId: string; response: string };
+
 /** Sendet eine Telegram-Nachricht, wirft bei Fehlern (für Retry/Fallback). */
-export async function sendTelegram(chatId: string | number, text: string) {
+export async function sendTelegram(chatId: string | number, text: string): Promise<SendResult> {
   if (!chatId) throw new Error("Keine Chat-ID hinterlegt");
   const res = await fetch(`${GATEWAY}/sendMessage`, {
     method: "POST",
@@ -14,10 +16,25 @@ export async function sendTelegram(chatId: string | number, text: string) {
   });
   const body = await res.text();
   if (!res.ok) throw new Error(`Telegram [${res.status}]: ${body.slice(0, 300)}`);
-  const parsed = JSON.parse(body) as { ok: boolean; description?: string };
+  const parsed = JSON.parse(body) as { ok: boolean; description?: string; result?: { message_id?: number } };
   if (!parsed.ok) throw new Error(parsed.description ?? "Telegram lehnte den Versand ab");
-  return true;
+  return { messageId: String(parsed.result?.message_id ?? ""), response: body.slice(0, 500) };
 }
+
+/** Sendet eine Slack-Nachricht über eine Incoming-Webhook-URL. */
+export async function sendSlack(webhookUrl: string, text: string): Promise<SendResult> {
+  if (!webhookUrl.startsWith("https://")) throw new Error("Slack-Webhook-URL fehlt oder ist ungültig");
+  const plain = text.replace(/<\/?b>/g, "*").replace(/<[^>]+>/g, "");
+  const res = await fetch(webhookUrl, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ text: plain }),
+  });
+  const body = await res.text();
+  if (!res.ok) throw new Error(`Slack [${res.status}]: ${body.slice(0, 300)}`);
+  return { messageId: "", response: body.slice(0, 300) };
+}
+
 
 export type NotifyKind = "expiring" | "expired" | "unpaid" | "blocked" | "reactivated";
 
@@ -69,11 +86,77 @@ const TEMPLATES: Record<NotifyKind, { admin: string; user: string | null }> = {
   },
 };
 
+export const DEFAULT_TEMPLATES = TEMPLATES;
+
+export function fillVars(raw: string, vars: NotifyVars) {
+  return raw.replace(/\{(fan|inhalt|ticket|ablauf|grund)\}/g, (_m, key: keyof NotifyVars) => vars[key] || "—");
+}
+
 export function renderTemplate(kind: NotifyKind, vars: NotifyVars, audience: "admin" | "user" = "admin") {
   const raw = audience === "user" ? TEMPLATES[kind].user : TEMPLATES[kind].admin;
   if (!raw) return null;
-  return raw.replace(/\{(fan|inhalt|ticket|ablauf|grund)\}/g, (_m, key: keyof NotifyVars) => vars[key] || "—");
+  return fillVars(raw, vars);
 }
+
+/** Lädt die (ggf. im Editor angepasste) Vorlage und füllt die Platzhalter. */
+export async function renderStoredTemplate(
+  db: any,
+  kind: NotifyKind,
+  vars: NotifyVars,
+  audience: "admin" | "user" = "admin",
+): Promise<{ body: string | null; linkUrl: string }> {
+  const { data: tpl } = await db
+    .from("notification_templates")
+    .select("body, link_url, active")
+    .eq("kind", kind)
+    .eq("audience", audience)
+    .maybeSingle();
+  if (tpl?.active && tpl.body) return { body: fillVars(tpl.body, vars), linkUrl: tpl.link_url ?? "" };
+  return { body: renderTemplate(kind, vars, audience), linkUrl: tpl?.link_url ?? "" };
+}
+
+/** Hängt einen messbaren Tracking-Link an die Nachricht. */
+export function withTracking(base: string, deliveryId: string, body: string, linkUrl: string) {
+  const root = String(base ?? "").replace(/\/$/, "");
+  if (!root) return body;
+  const target = linkUrl ? `?to=${encodeURIComponent(linkUrl)}` : "";
+  return `${body}\n\n👉 ${root}/api/public/n/${deliveryId}${target}`;
+}
+
+/** Benachrichtigt externe Systeme über Zustellergebnisse. */
+export async function dispatchWebhooks(db: any, event: string, payload: Record<string, unknown>) {
+  const { data: hooks } = await db.from("notification_webhooks").select("*").eq("active", true);
+  for (const hook of hooks ?? []) {
+    if (Array.isArray(hook.events) && hook.events.length && !hook.events.includes(event)) continue;
+    const bodyText = JSON.stringify({ event, sentAt: new Date().toISOString(), data: payload });
+    let status = "";
+    try {
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (hook.secret) {
+        const key = await crypto.subtle.importKey(
+          "raw",
+          new TextEncoder().encode(hook.secret),
+          { name: "HMAC", hash: "SHA-256" },
+          false,
+          ["sign"],
+        );
+        const sig = await crypto.subtle.sign("HMAC", key, new TextEncoder().encode(bodyText));
+        headers["X-Signature-256"] = Array.from(new Uint8Array(sig))
+          .map((b) => b.toString(16).padStart(2, "0"))
+          .join("");
+      }
+      const res = await fetch(hook.url, { method: "POST", headers, body: bodyText });
+      status = `${res.status}`;
+    } catch (e) {
+      status = `Fehler: ${e instanceof Error ? e.message : String(e)}`.slice(0, 200);
+    }
+    await db
+      .from("notification_webhooks")
+      .update({ last_status: status, last_called_at: new Date().toISOString() })
+      .eq("id", hook.id);
+  }
+}
+
 
 /** Baut die Platzhalterwerte für einen Zugang (oder Beispielwerte). */
 export async function buildVars(
@@ -112,12 +195,14 @@ export async function buildVars(
   return { fan, inhalt, ticket, ablauf, grund: opts.detail ?? "" };
 }
 
+export type NotifyChannel = "telegram" | "email" | "slack";
+
 type Recipient = {
   id: string | null;
   label: string;
-  channel: "telegram" | "email";
+  channel: NotifyChannel;
   target: string;
-  fallback_channel: "telegram" | "email" | null;
+  fallback_channel: NotifyChannel | null;
   fallback_target: string;
 };
 
@@ -135,7 +220,7 @@ export async function deliverOnce(
   db: any,
   delivery: {
     id: string;
-    channel: "telegram" | "email";
+    channel: NotifyChannel;
     target: string;
     body: string;
     attempt: number;
@@ -145,18 +230,20 @@ export async function deliverOnce(
   const attempt = (delivery.attempt ?? 0) + 1;
   let usedFallback = false;
   let error = "";
+  let result: SendResult = { messageId: "", response: "" };
 
-  const tryChannel = async (channel: "telegram" | "email", target: string) => {
+  const tryChannel = async (channel: NotifyChannel, target: string) => {
     if (channel === "email") throw new Error("E-Mail-Versand ist noch nicht eingerichtet (keine Absender-Domain)");
-    await sendTelegram(target, delivery.body);
+    if (channel === "slack") return sendSlack(target, delivery.body);
+    return sendTelegram(target, delivery.body);
   };
 
   try {
-    await tryChannel(delivery.channel, delivery.target);
+    result = await tryChannel(delivery.channel, delivery.target);
   } catch (e) {
     error = e instanceof Error ? e.message : String(e);
     // Ersatzkanal versuchen
-    let fb: { channel: "telegram" | "email"; target: string } | null = null;
+    let fb: { channel: NotifyChannel; target: string } | null = null;
     if (delivery.recipient_id) {
       const { data: rec } = await db
         .from("notification_recipients")
@@ -169,7 +256,7 @@ export async function deliverOnce(
     }
     if (fb) {
       try {
-        await tryChannel(fb.channel, fb.target);
+        result = await tryChannel(fb.channel, fb.target);
         usedFallback = true;
         error = "";
       } catch (e2) {
@@ -181,8 +268,24 @@ export async function deliverOnce(
   if (!error) {
     await db
       .from("notification_deliveries")
-      .update({ status: "sent", attempt, error: "", used_fallback: usedFallback, next_retry_at: null })
+      .update({
+        status: "sent",
+        attempt,
+        error: "",
+        used_fallback: usedFallback,
+        next_retry_at: null,
+        provider_message_id: result.messageId,
+        provider_response: result.response,
+      })
       .eq("id", delivery.id);
+    await db.from("notification_events").insert({ delivery_id: delivery.id, event: "sent", detail: result.response });
+    await dispatchWebhooks(db, "delivery.sent", {
+      deliveryId: delivery.id,
+      channel: delivery.channel,
+      target: delivery.target,
+      usedFallback,
+      providerMessageId: result.messageId,
+    });
     return { ok: true, usedFallback };
   }
 
@@ -196,8 +299,20 @@ export async function deliverOnce(
       next_retry_at: retryAt,
     })
     .eq("id", delivery.id);
+  await db
+    .from("notification_events")
+    .insert({ delivery_id: delivery.id, event: retryAt ? "retry" : "failed", detail: error.slice(0, 300) });
+  await dispatchWebhooks(db, "delivery.failed", {
+    deliveryId: delivery.id,
+    channel: delivery.channel,
+    target: delivery.target,
+    attempt,
+    willRetry: Boolean(retryAt),
+    error: error.slice(0, 300),
+  });
   return { ok: false, error };
 }
+
 
 /** Ermittelt alle aktiven Empfänger für einen Alarm (Admin-Chat + Standard + Zugangs-Zuordnung). */
 async function resolveRecipients(db: any, tokenId: string | null | undefined, adminChatId: string) {
@@ -272,7 +387,9 @@ export async function notifyAccessIssue(
     tgUserId: opts.tgUserId ?? null,
     detail: opts.detail ?? "",
   });
-  const body = renderTemplate(kind, vars, "admin") ?? "";
+  const tpl = await renderStoredTemplate(db, kind, vars, "admin");
+  const body = tpl.body ?? "";
+  const base = String(settings.app_base_url ?? "");
   const recipients = await resolveRecipients(db, opts.tokenId, settings.admin_chat_id ?? "");
 
   // Opt-in/Opt-out je Empfänger
@@ -302,29 +419,154 @@ export async function notifyAccessIssue(
       .select("id")
       .single();
     if (skipped || !row) continue;
+    const trackedBody = withTracking(base, row.id, body, tpl.linkUrl);
+    if (trackedBody !== body) await db.from("notification_deliveries").update({ body: trackedBody }).eq("id", row.id);
     await deliverOnce(db, {
       id: row.id,
       channel: r.channel,
       target: r.target,
-      body,
+      body: trackedBody,
       attempt: 0,
       recipient_id: r.id,
     });
   }
 
   // Fan-Nachricht bleibt wie bisher optional und unabhängig vom Protokoll.
-  const userText = renderTemplate(kind, vars, "user");
+  const userTpl = await renderStoredTemplate(db, kind, vars, "user");
+  const userText = userTpl.body;
   if (opts.notifyUser !== false && userText && opts.tgUserId) {
     const { data: fan } = await db.from("tg_users").select("telegram_id").eq("id", opts.tgUserId).maybeSingle();
     if (fan?.telegram_id) {
+      const { data: row } = await db
+        .from("notification_deliveries")
+        .insert({
+          recipient_id: null,
+          recipient_label: "Fan",
+          kind,
+          channel: "telegram",
+          target: String(fan.telegram_id),
+          token_id: opts.tokenId ?? null,
+          tg_user_id: opts.tgUserId ?? null,
+          body: userText,
+          status: "queued",
+        })
+        .select("id")
+        .single();
+      const tracked = row ? withTracking(base, row.id, userText, userTpl.linkUrl) : userText;
       try {
-        await sendTelegram(fan.telegram_id, userText);
+        if (row) {
+          await db.from("notification_deliveries").update({ body: tracked }).eq("id", row.id);
+          await deliverOnce(db, {
+            id: row.id,
+            channel: "telegram",
+            target: String(fan.telegram_id),
+            body: tracked,
+            attempt: 0,
+            recipient_id: null,
+          });
+        } else {
+          await sendTelegram(fan.telegram_id, userText);
+        }
       } catch {
         /* Fan-Benachrichtigung darf den Zugriffsfluss nie blockieren */
       }
     }
   }
 }
+
+/** Startet eine geplante Kampagne: segmentiert Empfänger und verschickt die Nachricht. */
+export async function runCampaign(db: any, campaignId: string) {
+  const { data: c } = await db.from("notification_campaigns").select("*").eq("id", campaignId).maybeSingle();
+  if (!c) throw new Error("Kampagne nicht gefunden");
+  const { data: settings } = await db.from("bot_settings").select("app_base_url, admin_chat_id").eq("id", true).maybeSingle();
+  const base = String(settings?.app_base_url ?? "");
+  const nowIso = new Date().toISOString();
+
+  let q = db.from("access_tokens").select("id, tg_user_id, expires_at, revoked, views, max_views").limit(500);
+  if (c.segment === "expiring")
+    q = q.eq("revoked", false).gt("expires_at", nowIso).lt("expires_at", new Date(Date.now() + 72 * 3_600_000).toISOString());
+  else if (c.segment === "expired") q = q.lt("expires_at", nowIso);
+  else if (c.segment === "unused") q = q.eq("views", 0).gt("expires_at", nowIso);
+  else if (c.segment === "revoked") q = q.eq("revoked", true);
+
+  const { data: tokens } = await q;
+  let sent = 0;
+  let lastError = "";
+
+  for (const t of tokens ?? []) {
+    if (!t.tg_user_id) continue;
+    const vars = await buildVars(db, { tokenId: t.id, tgUserId: t.tg_user_id, detail: c.name });
+    const body = fillVars(c.body || "", vars);
+    const { data: fan } = await db.from("tg_users").select("telegram_id, blocked").eq("id", t.tg_user_id).maybeSingle();
+    const target =
+      c.audience === "user" ? String(fan?.telegram_id ?? "") : String(settings?.admin_chat_id ?? "");
+    if (!target || (c.audience === "user" && fan?.blocked)) continue;
+    const { data: row } = await db
+      .from("notification_deliveries")
+      .insert({
+        recipient_id: null,
+        recipient_label: c.audience === "user" ? "Fan (Kampagne)" : "Admin-Chat (Kampagne)",
+        kind: c.kind,
+        channel: "telegram",
+        target,
+        token_id: t.id,
+        tg_user_id: t.tg_user_id,
+        campaign_id: c.id,
+        body,
+        status: "queued",
+      })
+      .select("id")
+      .single();
+    if (!row) continue;
+    const tracked = withTracking(base, row.id, body, c.link_url ?? "");
+    await db.from("notification_deliveries").update({ body: tracked }).eq("id", row.id);
+    const res = await deliverOnce(db, {
+      id: row.id,
+      channel: "telegram",
+      target,
+      body: tracked,
+      attempt: 0,
+      recipient_id: null,
+    });
+    if (res.ok) sent += 1;
+    else lastError = res.error ?? "";
+  }
+
+  await db
+    .from("notification_campaigns")
+    .update({
+      status: "sent",
+      sent_count: (c.sent_count ?? 0) + sent,
+      last_run_at: new Date().toISOString(),
+      last_error: lastError.slice(0, 300),
+    })
+    .eq("id", c.id);
+  return { sent, total: (tokens ?? []).length };
+}
+
+/** Verarbeitet alle fälligen geplanten Kampagnen (Cron). */
+export async function processDueCampaigns(db: any) {
+  const { data: due } = await db
+    .from("notification_campaigns")
+    .select("id")
+    .eq("status", "scheduled")
+    .lte("scheduled_at", new Date().toISOString())
+    .limit(10);
+  let total = 0;
+  for (const c of due ?? []) {
+    try {
+      const r = await runCampaign(db, c.id);
+      total += r.sent;
+    } catch (e) {
+      await db
+        .from("notification_campaigns")
+        .update({ status: "failed", last_error: (e instanceof Error ? e.message : String(e)).slice(0, 300) })
+        .eq("id", c.id);
+    }
+  }
+  return { campaigns: (due ?? []).length, sent: total };
+}
+
 
 /** Arbeitet fällige Wiederholungen ab (vom Cron-Endpunkt aufgerufen). */
 export async function processRetryQueue(db: any, limit = 50) {
