@@ -25,7 +25,7 @@ export function TokenRecipients({ tokenId, disabled }: { tokenId: string; disabl
     enabled: open,
   });
 
-  const current = selected ?? data?.selected ?? [];
+  const current: string[] = selected ?? (data?.selected as string[] | undefined) ?? [];
 
   return (
     <Dialog open={open} onOpenChange={setOpen}>
@@ -43,7 +43,7 @@ export function TokenRecipients({ tokenId, disabled }: { tokenId: string; disabl
           Neuaktivierung dieses Zugangs benachrichtigt.
         </p>
         <div className="mt-2 divide-y divide-border/60">
-          {(data?.recipients ?? []).map((r) => (
+          {((data?.recipients ?? []) as any[]).map((r) => (
             <label key={r.id} className="flex items-center justify-between gap-3 py-3 text-sm">
               <span>
                 {r.label}
