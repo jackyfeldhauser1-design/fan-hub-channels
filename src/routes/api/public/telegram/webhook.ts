@@ -99,7 +99,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (setupMatch && msg?.chat) {
           const { redeemSetupCode } = await import("@/lib/setup.server");
           const res = await redeemSetupCode(db, setupMatch[1]!, msg.chat);
-          if (res.ok) return Response.json({ ok: true, setup: res.target });
+          if (res.ok) return Response.json({ ok: true, setup: (res as any).target });
         } else if (groupAddChat && (!memberStatus || ["member", "administrator", "creator"].includes(memberStatus))) {
           const { claimPendingForChat } = await import("@/lib/setup.server");
           const res = await claimPendingForChat(
