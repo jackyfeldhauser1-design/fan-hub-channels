@@ -80,6 +80,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
       { title: "Telegram Fan Funnel Studio" },
+      { name: "google-site-verification", content: "r2h_SE_Lq0OsUtjwYxIdDU4I-SIBDbVRCUpwFVBuuKQ" },
       {
         name: "description",
         content: "Steuere deine Telegram-Bot-Kette: Gratis-Gruppe, VIP-Verkauf mit Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
