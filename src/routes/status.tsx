@@ -3,6 +3,8 @@ import { useQuery, useQueryClient, useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { CheckCircle2, Circle, ShieldCheck, Bot, Users2, ArrowRight, RefreshCw } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
+import { OpsPanel } from "@/components/OpsPanel";
+
 import { Button } from "@/components/ui/button";
 import { getAdminStatus, setupWebhook } from "@/lib/admin.functions";
 import { useAdmin } from "@/lib/useAdmin";
