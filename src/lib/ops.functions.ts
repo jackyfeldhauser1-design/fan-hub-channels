@@ -818,6 +818,10 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
   )
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
+    const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
+    await enforceRateLimit(db, data.sendTest ? "chat_test_post" : "chat_verify", context.userId, 20, 600_000);
+
+
 
     const { data: settings } = await db
       .from("bot_settings")
