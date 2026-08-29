@@ -55,7 +55,7 @@ function SecurityPage() {
         </div>
       </div>
 
-      <div className="panel mt-4 overflow-x-auto">
+      <div className="panel mt-4 hidden overflow-x-auto md:block">
         <table className="w-full min-w-[680px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
@@ -92,6 +92,31 @@ function SecurityPage() {
             ))}
           </tbody>
         </table>
+      </div>
+
+      <div className="mt-4 grid gap-3 md:hidden">
+        {(data?.users ?? []).map((u: any) => (
+          <div key={u.id} className="panel p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">{u.username ? `@${u.username}` : (u.first_name ?? u.telegram_id)}</p>
+                <p className="text-xs text-muted-foreground">Risiko {u.risk_score} · {u.block_reason || "kein Grund"}</p>
+              </div>
+              <Badge variant={u.blocked ? "destructive" : "secondary"}>{u.blocked ? "gesperrt" : "aktiv"}</Badge>
+            </div>
+            <Button
+              className="mt-3 w-full"
+              variant={u.blocked ? "secondary" : "outline"}
+              onClick={async () => {
+                await blockFn({ data: { id: u.id, blocked: !u.blocked, reason: "Manuell geprüft" } });
+                toast.success(u.blocked ? "Fan entsperrt" : "Fan gesperrt");
+                qc.invalidateQueries({ queryKey: ["risk"] });
+              }}
+            >
+              {u.blocked ? "Entsperren" : "Sperren"}
+            </Button>
+          </div>
+        ))}
       </div>
 
       <div className="panel mt-4 p-5">

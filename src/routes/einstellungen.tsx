@@ -60,19 +60,19 @@ function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Link zur Gratis-Gruppe</Label>
-              <Input value={form.free_group_url} onChange={(e) => setForm({ ...form, free_group_url: e.target.value })} placeholder="https://t.me/…" />
+              <Input value={form.free_group_url} onChange={(e) => setForm({ ...form, free_group_url: e.target.value })} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://t.me/…" />
             </div>
             <div className="space-y-1.5">
               <Label>Link zur VIP-Gruppe</Label>
-              <Input value={form.vip_group_url} onChange={(e) => setForm({ ...form, vip_group_url: e.target.value })} placeholder="https://t.me/+…" />
+              <Input value={form.vip_group_url} onChange={(e) => setForm({ ...form, vip_group_url: e.target.value })} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://t.me/+…" />
             </div>
             <div className="space-y-1.5">
               <Label>TON-Wallet</Label>
-              <Input value={form.ton_wallet} onChange={(e) => setForm({ ...form, ton_wallet: e.target.value })} placeholder="UQ…" />
+              <Input value={form.ton_wallet} onChange={(e) => setForm({ ...form, ton_wallet: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="UQ…" />
             </div>
             <div className="space-y-1.5">
               <Label>Affiliate-Provision (%)</Label>
-              <Input type="number" value={form.affiliate_percent} onChange={(e) => setForm({ ...form, affiliate_percent: e.target.value })} />
+              <Input type="number" inputMode="numeric" value={form.affiliate_percent} onChange={(e) => setForm({ ...form, affiliate_percent: e.target.value })} />
             </div>
           </div>
           <div className="space-y-1.5">
@@ -82,35 +82,35 @@ function SettingsPage() {
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
               <Label>Chat-ID Gratis-Gruppe</Label>
-              <Input value={form.free_chat_id} onChange={(e) => setForm({ ...form, free_chat_id: e.target.value })} placeholder="-100…" />
+              <Input value={form.free_chat_id} onChange={(e) => setForm({ ...form, free_chat_id: e.target.value })} inputMode="numeric" placeholder="-100…" />
             </div>
             <div className="space-y-1.5">
               <Label>Chat-ID VIP-Gruppe</Label>
-              <Input value={form.vip_chat_id} onChange={(e) => setForm({ ...form, vip_chat_id: e.target.value })} placeholder="-100…" />
+              <Input value={form.vip_chat_id} onChange={(e) => setForm({ ...form, vip_chat_id: e.target.value })} inputMode="numeric" placeholder="-100…" />
             </div>
             <div className="space-y-1.5">
               <Label>Öffentliche App-Adresse (für Einmal-Links)</Label>
-              <Input value={form.app_base_url} onChange={(e) => setForm({ ...form, app_base_url: e.target.value })} placeholder="https://…" />
+              <Input value={form.app_base_url} onChange={(e) => setForm({ ...form, app_base_url: e.target.value })} inputMode="url" autoCapitalize="none" autoCorrect="off" placeholder="https://…" />
             </div>
             <div className="space-y-1.5">
               <Label>Early-Access-Preis (Stars)</Label>
-              <Input type="number" value={form.early_access_price_stars} onChange={(e) => setForm({ ...form, early_access_price_stars: e.target.value })} />
+              <Input type="number" inputMode="numeric" value={form.early_access_price_stars} onChange={(e) => setForm({ ...form, early_access_price_stars: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label>Preis Werbepost (Stars)</Label>
-              <Input type="number" value={form.sponsor_price_stars} onChange={(e) => setForm({ ...form, sponsor_price_stars: e.target.value })} />
+              <Input type="number" inputMode="numeric" value={form.sponsor_price_stars} onChange={(e) => setForm({ ...form, sponsor_price_stars: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label>Käufe pro Stunde & Fan (Limit)</Label>
-              <Input type="number" value={form.max_purchases_per_hour} onChange={(e) => setForm({ ...form, max_purchases_per_hour: e.target.value })} />
+              <Input type="number" inputMode="numeric" value={form.max_purchases_per_hour} onChange={(e) => setForm({ ...form, max_purchases_per_hour: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label>Gültigkeit Einmal-Link (Stunden)</Label>
-              <Input type="number" value={form.link_ttl_hours} onChange={(e) => setForm({ ...form, link_ttl_hours: e.target.value })} />
+              <Input type="number" inputMode="numeric" value={form.link_ttl_hours} onChange={(e) => setForm({ ...form, link_ttl_hours: e.target.value })} />
             </div>
             <div className="space-y-1.5">
               <Label>Max. Aufrufe pro Zugangslink</Label>
-              <Input type="number" value={form.link_max_views} onChange={(e) => setForm({ ...form, link_max_views: e.target.value })} />
+              <Input type="number" inputMode="numeric" value={form.link_max_views} onChange={(e) => setForm({ ...form, link_max_views: e.target.value })} />
             </div>
           </div>
           <div className="space-y-1.5">

@@ -54,7 +54,7 @@ function LeadsPage() {
         </div>
       </div>
 
-      <div className="panel overflow-x-auto">
+      <div className="panel hidden overflow-x-auto md:block">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
             <tr className="border-b border-border">
@@ -102,6 +102,43 @@ function LeadsPage() {
           </tbody>
         </table>
         {data?.length === 0 ? <p className="p-6 text-sm text-muted-foreground">Noch keine Anmeldungen.</p> : null}
+      </div>
+
+      <div className="grid gap-3 md:hidden">
+        {(data ?? []).map((l: any) => (
+          <div key={l.id} className="panel p-4">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <p className="font-medium">{l.name}</p>
+                <p className="text-xs text-muted-foreground">{l.email}</p>
+                <p className="text-xs text-muted-foreground">{l.telegram_handle || "—"}</p>
+              </div>
+              {l.early_access ? (
+                <Badge variant={l.early_access_status === "paid" ? "default" : "secondary"}>
+                  {l.early_access_status === "paid" ? `bezahlt ⭐ ${l.amount_stars}` : "offen"}
+                </Badge>
+              ) : null}
+            </div>
+            {l.interest ? <p className="mt-2 text-sm text-muted-foreground">{l.interest}</p> : null}
+            <div className="mt-3 flex items-center justify-between">
+              <span className="text-xs text-muted-foreground">
+                {new Date(l.created_at).toLocaleDateString("de-DE")}
+              </span>
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={async () => {
+                  await delFn({ data: { id: l.id } });
+                  toast.success("Lead gelöscht");
+                  qc.invalidateQueries({ queryKey: ["leads"] });
+                }}
+              >
+                Löschen
+              </Button>
+            </div>
+          </div>
+        ))}
+        {data?.length === 0 ? <p className="panel p-6 text-sm text-muted-foreground">Noch keine Anmeldungen.</p> : null}
       </div>
     </DashLayout>
   );
