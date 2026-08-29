@@ -680,3 +680,67 @@ export const saveChatIdsWithTest = createServerFn({ method: "POST" })
 
     return { saved: true, checks: filled, posts };
   });
+
+/* --------------------- Telegram-Infos automatisch holen -------------------- */
+
+/**
+ * Vereinfachte Ermittlung der Telegram-Daten: liefert Bot-Name/Link und alle
+ * Chats, aus denen der Bot zuletzt Nachrichten gesehen hat – inklusive Chat-ID,
+ * damit nichts manuell gesucht werden muss.
+ */
+export const discoverTelegramChats = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { db } = await requireRole(context, "admin");
+
+    let bot: { username: string; name: string; link: string } | null = null;
+    let error = "";
+    try {
+      const me = await tg("getMe", {});
+      const username = me.result?.username ?? "";
+      bot = { username, name: me.result?.first_name ?? "", link: username ? `https://t.me/${username}` : "" };
+    } catch (e) {
+      error = e instanceof Error ? e.message.slice(0, 200) : "Bot nicht erreichbar";
+    }
+
+    // Chats aus den letzten Updates sammeln (funktioniert nur ohne aktiven
+    // Webhook-Konflikt; bei gesetztem Webhook liefert Telegram eine leere Liste).
+    const seen = new Map<string, { chatId: string; title: string; type: string }>();
+    let updatesNote = "";
+    try {
+      const upd = await tg("getUpdates", { limit: 100, allowed_updates: [] });
+      for (const u of (upd.result ?? []) as any[]) {
+        const c = u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat ?? u.chat_member?.chat;
+        if (!c?.id) continue;
+        seen.set(String(c.id), {
+          chatId: String(c.id),
+          title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
+          type: c.type ?? "",
+        });
+      }
+      if (seen.size === 0) {
+        updatesNote =
+          "Keine Chats gefunden. Schicke im Ziel-Chat eine Nachricht (bzw. füge den Bot als Admin hinzu) und klicke erneut auf Erkennen.";
+      }
+    } catch (e) {
+      updatesNote = e instanceof Error ? e.message.slice(0, 200) : "Updates nicht abrufbar";
+    }
+
+    const { data: settings } = await db
+      .from("bot_settings")
+      .select("free_chat_id, vip_chat_id, admin_chat_id")
+      .eq("id", true)
+      .maybeSingle();
+
+    return {
+      bot,
+      error,
+      updatesNote,
+      chats: [...seen.values()],
+      current: {
+        free: settings?.free_chat_id ?? "",
+        vip: settings?.vip_chat_id ?? "",
+        admin: settings?.admin_chat_id ?? "",
+      },
+    };
+  });

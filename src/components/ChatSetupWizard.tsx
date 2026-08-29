@@ -2,14 +2,21 @@ import { useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Wand2, Send, ArrowRight } from "lucide-react";
+import { CheckCircle2, XCircle, Wand2, Send, ArrowRight, Radar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { validateChatIdsInput, saveChatIdsWithTest } from "@/lib/ops.functions";
+import { validateChatIdsInput, saveChatIdsWithTest, discoverTelegramChats } from "@/lib/ops.functions";
 
 type Check = { key: string; label: string; chatId: string; ok: boolean; title: string; type: string; canPost: boolean; error: string };
+type Found = {
+  bot: { username: string; name: string; link: string } | null;
+  error: string;
+  updatesNote: string;
+  chats: { chatId: string; title: string; type: string }[];
+  current: { free: string; vip: string; admin: string };
+};
 type Post = { key: string; label: string; chatId: string; title: string; ok: boolean; error: string };
 
 const FIELDS = [
@@ -51,6 +58,18 @@ export function ChatSetupWizard({
   const [message, setMessage] = useState("");
   const [checks, setChecks] = useState<Check[]>([]);
   const [posts, setPosts] = useState<Post[]>([]);
+  const [found, setFound] = useState<Found | null>(null);
+
+  const discoverFn = useServerFn(discoverTelegramChats);
+  const discover = useMutation({
+    mutationFn: () => discoverFn({ data: undefined as never }),
+    onSuccess: (res: any) => {
+      setFound(res as Found);
+      if (res.chats?.length) toast.success(`${res.chats.length} Chat(s) erkannt`);
+      else toast.message(res.error || res.updatesNote || "Keine Chats gefunden");
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Erkennung fehlgeschlagen"),
+  });
 
   const validate = useMutation({
     mutationFn: () => validateFn({ data: ids }),
@@ -91,6 +110,44 @@ export function ChatSetupWizard({
 
       {step === 1 ? (
         <div className="space-y-4">
+          <div className="rounded-lg border border-border bg-muted/40 p-4">
+            <div className="flex flex-wrap items-center gap-2">
+              <Button variant="secondary" size="sm" disabled={disabled || discover.isPending} onClick={() => discover.mutate()} className="gap-2">
+                <Radar className="size-4" />
+                {discover.isPending ? "Suche…" : "Telegram-Infos automatisch erkennen"}
+              </Button>
+              {found?.bot?.username ? (
+                <a className="text-xs underline" href={found.bot.link} target="_blank" rel="noreferrer">
+                  Bot: @{found.bot.username}
+                </a>
+              ) : null}
+            </div>
+            {found?.chats?.length ? (
+              <ul className="mt-3 space-y-2">
+                {found.chats.map((c: Found["chats"][number]) => (
+                  <li key={c.chatId} className="flex flex-wrap items-center gap-2 text-sm">
+                    <span className="min-w-0 flex-1 truncate">
+                      {c.title || "ohne Titel"} <span className="text-xs text-muted-foreground">({c.type} · {c.chatId})</span>
+                    </span>
+                    {FIELDS.map((f) => (
+                      <Button
+                        key={f.key}
+                        size="sm"
+                        variant="outline"
+                        onClick={() => setIds({ ...ids, [f.key]: c.chatId })}
+                      >
+                        → {f.key === "free" ? "Gratis" : f.key === "vip" ? "VIP" : "Admin"}
+                      </Button>
+                    ))}
+                  </li>
+                ))}
+              </ul>
+            ) : null}
+            <p className="mt-2 text-xs text-muted-foreground">
+              {found?.error || found?.updatesNote ||
+                "Bot in die Gruppe/Kanal aufnehmen (als Admin), dort eine Nachricht senden und hier erkennen lassen – die Chat-ID wird automatisch eingesetzt."}
+            </p>
+          </div>
           <div className="grid gap-4 sm:grid-cols-3">
             {FIELDS.map((f) => (
               <div key={f.key} className="space-y-1.5">
@@ -106,6 +163,7 @@ export function ChatSetupWizard({
               </div>
             ))}
           </div>
+
           <div className="space-y-1.5">
             <Label>Text des Testposts (optional)</Label>
             <Textarea
