@@ -145,6 +145,26 @@ export const openSecureContent = createServerFn({ method: "POST" })
     if (new Date(row.expires_at).getTime() < Date.now()) return { status: "expired" as const };
     if (row.views >= row.max_views) return { status: "used_up" as const };
 
+    // Zugang nur für bezahlte Bestellungen und nicht gesperrte Fans.
+    if (row.purchase_id) {
+      const { data: purchase } = await db
+        .from("purchases")
+        .select("id, status, delivery_status")
+        .eq("id", row.purchase_id)
+        .maybeSingle();
+      if (!purchase || purchase.status !== "paid" || purchase.delivery_status === "revoked") {
+        await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_denied", "Zahlung nicht bestätigt");
+        return { status: "unpaid" as const };
+      }
+    }
+    if (row.tg_user_id) {
+      const { data: fan } = await db.from("tg_users").select("blocked").eq("id", row.tg_user_id).maybeSingle();
+      if (fan?.blocked) {
+        await logOrderEvent(db, row.purchase_id, row.tg_user_id, "access_denied", "Konto gesperrt");
+        return { status: "revoked" as const };
+      }
+    }
+
     const ipHash = hashIp(clientIp());
     if (row.last_ip_hash && ipHash && row.last_ip_hash !== ipHash && row.views > 0) {
       await db
