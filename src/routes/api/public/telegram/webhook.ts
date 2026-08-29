@@ -221,30 +221,41 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             }
           }
 
-          if (d === "shop") await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
-          else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
-          else if (d === "vip") {
-            const { data: vipProducts } = await db
-              .from("products")
-              .select("*")
-              .eq("active", true)
-              .eq("delivery_type", "link")
-              .order("sort_order");
-            if (vipProducts?.length) {
+          if (d === "join_free") {
+            const { personalInvite } = await import("@/lib/vip.server");
+            const label = cq.from.username ? `@${cq.from.username}` : (cq.from.first_name ?? "Fan");
+            const invite = await personalInvite(settings, "community", `Fan ${label}`);
+            if (invite.url) {
+              await db.from("tg_users").update({ joined_free: true }).eq("id", user.id);
+              await logOrderEvent(db, null, user.id, "free_invite", invite.personal ? "persönlich" : "fallback");
               await tg("sendMessage", {
                 chat_id: chatId,
-                text: "⭐ <b>VIP-Zugang</b>\nBezahle mit Telegram Stars oder TON und du bekommst deinen Zugangslink sofort im Chat.",
+                text: "🎁 <b>Willkommen!</b>\nHier ist dein Zugang zur kostenlosen Fan-Gruppe.",
                 parse_mode: "HTML",
-                reply_markup: {
-                  inline_keyboard: vipProducts.map((p: any) => [
-                    { text: `${p.title} — ⭐ ${p.price_stars}`, callback_data: `buy_${p.id}` },
-                  ]),
-                },
+                reply_markup: { inline_keyboard: [[{ text: "Gratis-Gruppe öffnen", url: invite.url }]] },
               });
             } else {
-              await tg("sendMessage", { chat_id: chatId, text: "VIP-Zugang wird gerade vorbereitet." });
+              await tg("sendMessage", { chat_id: chatId, text: "Die Gratis-Gruppe wird gerade eingerichtet." });
+            }
+          } else if (d === "shop") await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
+          else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
+          else if (d === "vip") {
+            const { hasVipAccess, grantVipAccess } = await import("@/lib/vip.server");
+            if (await hasVipAccess(db, user.id)) {
+              await grantVipAccess(db, tg as any, chatId, user, settings, null);
+            } else {
+              const price = Math.max(1, Number(settings.vip_price_stars ?? 450));
+              await tg("sendInvoice", {
+                chat_id: chatId,
+                title: String(settings.vip_product_title ?? "VIP-Zugang").slice(0, 32),
+                description: "Dauerhafter Zugang zum VIP-Shop-Channel mit allen Drops und Angeboten.",
+                payload: "vip:access",
+                currency: "XTR",
+                prices: [{ label: "VIP-Zugang", amount: price }],
+              });
             }
           } else if (d === "tips") {
+
             await tg("sendMessage", {
               chat_id: chatId,
               text: settings.tip_message ?? "Danke für deine Unterstützung!",
