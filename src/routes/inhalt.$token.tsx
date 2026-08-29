@@ -1,8 +1,9 @@
 import { createFileRoute } from "@tanstack/react-router";
+import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Lock, ShieldCheck } from "lucide-react";
-import { openSecureContent } from "@/lib/public.functions";
+import { Lock, ShieldCheck, Download } from "lucide-react";
+import { openSecureContent, requestMediaDownload } from "@/lib/public.functions";
 
 export const Route = createFileRoute("/inhalt/$token")({
   
