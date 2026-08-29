@@ -148,8 +148,6 @@ const settingsSchema = z.object({
   tip_message: z.string().max(500),
   upsell_message: z.string().max(500),
   control_chat_id: z.string().max(60),
-  announce_chat_id: z.string().max(60).default(""),
-  preview_chat_id: z.string().max(60).default(""),
   notify_blocked: z.boolean(),
   notify_unpaid: z.boolean(),
   notify_expired: z.boolean(),

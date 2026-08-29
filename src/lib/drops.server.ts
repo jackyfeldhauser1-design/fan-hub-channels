@@ -72,7 +72,7 @@ export async function readDrops(db: any) {
       .order("sort_order"),
     db
       .from("bot_settings")
-      .select("announce_chat_id, preview_chat_id, app_base_url")
+      .select("shop_chat_id, control_chat_id, app_base_url")
       .eq("id", true)
       .maybeSingle(),
   ]);
@@ -83,8 +83,8 @@ export async function readDrops(db: any) {
       ...((folders ?? []) as any[]).map((r) => decorate(r, "folder")),
     ],
     channels: {
-      announce: settings?.announce_chat_id ?? "",
-      preview: settings?.preview_chat_id ?? "",
+      shop: settings?.shop_chat_id ?? "",
+      control: settings?.control_chat_id ?? "",
       baseUrl: settings?.app_base_url ?? "",
     },
   };
@@ -126,7 +126,7 @@ async function botLink(db: any) {
 }
 
 /** Baut den Nachrichtentext für einen Drop-Post. */
-export function dropMessage(item: DropItem, variant: "announce" | "preview", link: string) {
+export function dropMessage(item: DropItem, variant: "drop" | "preview", link: string) {
   const price = item.saleActive
     ? `⭐ ${item.effectivePrice} statt ⭐ ${item.priceStars}`
     : `⭐ ${item.priceStars}`;
