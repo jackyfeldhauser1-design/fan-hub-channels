@@ -5,6 +5,8 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { BellRing, Download, Plus, RefreshCw, Send, Trash2 } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
+import { BulkTestPanel } from "@/components/BulkTestPanel";
+
 import { useAdmin } from "@/lib/useAdmin";
 import {
   listNotificationCenter,
@@ -429,6 +431,9 @@ function NotificationsPage() {
           <p className="px-4 py-8 text-center text-sm text-muted-foreground">Noch keine Zustellungen protokolliert.</p>
         ) : null}
       </div>
+
+      <BulkTestPanel kinds={kinds as any} recipients={recipients as any} canSend={isAdmin} />
     </DashLayout>
+
   );
 }

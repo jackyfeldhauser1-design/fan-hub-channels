@@ -4,6 +4,8 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { DashLayout } from "@/components/DashLayout";
+import { AttributionPanel } from "@/components/AttributionPanel";
+
 import { useAdmin } from "@/lib/useAdmin";
 import {
   getNotificationAnalytics,
@@ -65,7 +67,7 @@ function Kpi({ label, value, hint }: { label: string; value: string | number; hi
 
 function CampaignsPage() {
   const qc = useQueryClient();
-  const { isAdmin, canOperate } = useAdmin();
+  const { isAdmin, canOperate, canRead } = useAdmin();
   const analyticsFn = useServerFn(getNotificationAnalytics);
   const configFn = useServerFn(listCampaignConfig);
   const saveTemplateFn = useServerFn(saveTemplate);
@@ -492,6 +494,9 @@ function CampaignsPage() {
           </div>
         </TabsContent>
       </Tabs>
+
+      <AttributionPanel enabled={canRead} />
     </DashLayout>
+
   );
 }
