@@ -1025,7 +1025,7 @@ export type Database = {
       audience: "free" | "vip" | "both"
       delivery_kind: "text" | "file" | "link"
       delivery_state: "pending" | "delivered" | "failed" | "revoked"
-      notify_channel: "telegram" | "email"
+      notify_channel: "telegram" | "email" | "slack"
       notify_kind: "expiring" | "expired" | "unpaid" | "blocked" | "reactivated"
       notify_status: "queued" | "sent" | "retrying" | "dead" | "skipped_optout"
       pay_currency: "stars" | "ton"
@@ -1168,7 +1168,7 @@ export const Constants = {
       audience: ["free", "vip", "both"],
       delivery_kind: ["text", "file", "link"],
       delivery_state: ["pending", "delivered", "failed", "revoked"],
-      notify_channel: ["telegram", "email"],
+      notify_channel: ["telegram", "email", "slack"],
       notify_kind: ["expiring", "expired", "unpaid", "blocked", "reactivated"],
       notify_status: ["queued", "sent", "retrying", "dead", "skipped_optout"],
       pay_currency: ["stars", "ton"],
