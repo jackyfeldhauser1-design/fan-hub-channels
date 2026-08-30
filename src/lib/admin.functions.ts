@@ -86,11 +86,28 @@ export const getOverview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
     const db = await requireAdmin(context);
-    const [{ data: paid }, { count: fans }, { data: pendingTon }, { data: settings }] = await Promise.all([
+    const dayStart = new Date();
+    dayStart.setHours(0, 0, 0, 0);
+    const [
+      { data: paid },
+      { count: fans },
+      { data: pendingTon },
+      { data: settings },
+      { count: products },
+      { count: folders },
+      { count: files },
+      { count: failedDeliveries },
+      { data: cred },
+    ] = await Promise.all([
       db.from("purchases").select("amount_stars, commission_stars, created_at, title_snapshot, currency, amount_ton").eq("status", "paid"),
       db.from("tg_users").select("id", { count: "exact", head: true }),
       db.from("purchases").select("id").eq("status", "pending").eq("currency", "ton"),
       db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
+      db.from("products").select("id", { count: "exact", head: true }).eq("active", true),
+      db.from("media_folders").select("id", { count: "exact", head: true }).eq("active", true),
+      db.from("media_files").select("id", { count: "exact", head: true }),
+      db.from("notification_deliveries").select("id", { count: "exact", head: true }).in("status", ["dead", "retrying"]),
+      db.from("bot_credentials").select("bot_username").eq("id", true).maybeSingle(),
     ]);
     const rows = paid ?? [];
     const stars = rows.reduce((s: number, r: any) => s + r.amount_stars, 0);
@@ -98,6 +115,8 @@ export const getOverview = createServerFn({ method: "POST" })
     const commissions = rows.reduce((s: number, r: any) => s + r.commission_stars, 0);
     const since = Date.now() - 7 * 864e5;
     const week = rows.filter((r: any) => new Date(r.created_at).getTime() > since);
+    const today = rows.filter((r: any) => new Date(r.created_at).getTime() >= dayStart.getTime());
+    const chats = [settings?.community_chat_id, settings?.shop_chat_id, settings?.control_chat_id].filter(Boolean).length;
     return {
       stars,
       ton,
@@ -107,10 +126,24 @@ export const getOverview = createServerFn({ method: "POST" })
       pendingTon: (pendingTon ?? []).length,
       weekStars: week.reduce((s: number, r: any) => s + r.amount_stars, 0),
       weekSales: week.length,
+      todayStars: today.reduce((s: number, r: any) => s + r.amount_stars, 0),
+      todaySales: today.length,
       configured: Boolean(settings?.free_group_url || settings?.vip_group_url),
       recent: rows.slice(-6).reverse(),
+      setup: {
+        botConnected: Boolean(cred?.bot_username),
+        botUsername: cred?.bot_username ?? "",
+        chatsSet: chats,
+        products: products ?? 0,
+        folders: folders ?? 0,
+        files: files ?? 0,
+        vipPrice: Number(settings?.vip_price_stars ?? 0),
+        baseUrl: settings?.app_base_url ?? "",
+        failedDeliveries: failedDeliveries ?? 0,
+      },
     };
   });
+
 
 export const getSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
