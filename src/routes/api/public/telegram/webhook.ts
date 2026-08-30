@@ -454,7 +454,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             .maybeSingle();
           if (already) return Response.json({ ok: true, duplicate: true });
 
-          const [productPart, codePart] = payload.split("|");
+          const [productPart = "", codePart = ""] = payload.split("|");
           const codeId = codePart?.startsWith("c:") ? codePart.slice(2) : "";
           let product: any = null;
           if (productPart.startsWith("p:")) {
