@@ -443,11 +443,24 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (sp) {
           const user = await ensureUser(msg.from);
           const payload: string = sp.invoice_payload ?? "";
-          const percent = settings.affiliate_percent ?? 20;
+          const billing = await import("@/lib/billing.server");
+          const chargeId: string = sp.telegram_payment_charge_id;
+
+          // Doppelzustellungen von Telegram dürfen keinen zweiten Kauf anlegen
+          const { data: already } = await db
+            .from("purchases")
+            .select("id")
+            .eq("telegram_charge_id", chargeId)
+            .maybeSingle();
+          if (already) return Response.json({ ok: true, duplicate: true });
+
+          const [productPart, codePart] = payload.split("|");
+          const codeId = codePart?.startsWith("c:") ? codePart.slice(2) : "";
           let product: any = null;
-          if (payload.startsWith("p:")) {
-            product = (await db.from("products").select("*").eq("id", payload.slice(2)).maybeSingle()).data;
+          if (productPart.startsWith("p:")) {
+            product = (await db.from("products").select("*").eq("id", productPart.slice(2)).maybeSingle()).data;
           }
+          const percent = await billing.commissionPercent(db, user.referred_by, settings);
           const commission = user.referred_by ? Math.floor((sp.total_amount * percent) / 100) : 0;
 
           // paid early-access slot from the waitlist form
@@ -479,7 +492,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               currency: "stars",
               amount_stars: sp.total_amount,
               status: "paid",
-              telegram_charge_id: sp.telegram_payment_charge_id,
+              telegram_charge_id: chargeId,
               referrer_id: user.referred_by,
               commission_stars: commission,
               delivery_status: product || payload.startsWith("vip:") ? "pending" : "delivered",
@@ -490,12 +503,48 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
           await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
           await flagRepeatPayment(db, user, product?.id ?? null);
+          await billing.closeInvoiceIntents(db, user.id, payload);
+          if (codeId && product) {
+            await billing.redeemDiscount(
+              db,
+              codeId,
+              user.id,
+              purchase?.id ?? null,
+              Math.max(0, Number(product.price_stars) - sp.total_amount),
+            );
+          }
 
           if (payload.startsWith("vip:")) {
+            const periodDays = Math.max(0, Number(settings.vip_period_days ?? 0));
+            if (periodDays > 0) {
+              const sub = await billing.startOrRenewSubscription(db, user.id, periodDays, purchase?.id ?? null);
+              await tg("sendMessage", {
+                chat_id: chatId,
+                text: `⭐ VIP aktiv bis <b>${new Date(sub.expires_at).toLocaleDateString("de-DE")}</b>.`,
+                parse_mode: "HTML",
+              });
+            }
             const { grantVipAccess } = await import("@/lib/vip.server");
             await grantVipAccess(db, tg as any, chatId, user, settings, purchase?.id ?? null);
-          } else if (product) await deliver(chatId, product, purchase);
-          else if (payload.startsWith("lead:"))
+          } else if (product) {
+            await deliver(chatId, product, purchase);
+            if (product.upsell_product_id) {
+              const { data: up } = await db
+                .from("products")
+                .select("id, title, price_stars, active")
+                .eq("id", product.upsell_product_id)
+                .maybeSingle();
+              if (up?.active)
+                await tg("sendMessage", {
+                  chat_id: chatId,
+                  text: `${settings.upsell_message ?? "Passend dazu:"}\n\n<b>${up.title}</b> — ⭐ ${up.price_stars}`,
+                  parse_mode: "HTML",
+                  reply_markup: {
+                    inline_keyboard: [[{ text: `⭐ ${up.price_stars} kaufen`, callback_data: `buy_${up.id}` }]],
+                  },
+                });
+            }
+          } else if (payload.startsWith("lead:"))
             await tg("sendMessage", {
               chat_id: chatId,
               text: "🚀 Dein Early-Access-Slot ist gesichert! Du wirst als Erste:r benachrichtigt, sobald der Drop live geht.",
@@ -506,6 +555,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               text: "✅ Deine Werbebuchung ist bezahlt und wird nach Freigabe veröffentlicht.",
             });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
+
 
 
           if (user.referred_by && commission > 0) {
