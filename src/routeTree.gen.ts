@@ -33,6 +33,7 @@ import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
+import { Route as ApiPublicJobsLifecycleRouteImport } from './routes/api/public/jobs/lifecycle'
 import { Route as ApiPublicNIdRouteImport } from './routes/api/public/n.$id'
 import { Route as ApiPublicNotificationsCampaignsRouteImport } from './routes/api/public/notifications/campaigns'
 import { Route as ApiPublicNotificationsRetryRouteImport } from './routes/api/public/notifications/retry'
@@ -158,6 +159,11 @@ const InhaltTokenRoute = InhaltTokenRouteImport.update({
   path: '/inhalt/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicJobsLifecycleRoute = ApiPublicJobsLifecycleRouteImport.update({
+  id: '/api/public/jobs/lifecycle',
+  path: '/api/public/jobs/lifecycle',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicNIdRoute = ApiPublicNIdRouteImport.update({
   id: '/api/public/n/$id',
   path: '/api/public/n/$id',
@@ -207,6 +213,7 @@ export interface FileRoutesByFullPath {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
@@ -237,6 +244,7 @@ export interface FileRoutesByTo {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
@@ -268,6 +276,7 @@ export interface FileRoutesById {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
@@ -300,6 +309,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
@@ -330,6 +340,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
@@ -360,6 +371,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
@@ -391,6 +403,7 @@ export interface RootRouteChildren {
   ZugriffeRoute: typeof ZugriffeRoute
   ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
+  ApiPublicJobsLifecycleRoute: typeof ApiPublicJobsLifecycleRoute
   ApiPublicNIdRoute: typeof ApiPublicNIdRoute
   ApiPublicNotificationsCampaignsRoute: typeof ApiPublicNotificationsCampaignsRoute
   ApiPublicNotificationsRetryRoute: typeof ApiPublicNotificationsRetryRoute
@@ -567,6 +580,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InhaltTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/lifecycle': {
+      id: '/api/public/jobs/lifecycle'
+      path: '/api/public/jobs/lifecycle'
+      fullPath: '/api/public/jobs/lifecycle'
+      preLoaderRoute: typeof ApiPublicJobsLifecycleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/n/$id': {
       id: '/api/public/n/$id'
       path: '/api/public/n/$id'
@@ -623,6 +643,7 @@ const rootRouteChildren: RootRouteChildren = {
   ZugriffeRoute: ZugriffeRoute,
   ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
+  ApiPublicJobsLifecycleRoute: ApiPublicJobsLifecycleRoute,
   ApiPublicNIdRoute: ApiPublicNIdRoute,
   ApiPublicNotificationsCampaignsRoute: ApiPublicNotificationsCampaignsRoute,
   ApiPublicNotificationsRetryRoute: ApiPublicNotificationsRetryRoute,
