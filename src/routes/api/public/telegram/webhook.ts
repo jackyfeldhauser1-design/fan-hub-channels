@@ -153,7 +153,14 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               .select("*")
               .single()
           ).data;
+          // Willkommens-Sequenz für neue Fans starten
+          if (inserted && settings.sequence_enabled !== false) {
+            await db
+              .from("fan_sequences")
+              .insert({ tg_user_id: inserted.id, kind: "welcome", step: 0, next_at: new Date().toISOString() });
+          }
           return inserted;
+
         }
 
         async function sendMenu(chatId: number, text: string) {
