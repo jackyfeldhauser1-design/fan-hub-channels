@@ -205,9 +205,11 @@ function StatusPage() {
         </div>
       </div>
 
+      <GoLivePanel enabled={isAdmin} />
       <ChatHealthPanel enabled={isAdmin} />
       <OpsPanel enabled={isAdmin} />
       <AuditLogPanel enabled={isAdmin} />
+
     </DashLayout>
 
   );
