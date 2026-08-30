@@ -343,25 +343,38 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             });
           } else if (d.startsWith("tip_")) {
             const amount = parseInt(d.slice(4), 10);
-            await tg("sendInvoice", {
-              chat_id: chatId,
+            await invoice(chatId, user.id, {
               title: "Trinkgeld",
               description: "Danke für deine Unterstützung 💛",
               payload: `tip:${amount}`,
-              currency: "XTR",
-              prices: [{ label: "Trinkgeld", amount }],
+              label: "Trinkgeld",
+              amount,
             });
-          } else if (d.startsWith("buy_")) {
-            const id = d.slice(4);
+          } else if (d.startsWith("buy_") || d.startsWith("buyc_")) {
+            const withCode = d.startsWith("buyc_");
+            const rest = d.slice(withCode ? 5 : 4);
+            const [id, codeId] = withCode ? rest.split("|") : [rest, ""];
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
             if (p) {
-              await tg("sendInvoice", {
-                chat_id: chatId,
-                title: p.title.slice(0, 32),
-                description: (p.description || p.title).slice(0, 255),
-                payload: `p:${p.id}`,
-                currency: "XTR",
-                prices: [{ label: p.title.slice(0, 32), amount: p.price_stars }],
+              let amount = Number(p.price_stars);
+              let payload = `p:${p.id}`;
+              if (codeId) {
+                const { data: dc } = await db.from("discount_codes").select("code").eq("id", codeId).maybeSingle();
+                if (dc) {
+                  const { checkDiscount } = await import("@/lib/billing.server");
+                  const res = await checkDiscount(db, dc.code, user.id, amount);
+                  if (res.ok) {
+                    amount = res.price;
+                    payload = `p:${p.id}|c:${codeId}`;
+                  }
+                }
+              }
+              await invoice(chatId, user.id, {
+                title: p.title,
+                description: p.description || p.title,
+                payload,
+                label: p.title,
+                amount,
               });
               if (Number(p.price_ton) > 0 && settings.ton_wallet) {
                 await tg("sendMessage", {
@@ -371,6 +384,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 });
               }
             }
+
           } else if (d.startsWith("ton_")) {
             const id = d.slice(4);
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
