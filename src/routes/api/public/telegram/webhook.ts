@@ -670,6 +670,40 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         } else if (text.startsWith("/shop")) {
           await ensureUser(msg.from);
           await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
+        } else if (text.startsWith("/code")) {
+          const user = await ensureUser(msg.from);
+          const entered = text.slice(5).trim();
+          const { data: products } = await db
+            .from("products")
+            .select("id, title, price_stars")
+            .eq("active", true)
+            .in("kind", ["single", "bundle"])
+            .order("sort_order")
+            .limit(8);
+          const { checkDiscount } = await import("@/lib/billing.server");
+          const first = products?.[0];
+          const probe = await checkDiscount(db, entered, user.id, Number(first?.price_stars ?? 100));
+          if (!probe.ok || !probe.discount) {
+            await tg("sendMessage", { chat_id: chatId, text: `❌ ${probe.reason}` });
+          } else {
+            const rows: any[] = [];
+            for (const p of products ?? []) {
+              const res = await checkDiscount(db, entered, user.id, Number(p.price_stars));
+              rows.push([
+                {
+                  text: `${p.title} — ⭐ ${res.price} (statt ${p.price_stars})`.slice(0, 60),
+                  callback_data: `buyc_${p.id}|${probe.discount.id}`,
+                },
+              ]);
+            }
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: `✅ Code <b>${probe.discount.code}</b> aktiv. Wähle deinen Inhalt zum Aktionspreis:`,
+              parse_mode: "HTML",
+              reply_markup: { inline_keyboard: rows },
+            });
+          }
+
         } else if (text.startsWith("/werbung")) {
           const user = await ensureUser(msg.from);
           const body = text.slice(8).trim();
