@@ -191,6 +191,28 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await deliverProduct(db, tg, chatId, product, purchase, settings);
         }
 
+        /** Rechnung senden und für die Warenkorb-Rettung merken. */
+        async function invoice(
+          chatId: number,
+          userId: string | null,
+          opts: { title: string; description: string; payload: string; label: string; amount: number },
+        ) {
+          const amount = Math.max(1, Math.round(opts.amount));
+          await tg("sendInvoice", {
+            chat_id: chatId,
+            title: opts.title.slice(0, 32),
+            description: opts.description.slice(0, 255),
+            payload: opts.payload,
+            currency: "XTR",
+            prices: [{ label: opts.label.slice(0, 32), amount }],
+          });
+          if (userId) {
+            const { recordInvoiceIntent } = await import("@/lib/billing.server");
+            await recordInvoiceIntent(db, userId, chatId, opts.payload, opts.title, amount);
+          }
+        }
+
+
         // ---- callback queries ----
         const cq = update.callback_query;
         if (cq) {
