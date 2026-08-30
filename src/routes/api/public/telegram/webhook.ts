@@ -263,28 +263,44 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
           else if (d === "vip") {
             const { hasVipAccess, grantVipAccess } = await import("@/lib/vip.server");
-            if (await hasVipAccess(db, user.id)) {
+            const { activeSubscription } = await import("@/lib/billing.server");
+            const periodDays = Math.max(0, Number(settings.vip_period_days ?? 0));
+            const stillValid =
+              periodDays > 0 ? Boolean(await activeSubscription(db, user.id)) : await hasVipAccess(db, user.id);
+            if (stillValid) {
               await grantVipAccess(db, tg as any, chatId, user, settings, null);
             } else {
               const price = Math.max(1, Number(settings.vip_price_stars ?? 450));
-              await tg("sendInvoice", {
-                chat_id: chatId,
-                title: String(settings.vip_product_title ?? "VIP-Zugang").slice(0, 32),
-                description: "Dauerhafter Zugang zum VIP-Shop-Channel mit allen Drops und Angeboten.",
+              await invoice(chatId, user.id, {
+                title: String(settings.vip_product_title ?? "VIP-Zugang"),
+                description:
+                  periodDays > 0
+                    ? `Zugang zum VIP-Shop-Channel für ${periodDays} Tage – alle Drops inklusive.`
+                    : "Dauerhafter Zugang zum VIP-Shop-Channel mit allen Drops und Angeboten.",
                 payload: "vip:access",
-                currency: "XTR",
-                prices: [{ label: "VIP-Zugang", amount: price }],
+                label: "VIP-Zugang",
+                amount: price,
               });
             }
           } else if (d === "tips") {
-
+            const tiers = String(settings.tip_amounts ?? "50,150,500")
+              .split(",")
+              .map((n: string) => parseInt(n.trim(), 10))
+              .filter((n: number) => Number.isFinite(n) && n > 0)
+              .slice(0, 4);
             await tg("sendMessage", {
               chat_id: chatId,
               text: settings.tip_message ?? "Danke für deine Unterstützung!",
               reply_markup: {
-                inline_keyboard: [[50, 150, 500].map((n) => ({ text: `⭐ ${n}`, callback_data: `tip_${n}` }))],
+                inline_keyboard: [
+                  (tiers.length ? tiers : [50, 150, 500]).map((n: number) => ({
+                    text: `⭐ ${n}`,
+                    callback_data: `tip_${n}`,
+                  })),
+                ],
               },
             });
+
           } else if (d === "ref") {
             const me = await tg("getMe", {});
             const link = `https://t.me/${(me as any)?.username}?start=ref_${user.referral_code}`;
