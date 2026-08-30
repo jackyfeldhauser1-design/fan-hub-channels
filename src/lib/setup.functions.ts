@@ -321,3 +321,84 @@ export const exportSetupAudit = createServerFn({ method: "POST" })
       count: list.length,
     };
   });
+
+/** Livegang-Prüfung: Bot, Webhook, Chats, Katalog, Medien, Jobs und Zustellungen auf einmal. */
+export const runGoLiveCheck = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireCallerRole } = await import("@/lib/auth-context.server");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
+    const { enforceRateLimit } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "golive_check", context.userId, 20, 600_000);
+
+    const { verifySetup } = await import("@/lib/setup.server");
+    const { readHealth } = await import("@/lib/health.server");
+    const [setup, health, products, folders, files, settingsRes, paid] = await Promise.all([
+      verifySetup(db),
+      readHealth(db),
+      db.from("products").select("id", { count: "exact", head: true }).eq("active", true),
+      db.from("media_folders").select("id", { count: "exact", head: true }).eq("active", true),
+      db.from("media_files").select("id", { count: "exact", head: true }),
+      db.from("bot_settings").select("vip_price_stars, app_base_url, welcome_message").eq("id", true).maybeSingle(),
+      db.from("purchases").select("id", { count: "exact", head: true }).eq("status", "paid"),
+    ]);
+
+    const settings = settingsRes.data ?? {};
+    const catalog = [
+      {
+        key: "products",
+        label: "Aktive Produkte",
+        ok: (products.count ?? 0) > 0,
+        detail: (products.count ?? 0) > 0 ? `${products.count} aktive Produkte` : "Noch kein aktives Produkt angelegt.",
+      },
+      {
+        key: "media",
+        label: "Medien-Ordner",
+        ok: (folders.count ?? 0) > 0 && (files.count ?? 0) > 0,
+        detail: `${folders.count ?? 0} aktive Ordner · ${files.count ?? 0} Dateien`,
+      },
+      {
+        key: "vip",
+        label: "VIP-Preis",
+        ok: Number(settings.vip_price_stars ?? 0) > 0,
+        detail: `${Number(settings.vip_price_stars ?? 0)} Stars`,
+      },
+      {
+        key: "welcome",
+        label: "Willkommensnachricht",
+        ok: Boolean(String(settings.welcome_message ?? "").trim()),
+        detail: String(settings.welcome_message ?? "").trim() ? "gesetzt" : "fehlt – Fans bekommen keinen Einstieg.",
+      },
+      {
+        key: "sales",
+        label: "Testkauf",
+        ok: (paid.count ?? 0) > 0,
+        detail: (paid.count ?? 0) > 0 ? `${paid.count} bezahlte Käufe` : "Noch kein bezahlter Kauf – 1-Stars-Test empfohlen.",
+      },
+    ];
+
+    const groups = [
+      { key: "telegram", label: "Telegram", checks: (setup as any).checks ?? [] },
+      {
+        key: "chats",
+        label: "Chats",
+        checks: ((setup as any).chats ?? []).map((c: any) => ({ key: c.target, label: c.label, ok: c.ok, detail: c.detail })),
+      },
+      { key: "betrieb", label: "Betrieb", checks: health.checks },
+      { key: "katalog", label: "Katalog & Umsatz", checks: catalog },
+    ];
+
+    const all = groups.flatMap((g) => g.checks as { ok: boolean }[]);
+    const passed = all.filter((c) => c.ok).length;
+    const ok = passed === all.length;
+
+    await db.from("admin_audit").insert({
+      actor_id: context.userId,
+      action: "golive_check",
+      status: ok ? "ok" : "warn",
+      detail: `${passed}/${all.length} Prüfungen bestanden`,
+      meta: { groups },
+    });
+
+    return { groups, passed, total: all.length, ok, checkedAt: new Date().toISOString() };
+  });
