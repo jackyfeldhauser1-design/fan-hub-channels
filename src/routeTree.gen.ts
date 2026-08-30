@@ -25,6 +25,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StarsRouteImport } from './routes/stars'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as UmsatzRouteImport } from './routes/umsatz'
 import { Route as VerbindenRouteImport } from './routes/verbinden'
 import { Route as VerkaeufeRouteImport } from './routes/verkaeufe'
 import { Route as WartelisteRouteImport } from './routes/warteliste'
@@ -119,6 +120,11 @@ const TeamRoute = TeamRouteImport.update({
   path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UmsatzRoute = UmsatzRouteImport.update({
+  id: '/umsatz',
+  path: '/umsatz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerbindenRoute = VerbindenRouteImport.update({
   id: '/verbinden',
   path: '/verbinden',
@@ -205,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/umsatz': typeof UmsatzRoute
   '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
@@ -236,6 +243,7 @@ export interface FileRoutesByTo {
   '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/umsatz': typeof UmsatzRoute
   '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
@@ -268,6 +276,7 @@ export interface FileRoutesById {
   '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/umsatz': typeof UmsatzRoute
   '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
@@ -301,6 +310,7 @@ export interface FileRouteTypes {
     | '/stars'
     | '/status'
     | '/team'
+    | '/umsatz'
     | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
@@ -332,6 +342,7 @@ export interface FileRouteTypes {
     | '/stars'
     | '/status'
     | '/team'
+    | '/umsatz'
     | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
@@ -363,6 +374,7 @@ export interface FileRouteTypes {
     | '/stars'
     | '/status'
     | '/team'
+    | '/umsatz'
     | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
@@ -395,6 +407,7 @@ export interface RootRouteChildren {
   StarsRoute: typeof StarsRoute
   StatusRoute: typeof StatusRoute
   TeamRoute: typeof TeamRoute
+  UmsatzRoute: typeof UmsatzRoute
   VerbindenRoute: typeof VerbindenRoute
   VerkaeufeRoute: typeof VerkaeufeRoute
   WartelisteRoute: typeof WartelisteRoute
@@ -524,6 +537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/umsatz': {
+      id: '/umsatz'
+      path: '/umsatz'
+      fullPath: '/umsatz'
+      preLoaderRoute: typeof UmsatzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verbinden': {
       id: '/verbinden'
       path: '/verbinden'
@@ -635,6 +655,7 @@ const rootRouteChildren: RootRouteChildren = {
   StarsRoute: StarsRoute,
   StatusRoute: StatusRoute,
   TeamRoute: TeamRoute,
+  UmsatzRoute: UmsatzRoute,
   VerbindenRoute: VerbindenRoute,
   VerkaeufeRoute: VerkaeufeRoute,
   WartelisteRoute: WartelisteRoute,
