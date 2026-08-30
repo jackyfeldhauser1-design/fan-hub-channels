@@ -25,6 +25,7 @@ import { Route as SitemapDotxmlRouteImport } from './routes/sitemap[.]xml'
 import { Route as StarsRouteImport } from './routes/stars'
 import { Route as StatusRouteImport } from './routes/status'
 import { Route as TeamRouteImport } from './routes/team'
+import { Route as UmsatzRouteImport } from './routes/umsatz'
 import { Route as VerbindenRouteImport } from './routes/verbinden'
 import { Route as VerkaeufeRouteImport } from './routes/verkaeufe'
 import { Route as WartelisteRouteImport } from './routes/warteliste'
@@ -33,6 +34,7 @@ import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
+import { Route as ApiPublicJobsLifecycleRouteImport } from './routes/api/public/jobs/lifecycle'
 import { Route as ApiPublicNIdRouteImport } from './routes/api/public/n.$id'
 import { Route as ApiPublicNotificationsCampaignsRouteImport } from './routes/api/public/notifications/campaigns'
 import { Route as ApiPublicNotificationsRetryRouteImport } from './routes/api/public/notifications/retry'
@@ -118,6 +120,11 @@ const TeamRoute = TeamRouteImport.update({
   path: '/team',
   getParentRoute: () => rootRouteImport,
 } as any)
+const UmsatzRoute = UmsatzRouteImport.update({
+  id: '/umsatz',
+  path: '/umsatz',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const VerbindenRoute = VerbindenRouteImport.update({
   id: '/verbinden',
   path: '/verbinden',
@@ -156,6 +163,11 @@ const ZweiFaktorRoute = ZweiFaktorRouteImport.update({
 const InhaltTokenRoute = InhaltTokenRouteImport.update({
   id: '/inhalt/$token',
   path: '/inhalt/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiPublicJobsLifecycleRoute = ApiPublicJobsLifecycleRouteImport.update({
+  id: '/api/public/jobs/lifecycle',
+  path: '/api/public/jobs/lifecycle',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ApiPublicNIdRoute = ApiPublicNIdRouteImport.update({
@@ -199,6 +211,7 @@ export interface FileRoutesByFullPath {
   '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/umsatz': typeof UmsatzRoute
   '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
@@ -207,6 +220,7 @@ export interface FileRoutesByFullPath {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
@@ -229,6 +243,7 @@ export interface FileRoutesByTo {
   '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/umsatz': typeof UmsatzRoute
   '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
@@ -237,6 +252,7 @@ export interface FileRoutesByTo {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
@@ -260,6 +276,7 @@ export interface FileRoutesById {
   '/stars': typeof StarsRoute
   '/status': typeof StatusRoute
   '/team': typeof TeamRoute
+  '/umsatz': typeof UmsatzRoute
   '/verbinden': typeof VerbindenRoute
   '/verkaeufe': typeof VerkaeufeRoute
   '/warteliste': typeof WartelisteRoute
@@ -268,6 +285,7 @@ export interface FileRoutesById {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
   '/api/public/notifications/retry': typeof ApiPublicNotificationsRetryRoute
@@ -292,6 +310,7 @@ export interface FileRouteTypes {
     | '/stars'
     | '/status'
     | '/team'
+    | '/umsatz'
     | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
@@ -300,6 +319,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
@@ -322,6 +342,7 @@ export interface FileRouteTypes {
     | '/stars'
     | '/status'
     | '/team'
+    | '/umsatz'
     | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
@@ -330,6 +351,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
@@ -352,6 +374,7 @@ export interface FileRouteTypes {
     | '/stars'
     | '/status'
     | '/team'
+    | '/umsatz'
     | '/verbinden'
     | '/verkaeufe'
     | '/warteliste'
@@ -360,6 +383,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
     | '/api/public/notifications/retry'
@@ -383,6 +407,7 @@ export interface RootRouteChildren {
   StarsRoute: typeof StarsRoute
   StatusRoute: typeof StatusRoute
   TeamRoute: typeof TeamRoute
+  UmsatzRoute: typeof UmsatzRoute
   VerbindenRoute: typeof VerbindenRoute
   VerkaeufeRoute: typeof VerkaeufeRoute
   WartelisteRoute: typeof WartelisteRoute
@@ -391,6 +416,7 @@ export interface RootRouteChildren {
   ZugriffeRoute: typeof ZugriffeRoute
   ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
+  ApiPublicJobsLifecycleRoute: typeof ApiPublicJobsLifecycleRoute
   ApiPublicNIdRoute: typeof ApiPublicNIdRoute
   ApiPublicNotificationsCampaignsRoute: typeof ApiPublicNotificationsCampaignsRoute
   ApiPublicNotificationsRetryRoute: typeof ApiPublicNotificationsRetryRoute
@@ -511,6 +537,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof TeamRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/umsatz': {
+      id: '/umsatz'
+      path: '/umsatz'
+      fullPath: '/umsatz'
+      preLoaderRoute: typeof UmsatzRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/verbinden': {
       id: '/verbinden'
       path: '/verbinden'
@@ -567,6 +600,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InhaltTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/lifecycle': {
+      id: '/api/public/jobs/lifecycle'
+      path: '/api/public/jobs/lifecycle'
+      fullPath: '/api/public/jobs/lifecycle'
+      preLoaderRoute: typeof ApiPublicJobsLifecycleRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/n/$id': {
       id: '/api/public/n/$id'
       path: '/api/public/n/$id'
@@ -615,6 +655,7 @@ const rootRouteChildren: RootRouteChildren = {
   StarsRoute: StarsRoute,
   StatusRoute: StatusRoute,
   TeamRoute: TeamRoute,
+  UmsatzRoute: UmsatzRoute,
   VerbindenRoute: VerbindenRoute,
   VerkaeufeRoute: VerkaeufeRoute,
   WartelisteRoute: WartelisteRoute,
@@ -623,6 +664,7 @@ const rootRouteChildren: RootRouteChildren = {
   ZugriffeRoute: ZugriffeRoute,
   ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
+  ApiPublicJobsLifecycleRoute: ApiPublicJobsLifecycleRoute,
   ApiPublicNIdRoute: ApiPublicNIdRoute,
   ApiPublicNotificationsCampaignsRoute: ApiPublicNotificationsCampaignsRoute,
   ApiPublicNotificationsRetryRoute: ApiPublicNotificationsRetryRoute,

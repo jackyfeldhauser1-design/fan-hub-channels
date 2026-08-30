@@ -23,6 +23,8 @@ import {
   MoreHorizontal,
   Star,
   Plug,
+  TrendingUp,
+
 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -41,6 +43,8 @@ const nav = [
 
   { to: "/medien", label: "Medien-Ordner", icon: FolderLock },
   { to: "/verkaeufe", label: "Verkäufe", icon: Receipt },
+  { to: "/umsatz", label: "Umsatz & Abos", icon: TrendingUp },
+
   { to: "/bestellungen", label: "Bestellungen", icon: Truck },
   { to: "/fans", label: "Fans & Affiliates", icon: Users },
   { to: "/zugriffe", label: "Zugriffe", icon: KeyRound },

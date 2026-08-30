@@ -232,6 +232,8 @@ export type Database = {
         Row: {
           affiliate_percent: number
           app_base_url: string
+          cart_recovery_code: string
+          cart_recovery_minutes: number
           community_chat_id: string
           control_chat_id: string
           early_access_price_stars: number
@@ -243,21 +245,30 @@ export type Database = {
           notify_blocked: boolean
           notify_expired: boolean
           notify_unpaid: boolean
+          reactivate_after_days: number
+          referral_tier_percent: number
+          referral_tier_threshold: number
+          sequence_enabled: boolean
           shop_chat_id: string
           sponsor_price_stars: number
+          tip_amounts: string
           tip_message: string
           ton_wallet: string
           updated_at: string
           upsell_message: string
           vip_group_url: string
           vip_invite_ttl_hours: number
+          vip_period_days: number
           vip_price_stars: number
           vip_product_title: string
+          vip_reminder_days: number
           welcome_message: string
         }
         Insert: {
           affiliate_percent?: number
           app_base_url?: string
+          cart_recovery_code?: string
+          cart_recovery_minutes?: number
           community_chat_id?: string
           control_chat_id?: string
           early_access_price_stars?: number
@@ -269,21 +280,30 @@ export type Database = {
           notify_blocked?: boolean
           notify_expired?: boolean
           notify_unpaid?: boolean
+          reactivate_after_days?: number
+          referral_tier_percent?: number
+          referral_tier_threshold?: number
+          sequence_enabled?: boolean
           shop_chat_id?: string
           sponsor_price_stars?: number
+          tip_amounts?: string
           tip_message?: string
           ton_wallet?: string
           updated_at?: string
           upsell_message?: string
           vip_group_url?: string
           vip_invite_ttl_hours?: number
+          vip_period_days?: number
           vip_price_stars?: number
           vip_product_title?: string
+          vip_reminder_days?: number
           welcome_message?: string
         }
         Update: {
           affiliate_percent?: number
           app_base_url?: string
+          cart_recovery_code?: string
+          cart_recovery_minutes?: number
           community_chat_id?: string
           control_chat_id?: string
           early_access_price_stars?: number
@@ -295,16 +315,23 @@ export type Database = {
           notify_blocked?: boolean
           notify_expired?: boolean
           notify_unpaid?: boolean
+          reactivate_after_days?: number
+          referral_tier_percent?: number
+          referral_tier_threshold?: number
+          sequence_enabled?: boolean
           shop_chat_id?: string
           sponsor_price_stars?: number
+          tip_amounts?: string
           tip_message?: string
           ton_wallet?: string
           updated_at?: string
           upsell_message?: string
           vip_group_url?: string
           vip_invite_ttl_hours?: number
+          vip_period_days?: number
           vip_price_stars?: number
           vip_product_title?: string
+          vip_reminder_days?: number
           welcome_message?: string
         }
         Relationships: []
@@ -407,6 +434,185 @@ export type Database = {
           welcome_body?: string
         }
         Relationships: []
+      }
+      code_redemptions: {
+        Row: {
+          amount_saved: number
+          code_id: string
+          created_at: string
+          id: string
+          purchase_id: string | null
+          tg_user_id: string | null
+        }
+        Insert: {
+          amount_saved?: number
+          code_id: string
+          created_at?: string
+          id?: string
+          purchase_id?: string | null
+          tg_user_id?: string | null
+        }
+        Update: {
+          amount_saved?: number
+          code_id?: string
+          created_at?: string
+          id?: string
+          purchase_id?: string | null
+          tg_user_id?: string | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "code_redemptions_code_id_fkey"
+            columns: ["code_id"]
+            isOneToOne: false
+            referencedRelation: "discount_codes"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "code_redemptions_purchase_id_fkey"
+            columns: ["purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "code_redemptions_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      discount_codes: {
+        Row: {
+          active: boolean
+          code: string
+          created_at: string
+          expires_at: string | null
+          id: string
+          label: string
+          max_uses: number
+          once_per_fan: boolean
+          percent_off: number
+          stars_off: number
+          updated_at: string
+          used_count: number
+        }
+        Insert: {
+          active?: boolean
+          code: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          label?: string
+          max_uses?: number
+          once_per_fan?: boolean
+          percent_off?: number
+          stars_off?: number
+          updated_at?: string
+          used_count?: number
+        }
+        Update: {
+          active?: boolean
+          code?: string
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          label?: string
+          max_uses?: number
+          once_per_fan?: boolean
+          percent_off?: number
+          stars_off?: number
+          updated_at?: string
+          used_count?: number
+        }
+        Relationships: []
+      }
+      fan_sequences: {
+        Row: {
+          created_at: string
+          done: boolean
+          id: string
+          kind: string
+          next_at: string
+          step: number
+          tg_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          kind?: string
+          next_at?: string
+          step?: number
+          tg_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          done?: boolean
+          id?: string
+          kind?: string
+          next_at?: string
+          step?: number
+          tg_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "fan_sequences_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      invoice_intents: {
+        Row: {
+          amount_stars: number
+          chat_id: number
+          created_at: string
+          id: string
+          paid: boolean
+          payload: string
+          reminded_at: string | null
+          tg_user_id: string
+          title: string
+        }
+        Insert: {
+          amount_stars?: number
+          chat_id: number
+          created_at?: string
+          id?: string
+          paid?: boolean
+          payload: string
+          reminded_at?: string | null
+          tg_user_id: string
+          title?: string
+        }
+        Update: {
+          amount_stars?: number
+          chat_id?: number
+          created_at?: string
+          id?: string
+          paid?: boolean
+          payload?: string
+          reminded_at?: string | null
+          tg_user_id?: string
+          title?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "invoice_intents_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
       }
       job_runs: {
         Row: {
@@ -1414,6 +1620,63 @@ export type Database = {
         Relationships: [
           {
             foreignKeyName: "sponsored_posts_tg_user_id_fkey"
+            columns: ["tg_user_id"]
+            isOneToOne: false
+            referencedRelation: "tg_users"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      subscriptions: {
+        Row: {
+          created_at: string
+          expires_at: string | null
+          id: string
+          last_purchase_id: string | null
+          last_reminder_at: string | null
+          plan: string
+          renewals: number
+          started_at: string
+          status: string
+          tg_user_id: string
+          updated_at: string
+        }
+        Insert: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_purchase_id?: string | null
+          last_reminder_at?: string | null
+          plan?: string
+          renewals?: number
+          started_at?: string
+          status?: string
+          tg_user_id: string
+          updated_at?: string
+        }
+        Update: {
+          created_at?: string
+          expires_at?: string | null
+          id?: string
+          last_purchase_id?: string | null
+          last_reminder_at?: string | null
+          plan?: string
+          renewals?: number
+          started_at?: string
+          status?: string
+          tg_user_id?: string
+          updated_at?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "subscriptions_last_purchase_id_fkey"
+            columns: ["last_purchase_id"]
+            isOneToOne: false
+            referencedRelation: "purchases"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "subscriptions_tg_user_id_fkey"
             columns: ["tg_user_id"]
             isOneToOne: false
             referencedRelation: "tg_users"

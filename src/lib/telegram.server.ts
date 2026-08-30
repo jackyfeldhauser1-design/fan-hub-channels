@@ -63,7 +63,13 @@ export async function currentWebhookSecret(): Promise<string> {
 
 type TgResponse = { ok: boolean; result?: any; description?: string };
 
-/** Führt einen Telegram-Bot-API-Aufruf aus (eigener Token bevorzugt). */
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Führt einen Telegram-Bot-API-Aufruf aus (eigener Token bevorzugt).
+ * Bei 429 (`retry_after`) und 5xx wird bis zu dreimal mit Backoff wiederholt,
+ * damit einzelne Störungen keine Zustellung verlieren.
+ */
 export async function tgApi(method: string, body: Record<string, unknown> = {}): Promise<TgResponse> {
   const { token } = await getBotToken();
   const url = token ? `https://api.telegram.org/bot${token}/${method}` : `${GATEWAY}/${method}`;
@@ -72,13 +78,42 @@ export async function tgApi(method: string, body: Record<string, unknown> = {}):
     headers["Authorization"] = `Bearer ${process.env["LOVABLE_API_KEY"]}`;
     headers["X-Connection-Api-Key"] = `${process.env["TELEGRAM_API_KEY"]}`;
   }
-  const res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
-  const text = await res.text();
-  if (!res.ok) throw new Error(`Telegram ${method} [${res.status}]: ${text.slice(0, 300)}`);
-  const json = JSON.parse(text) as TgResponse;
-  if (!json.ok) throw new Error(`Telegram ${method}: ${json.description ?? "unbekannter Fehler"}`);
-  return json;
+
+  let lastError = "";
+  for (let attempt = 0; attempt < 3; attempt++) {
+    if (attempt > 0) await sleep(Math.min(8_000, 500 * 2 ** attempt));
+    let res: Response;
+    let text: string;
+    try {
+      res = await fetch(url, { method: "POST", headers, body: JSON.stringify(body) });
+      text = await res.text();
+    } catch (e) {
+      lastError = `Telegram ${method}: Netzwerkfehler (${e instanceof Error ? e.message : "unbekannt"})`;
+      continue;
+    }
+    if (res.status === 429) {
+      let wait = 1;
+      try {
+        wait = Number(JSON.parse(text)?.parameters?.retry_after ?? 1);
+      } catch {
+        /* Standardwartezeit */
+      }
+      lastError = `Telegram ${method} [429]: zu viele Anfragen`;
+      await sleep(Math.min(15_000, Math.max(1, wait) * 1000));
+      continue;
+    }
+    if (res.status >= 500) {
+      lastError = `Telegram ${method} [${res.status}]: ${text.slice(0, 200)}`;
+      continue;
+    }
+    if (!res.ok) throw new Error(`Telegram ${method} [${res.status}]: ${text.slice(0, 300)}`);
+    const json = JSON.parse(text) as TgResponse;
+    if (!json.ok) throw new Error(`Telegram ${method}: ${json.description ?? "unbekannter Fehler"}`);
+    return json;
+  }
+  throw new Error(lastError || `Telegram ${method}: fehlgeschlagen`);
 }
+
 
 /** Wie `tgApi`, gibt aber bei Fehlern `null` zurück (für den Webhook-Pfad). */
 export async function tgSafe(method: string, body: Record<string, unknown> = {}) {

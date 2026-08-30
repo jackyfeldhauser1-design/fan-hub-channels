@@ -24,7 +24,9 @@ async function tg(method: string, body: Record<string, unknown> = {}) {
 const JOBS = [
   { job: "notifications-retry", label: "Wiederholungen", everyMin: 5 },
   { job: "notifications-campaigns", label: "Kampagnen", everyMin: 15 },
+  { job: "lifecycle", label: "Abos & Automatik", everyMin: 60 },
 ] as const;
+
 
 /** Betriebsstatus: Cron-Läufe, Webhook-Bestätigung und Zustellzahlen. */
 export const getOpsStatus = createServerFn({ method: "POST" })
