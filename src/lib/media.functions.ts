@@ -142,3 +142,43 @@ export const previewMediaFile = createServerFn({ method: "POST" })
     if (error) throw new Error(error.message);
     return { url: signed.signedUrl as string };
   });
+
+/** Sortierung, Anzeigename oder Vorschau-Freigabe einer Datei ändern. */
+export const updateMediaFile = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z
+      .object({
+        id: z.string().uuid(),
+        sortOrder: z.number().int().min(0).max(9999).optional(),
+        displayName: z.string().min(1).max(200).optional(),
+        previewAllowed: z.boolean().optional(),
+      })
+      .parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { db, isAdmin } = await adminDb(context);
+    if (!isAdmin) throw new Error("Forbidden");
+    const values: Record<string, unknown> = {};
+    if (data.sortOrder !== undefined) values["sort_order"] = data.sortOrder;
+    if (data.displayName !== undefined) values["display_name"] = data.displayName;
+    if (data.previewAllowed !== undefined) values["preview_allowed"] = data.previewAllowed;
+    if (Object.keys(values).length === 0) return { ok: true };
+    const { error } = await db.from("media_files").update(values).eq("id", data.id);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });
+
+/** Vorschaubild eines Ordners festlegen (oder entfernen). */
+export const setFolderPreview = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({ folderId: z.string().uuid(), fileId: z.string().uuid().nullable() }).parse(input),
+  )
+  .handler(async ({ data, context }) => {
+    const { db, isAdmin } = await adminDb(context);
+    if (!isAdmin) throw new Error("Forbidden");
+    const { error } = await db.from("media_folders").update({ preview_file_id: data.fileId }).eq("id", data.folderId);
+    if (error) throw new Error(error.message);
+    return { ok: true };
+  });

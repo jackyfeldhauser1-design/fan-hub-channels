@@ -6,6 +6,8 @@ import { DashLayout } from "@/components/DashLayout";
 import { OpsPanel } from "@/components/OpsPanel";
 import { ChatHealthPanel } from "@/components/ChatHealthPanel";
 import { AuditLogPanel } from "@/components/AuditLogPanel";
+import { GoLivePanel } from "@/components/GoLivePanel";
+
 
 import { Button } from "@/components/ui/button";
 import { getAdminStatus, setupWebhook } from "@/lib/admin.functions";

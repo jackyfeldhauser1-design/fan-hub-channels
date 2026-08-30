@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAdmin } from "@/lib/useAdmin";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Star, Gem, Users, TrendingUp, Handshake, Clock } from "lucide-react";
+import { Star, Gem, Users, Handshake, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { getOverview } from "@/lib/admin.functions";
 
@@ -49,21 +49,104 @@ function Stat({ icon: Icon, label, value, hint }: { icon: any; label: string; va
   );
 }
 
+type Step = { label: string; done: boolean; hint: string; to: string };
+
 function Overview() {
   const fn = useServerFn(getOverview);
   const { isAdmin } = useAdmin();
   const { data } = useQuery({ queryKey: ["overview"], queryFn: () => fn({ data: undefined as never }), enabled: isAdmin });
 
+  const s = (data as any)?.setup ?? {};
+  const steps: Step[] = [
+    {
+      label: "Bot verbunden",
+      done: Boolean(s.botConnected),
+      hint: s.botConnected ? `@${s.botUsername}` : "Bot-Token hinterlegen und Webhook setzen.",
+      to: "/verbinden",
+    },
+    {
+      label: "Community, Shop & Kontrollraum",
+      done: (s.chatsSet ?? 0) >= 3,
+      hint: `${s.chatsSet ?? 0}/3 Chats zugeordnet`,
+      to: "/verbinden",
+    },
+    {
+      label: "Preise gesetzt",
+      done: (s.vipPrice ?? 0) > 0,
+      hint: (s.vipPrice ?? 0) > 0 ? `VIP: ⭐ ${s.vipPrice}` : "VIP-Preis und Stars-Einstellungen festlegen.",
+      to: "/stars",
+    },
+    {
+      label: "Produkte angelegt",
+      done: (s.products ?? 0) > 0,
+      hint: `${s.products ?? 0} aktive Produkte`,
+      to: "/produkte",
+    },
+    {
+      label: "Medien hochgeladen",
+      done: (s.folders ?? 0) > 0 && (s.files ?? 0) > 0,
+      hint: `${s.folders ?? 0} Ordner · ${s.files ?? 0} Dateien`,
+      to: "/medien",
+    },
+    {
+      label: "Erster Verkauf",
+      done: (data?.sales ?? 0) > 0,
+      hint: (data?.sales ?? 0) > 0 ? `${data?.sales} Käufe verbucht` : "Testkauf mit 1 Star empfohlen.",
+      to: "/bestellungen",
+    },
+  ];
+  const doneCount = steps.filter((x) => x.done).length;
+
   return (
     <DashLayout title="Übersicht" subtitle="Deine Telegram-Kette: Community → Shop → Kontrollraum.">
       <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <Stat icon={Star} label="Umsatz (Stars)" value={`⭐ ${data?.stars ?? 0}`} hint={`${data?.weekStars ?? 0} in 7 Tagen`} />
+        <Stat
+          icon={Star}
+          label="Heute (Stars)"
+          value={`⭐ ${data?.todayStars ?? 0}`}
+          hint={`${data?.todaySales ?? 0} Verkäufe heute`}
+        />
+        <Stat icon={Star} label="Umsatz gesamt (Stars)" value={`⭐ ${data?.stars ?? 0}`} hint={`${data?.weekStars ?? 0} in 7 Tagen`} />
         <Stat icon={Gem} label="Umsatz (TON)" value={`${(data?.ton ?? 0).toFixed(2)}`} hint={`${data?.pendingTon ?? 0} offene Zahlungen`} />
-        <Stat icon={Users} label="Fans im Bot" value={`${data?.fans ?? 0}`} />
-        <Stat icon={Handshake} label="Provisionen" value={`⭐ ${data?.commissions ?? 0}`} hint="an Affiliates ausgeschüttet" />
+        <Stat icon={Users} label="Fans im Bot" value={`${data?.fans ?? 0}`} hint={`⭐ ${data?.commissions ?? 0} Provisionen`} />
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
+        <div className="panel p-6">
+          <div className="flex items-center justify-between">
+            <h2 className="text-lg font-semibold">Setup-Fortschritt</h2>
+            <span className="text-sm text-muted-foreground">{doneCount}/{steps.length}</span>
+          </div>
+          <div className="mt-3 h-2 w-full overflow-hidden rounded-full bg-muted">
+            <div className="h-full rounded-full bg-primary" style={{ width: `${(doneCount / steps.length) * 100}%` }} />
+          </div>
+          <ul className="mt-4 space-y-3">
+            {steps.map((st) => (
+              <li key={st.label} className="flex items-start gap-2 text-sm">
+                {st.done ? (
+                  <CheckCircle2 className="mt-0.5 size-4 shrink-0 text-emerald-500" />
+                ) : (
+                  <Circle className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+                )}
+                <span className="min-w-0 flex-1">
+                  <span className={st.done ? "text-muted-foreground line-through" : "font-medium"}>{st.label}</span>
+                  <span className="block truncate text-xs text-muted-foreground">{st.hint}</span>
+                </span>
+                {!st.done ? (
+                  <Link to={st.to} className="shrink-0 text-xs text-primary hover:underline">
+                    Erledigen
+                  </Link>
+                ) : null}
+              </li>
+            ))}
+          </ul>
+          {(s.failedDeliveries ?? 0) > 0 ? (
+            <Link to="/benachrichtigungen" className="mt-4 flex items-center gap-2 text-sm text-destructive hover:underline">
+              <AlertTriangle className="size-4" /> {s.failedDeliveries} fehlerhafte Zustellungen prüfen
+            </Link>
+          ) : null}
+        </div>
+
         <div className="panel p-6 lg:col-span-2">
           <h2 className="text-lg font-semibold">Letzte Verkäufe</h2>
           <div className="mt-4 divide-y divide-border">
@@ -80,20 +163,18 @@ function Overview() {
               ))
             )}
           </div>
-        </div>
 
-        <div className="panel p-6">
-          <h2 className="text-lg font-semibold">Nächste Schritte</h2>
-          <ul className="mt-4 space-y-3 text-sm text-muted-foreground">
-            <li className="flex gap-2"><TrendingUp className="mt-0.5 size-4 text-accent" /> Gruppenlinks & TON-Wallet im Bot-Setup hinterlegen</li>
-            <li className="flex gap-2"><Star className="mt-0.5 size-4 text-accent" /> Inhalte, Bundles und Pay-per-View anlegen</li>
-            <li className="flex gap-2"><Clock className="mt-0.5 size-4 text-accent" /> Webhook aktivieren, damit der Bot antwortet</li>
-          </ul>
-          <Link to="/einstellungen" className="mt-5 inline-flex rounded-lg px-4 py-2 text-sm font-medium gold-surface">
-            Zum Bot-Setup
-          </Link>
+          <h2 className="mt-6 text-lg font-semibold">Schnellzugriff</h2>
+          <div className="mt-3 flex flex-wrap gap-2">
+            <Link to="/verbinden" className="rounded-lg px-4 py-2 text-sm font-medium gold-surface">Verbinden</Link>
+            <Link to="/stars" className="rounded-lg border border-border px-4 py-2 text-sm">Stars & Preise</Link>
+            <Link to="/produkte" className="rounded-lg border border-border px-4 py-2 text-sm">Produkte</Link>
+            <Link to="/medien" className="rounded-lg border border-border px-4 py-2 text-sm">Medien</Link>
+            <Link to="/status" className="rounded-lg border border-border px-4 py-2 text-sm">Livegang prüfen</Link>
+          </div>
         </div>
       </div>
     </DashLayout>
   );
 }
+
