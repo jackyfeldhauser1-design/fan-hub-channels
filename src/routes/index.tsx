@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAdmin } from "@/lib/useAdmin";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Star, Gem, Users, TrendingUp, Handshake, Clock } from "lucide-react";
+import { Star, Gem, Users, Handshake, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { getOverview } from "@/lib/admin.functions";
 
