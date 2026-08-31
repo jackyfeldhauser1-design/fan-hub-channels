@@ -337,7 +337,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 : "Du hast noch nichts gekauft.",
               parse_mode: "HTML",
             });
+          } else if (d === "account") {
+            await sendAccountLink(chatId, user.id);
           } else if (d === "ea") {
+
             const price = Math.max(1, Number(settings.early_access_price_stars ?? 250));
             const { data: lead } = await db
               .from("leads")
