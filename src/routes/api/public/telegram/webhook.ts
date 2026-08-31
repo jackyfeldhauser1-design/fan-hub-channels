@@ -614,6 +614,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
 
+          if (product || payload.startsWith("vip:")) await sendAccountLink(chatId, user.id);
+
+
+
 
 
           if (user.referred_by && commission > 0) {
