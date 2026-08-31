@@ -322,3 +322,104 @@ export async function verifySetup(db: any) {
 
   return { ok, botUsername: botName, expectedUrl, checks, chats };
 }
+
+/** Kompletter Livegang-Bericht (Telegram, Chats, Betrieb, Katalog) ohne Audit-Eintrag. */
+export async function buildGoLiveReport(db: any) {
+  const { readHealth } = await import("@/lib/health.server");
+  const [setup, health, products, folders, files, settingsRes, paid] = await Promise.all([
+    verifySetup(db),
+    readHealth(db),
+    db.from("products").select("id", { count: "exact", head: true }).eq("active", true),
+    db.from("media_folders").select("id", { count: "exact", head: true }).eq("active", true),
+    db.from("media_files").select("id", { count: "exact", head: true }),
+    db.from("bot_settings").select("vip_price_stars, app_base_url, welcome_message").eq("id", true).maybeSingle(),
+    db.from("purchases").select("id", { count: "exact", head: true }).eq("status", "paid"),
+  ]);
+
+  const settings = settingsRes.data ?? {};
+  const catalog = [
+    {
+      key: "products",
+      label: "Aktive Produkte",
+      ok: (products.count ?? 0) > 0,
+      detail: (products.count ?? 0) > 0 ? `${products.count} aktive Produkte` : "Noch kein aktives Produkt angelegt.",
+    },
+    {
+      key: "media",
+      label: "Medien-Ordner",
+      ok: (folders.count ?? 0) > 0 && (files.count ?? 0) > 0,
+      detail: `${folders.count ?? 0} aktive Ordner · ${files.count ?? 0} Dateien`,
+    },
+    {
+      key: "vip",
+      label: "VIP-Preis",
+      ok: Number(settings.vip_price_stars ?? 0) > 0,
+      detail: `${Number(settings.vip_price_stars ?? 0)} Stars`,
+    },
+    {
+      key: "welcome",
+      label: "Willkommensnachricht",
+      ok: Boolean(String(settings.welcome_message ?? "").trim()),
+      detail: String(settings.welcome_message ?? "").trim() ? "gesetzt" : "fehlt – Fans bekommen keinen Einstieg.",
+    },
+    {
+      key: "sales",
+      label: "Testkauf",
+      ok: (paid.count ?? 0) > 0,
+      detail: (paid.count ?? 0) > 0 ? `${paid.count} bezahlte Käufe` : "Noch kein bezahlter Kauf – 1-Stars-Test empfohlen.",
+    },
+  ];
+
+  const groups = [
+    { key: "telegram", label: "Telegram", checks: (setup as any).checks ?? [] },
+    {
+      key: "chats",
+      label: "Chats",
+      checks: ((setup as any).chats ?? []).map((c: any) => ({ key: c.target, label: c.label, ok: c.ok, detail: c.detail })),
+    },
+    { key: "betrieb", label: "Betrieb", checks: health.checks },
+    { key: "katalog", label: "Katalog & Umsatz", checks: catalog },
+  ];
+
+  const all = groups.flatMap((g) => g.checks as { ok: boolean; label: string; detail: string }[]);
+  const failed = all.filter((c) => !c.ok);
+  const passed = all.length - failed.length;
+  return {
+    groups,
+    passed,
+    total: all.length,
+    ok: failed.length === 0,
+    failed,
+    expectedUrl: (setup as any).expectedUrl ?? "",
+    checkedAt: new Date().toISOString(),
+  };
+}
+
+/** Setzt den Webhook auf die hinterlegte Basis-Adresse (Selbstheilung im Tagesjob). */
+export async function repairWebhook(db: any) {
+  const { data: settings } = await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle();
+  const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
+  if (!base) return { ok: false, detail: "Keine Basis-Adresse hinterlegt." };
+  const url = `${base}/api/public/telegram/webhook`;
+  const { tgApi, currentWebhookSecret } = await import("@/lib/telegram.server");
+  try {
+    const info = await tgApi("getWebhookInfo", {});
+    if (String(info.result?.url ?? "") === url && !String(info.result?.last_error_message ?? "")) {
+      return { ok: true, detail: "Webhook bereits korrekt.", changed: false, url };
+    }
+    await tgApi("setWebhook", {
+      url,
+      secret_token: await currentWebhookSecret(),
+      allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member", "channel_post"],
+    });
+    await db.from("admin_audit").insert({
+      action: "webhook_repaired",
+      status: "ok",
+      detail: url,
+      meta: {},
+    });
+    return { ok: true, detail: `Webhook neu gesetzt: ${url}`, changed: true, url };
+  } catch (e) {
+    return { ok: false, detail: e instanceof Error ? e.message.slice(0, 200) : "Webhook nicht setzbar", url };
+  }
+}

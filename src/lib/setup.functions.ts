@@ -331,74 +331,119 @@ export const runGoLiveCheck = createServerFn({ method: "POST" })
     const { enforceRateLimit } = await import("@/lib/security.server");
     await enforceRateLimit(db, "golive_check", context.userId, 20, 600_000);
 
-    const { verifySetup } = await import("@/lib/setup.server");
-    const { readHealth } = await import("@/lib/health.server");
-    const [setup, health, products, folders, files, settingsRes, paid] = await Promise.all([
-      verifySetup(db),
-      readHealth(db),
-      db.from("products").select("id", { count: "exact", head: true }).eq("active", true),
-      db.from("media_folders").select("id", { count: "exact", head: true }).eq("active", true),
-      db.from("media_files").select("id", { count: "exact", head: true }),
-      db.from("bot_settings").select("vip_price_stars, app_base_url, welcome_message").eq("id", true).maybeSingle(),
-      db.from("purchases").select("id", { count: "exact", head: true }).eq("status", "paid"),
-    ]);
-
-    const settings = settingsRes.data ?? {};
-    const catalog = [
-      {
-        key: "products",
-        label: "Aktive Produkte",
-        ok: (products.count ?? 0) > 0,
-        detail: (products.count ?? 0) > 0 ? `${products.count} aktive Produkte` : "Noch kein aktives Produkt angelegt.",
-      },
-      {
-        key: "media",
-        label: "Medien-Ordner",
-        ok: (folders.count ?? 0) > 0 && (files.count ?? 0) > 0,
-        detail: `${folders.count ?? 0} aktive Ordner · ${files.count ?? 0} Dateien`,
-      },
-      {
-        key: "vip",
-        label: "VIP-Preis",
-        ok: Number(settings.vip_price_stars ?? 0) > 0,
-        detail: `${Number(settings.vip_price_stars ?? 0)} Stars`,
-      },
-      {
-        key: "welcome",
-        label: "Willkommensnachricht",
-        ok: Boolean(String(settings.welcome_message ?? "").trim()),
-        detail: String(settings.welcome_message ?? "").trim() ? "gesetzt" : "fehlt – Fans bekommen keinen Einstieg.",
-      },
-      {
-        key: "sales",
-        label: "Testkauf",
-        ok: (paid.count ?? 0) > 0,
-        detail: (paid.count ?? 0) > 0 ? `${paid.count} bezahlte Käufe` : "Noch kein bezahlter Kauf – 1-Stars-Test empfohlen.",
-      },
-    ];
-
-    const groups = [
-      { key: "telegram", label: "Telegram", checks: (setup as any).checks ?? [] },
-      {
-        key: "chats",
-        label: "Chats",
-        checks: ((setup as any).chats ?? []).map((c: any) => ({ key: c.target, label: c.label, ok: c.ok, detail: c.detail })),
-      },
-      { key: "betrieb", label: "Betrieb", checks: health.checks },
-      { key: "katalog", label: "Katalog & Umsatz", checks: catalog },
-    ];
-
-    const all = groups.flatMap((g) => g.checks as { ok: boolean }[]);
-    const passed = all.filter((c) => c.ok).length;
-    const ok = passed === all.length;
+    const { buildGoLiveReport } = await import("@/lib/setup.server");
+    const report = await buildGoLiveReport(db);
 
     await db.from("admin_audit").insert({
       actor_id: context.userId,
       action: "golive_check",
-      status: ok ? "ok" : "warn",
-      detail: `${passed}/${all.length} Prüfungen bestanden`,
-      meta: { groups },
+      status: report.ok ? "ok" : "warn",
+      detail: `${report.passed}/${report.total} Prüfungen bestanden`,
+      meta: { groups: report.groups },
     });
 
-    return { groups, passed, total: all.length, ok, checkedAt: new Date().toISOString() };
+    return {
+      groups: report.groups,
+      passed: report.passed,
+      total: report.total,
+      ok: report.ok,
+      checkedAt: report.checkedAt,
+    };
   });
+
+/** Startpaket: VIP-Zugang, digitaler Einzelinhalt, Trinkgeld und ein Medien-Ordner. */
+export const seedStarterCatalog = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .handler(async ({ context }) => {
+    const { requireCallerRole } = await import("@/lib/auth-context.server");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
+    const { enforceRateLimit } = await import("@/lib/security.server");
+    await enforceRateLimit(db, "seed_catalog", context.userId, 5, 3_600_000);
+
+    const { data: settings } = await db.from("bot_settings").select("vip_price_stars").eq("id", true).maybeSingle();
+    const vipPrice = Math.max(1, Number(settings?.vip_price_stars ?? 450));
+
+    const wanted = [
+      {
+        title: "VIP-Zugang",
+        description: "Dauerhafter Zugang zum VIP-Shop-Channel mit allen Drops und Angeboten.",
+        kind: "single" as const,
+        price_stars: vipPrice,
+        delivery_type: "text" as const,
+        delivery_payload: "Willkommen im VIP-Bereich! Dein Zugang wird direkt im Bot freigeschaltet.",
+        sort_order: 1,
+      },
+      {
+        title: "Digitaler Inhalt #1",
+        description: "Erster digitaler Inhalt – Zugang über einen persönlichen Einmal-Link.",
+        kind: "single" as const,
+        price_stars: 150,
+        delivery_type: "link" as const,
+        delivery_payload: "",
+        sort_order: 2,
+      },
+      {
+        title: "Trinkgeld",
+        description: "Kleine Unterstützung – danke!",
+        kind: "tip" as const,
+        price_stars: 50,
+        delivery_type: "text" as const,
+        delivery_payload: "💛 Danke für deine Unterstützung!",
+        sort_order: 9,
+      },
+    ];
+
+    const created: string[] = [];
+    const skipped: string[] = [];
+    let contentProductId: string | null = null;
+
+    for (const p of wanted) {
+      const { data: existing } = await db.from("products").select("id").eq("title", p.title).maybeSingle();
+      if (existing) {
+        skipped.push(p.title);
+        if (p.title === "Digitaler Inhalt #1") contentProductId = existing.id;
+        continue;
+      }
+      const { data: row, error } = await db
+        .from("products")
+        .insert({ ...p, active: true })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      created.push(p.title);
+      if (p.title === "Digitaler Inhalt #1") contentProductId = row?.id ?? null;
+    }
+
+    const { data: folder } = await db.from("media_folders").select("id").eq("title", "Erster Drop").maybeSingle();
+    let folderId = folder?.id ?? null;
+    if (!folderId) {
+      const { data: row, error } = await db
+        .from("media_folders")
+        .insert({
+          title: "Erster Drop",
+          description: "Lade hier deine ersten geschützten Medien hoch.",
+          price_stars: 150,
+          active: true,
+          sort_order: 1,
+          product_id: contentProductId,
+        })
+        .select("id")
+        .single();
+      if (error) throw new Error(error.message);
+      folderId = row?.id ?? null;
+      created.push("Medien-Ordner „Erster Drop“");
+    } else {
+      skipped.push("Medien-Ordner „Erster Drop“");
+    }
+
+    await db.from("admin_audit").insert({
+      actor_id: context.userId,
+      action: "starter_catalog",
+      status: "ok",
+      detail: created.length ? `Angelegt: ${created.join(", ")}` : "Nichts Neues – alles vorhanden",
+      meta: { created, skipped, folder_id: folderId },
+    });
+
+    return { created, skipped, folderId };
+  });
+

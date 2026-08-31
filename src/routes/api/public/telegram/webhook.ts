@@ -29,7 +29,7 @@ const mainMenu = (free: string, vip: string): Btn[][] => {
     { text: "🚀 Early Access", callback_data: "ea" },
     { text: "📣 Werbung buchen", callback_data: "ads" },
   ]);
-  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
+  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }, { text: "🧾 Mein Konto", callback_data: "account" }]);
   void free;
   void vip;
   return rows;
@@ -198,6 +198,33 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await deliverProduct(db, tg, chatId, product, purchase, settings);
         }
 
+        /** Persönlichen Konto-Link (signiert, 7 Tage gültig) senden. */
+        async function sendAccountLink(chatId: number, fanId: string) {
+          const base = String(settings.app_base_url ?? "").replace(/\/$/, "");
+          if (!base) {
+            await tg("sendMessage", { chat_id: chatId, text: "Das Kundenkonto wird gerade eingerichtet." });
+            return;
+          }
+          const { issueAccountTicket } = await import("@/lib/account.server");
+          const ticket = await issueAccountTicket(fanId);
+          await tg("sendMessage", {
+            chat_id: chatId,
+            text: "🧾 <b>Dein Kundenkonto</b>\nKäufe, Stars, VIP-Status und alle Zugänge auf einen Blick. Der Link ist persönlich und 7 Tage gültig.",
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [[{ text: "Konto öffnen", url: `${base}/konto?t=${encodeURIComponent(ticket)}` }]],
+            },
+          });
+        }
+
+        /** Meldung in den Kontrollraum (Admin-Chat). */
+        async function notifyControl(text: string) {
+          const control = String(settings.control_chat_id ?? "").trim();
+          if (!control) return;
+          await tg("sendMessage", { chat_id: control, text, parse_mode: "HTML", disable_notification: true });
+        }
+
+
         /** Rechnung senden und für die Warenkorb-Rettung merken. */
         async function invoice(
           chatId: number,
@@ -337,7 +364,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 : "Du hast noch nichts gekauft.",
               parse_mode: "HTML",
             });
+          } else if (d === "account") {
+            await sendAccountLink(chatId, user.id);
           } else if (d === "ea") {
+
             const price = Math.max(1, Number(settings.early_access_price_stars ?? 250));
             const { data: lead } = await db
               .from("leads")
@@ -511,6 +541,27 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
           await flagRepeatPayment(db, user, product?.id ?? null);
           await billing.closeInvoiceIntents(db, user.id, payload);
+
+          const buyerLabel = user.username ? `@${user.username}` : (user.first_name ?? `Fan ${user.telegram_id}`);
+          const paidTitle = product?.title ?? (payload.startsWith("vip:") ? "VIP-Zugang" : payload.startsWith("lead:") ? "Early-Access-Slot" : payload.startsWith("sp:") ? "Werbepost" : "Trinkgeld");
+          await db.from("admin_audit").insert({
+            action: "payment_received",
+            target: paidTitle,
+            status: "ok",
+            detail: `${buyerLabel} · ⭐ ${sp.total_amount}`,
+            meta: {
+              charge_id: chargeId,
+              purchase_id: purchase?.id ?? null,
+              product_id: product?.id ?? null,
+              payload,
+              amount_stars: sp.total_amount,
+              telegram_id: user.telegram_id,
+            },
+          });
+          await notifyControl(
+            `💰 <b>Zahlung eingegangen</b>\n${paidTitle} · ⭐ ${sp.total_amount}\nKäufer: ${buyerLabel}\nBeleg: <code>${chargeId}</code>`,
+          );
+
           if (codeId && product) {
             await billing.redeemDiscount(
               db,
@@ -562,6 +613,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               text: "✅ Deine Werbebuchung ist bezahlt und wird nach Freigabe veröffentlicht.",
             });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
+
+          if (product || payload.startsWith("vip:")) await sendAccountLink(chatId, user.id);
+
+
 
 
 
@@ -744,7 +799,11 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             parse_mode: "HTML",
             reply_markup: { inline_keyboard: [[{ text: "Early Access sichern", callback_data: "ea" }]] },
           });
+        } else if (text.startsWith("/konto")) {
+          const user = await ensureUser(msg.from);
+          await sendAccountLink(chatId, user.id);
         } else if (text.startsWith("/id")) {
+
           await tg("sendMessage", { chat_id: chatId, text: `Chat-ID: <code>${chatId}</code>`, parse_mode: "HTML" });
         } else if (text) {
           await ensureUser(msg.from);

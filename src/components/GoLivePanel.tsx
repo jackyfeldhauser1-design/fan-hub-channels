@@ -1,9 +1,9 @@
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { CheckCircle2, XCircle, Rocket, Loader2 } from "lucide-react";
+import { CheckCircle2, XCircle, Rocket, Loader2, PackagePlus } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { runGoLiveCheck } from "@/lib/setup.functions";
+import { runGoLiveCheck, seedStarterCatalog } from "@/lib/setup.functions";
 
 type Check = { key: string; label: string; ok: boolean; detail: string };
 type Group = { key: string; label: string; checks: Check[] };
@@ -11,10 +11,19 @@ type Group = { key: string; label: string; checks: Check[] };
 /** „Alles prüfen“: ein Knopf, der den kompletten Livegang-Status zeigt. */
 export function GoLivePanel({ enabled }: { enabled: boolean }) {
   const checkFn = useServerFn(runGoLiveCheck);
+  const seedFn = useServerFn(seedStarterCatalog);
   const run = useMutation({
     mutationFn: () => checkFn({ data: undefined as never }),
     onSuccess: (r: any) => (r.ok ? toast.success("Alles bereit für den Livegang") : toast.warning(`${r.passed}/${r.total} Prüfungen bestanden`)),
     onError: (e: any) => toast.error(e?.message ?? "Prüfung fehlgeschlagen"),
+  });
+  const seed = useMutation({
+    mutationFn: () => seedFn({ data: undefined as never }),
+    onSuccess: (r: any) => {
+      toast.success(r.created?.length ? `Angelegt: ${r.created.join(", ")}` : "Startpaket war bereits vorhanden");
+      run.mutate();
+    },
+    onError: (e: any) => toast.error(e?.message ?? "Startpaket fehlgeschlagen"),
   });
 
   if (!enabled) return null;
@@ -29,11 +38,18 @@ export function GoLivePanel({ enabled }: { enabled: boolean }) {
             Prüft Bot, Webhook, alle drei Chats, geplante Jobs, Zustellungen, Katalog und Medien in einem Durchlauf.
           </p>
         </div>
-        <Button onClick={() => run.mutate()} disabled={run.isPending}>
-          {run.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Rocket className="mr-2 size-4" />}
-          Alles prüfen
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button variant="secondary" onClick={() => seed.mutate()} disabled={seed.isPending}>
+            {seed.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <PackagePlus className="mr-2 size-4" />}
+            Startpaket anlegen
+          </Button>
+          <Button onClick={() => run.mutate()} disabled={run.isPending}>
+            {run.isPending ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Rocket className="mr-2 size-4" />}
+            Alles prüfen
+          </Button>
+        </div>
       </div>
+
 
       {result ? (
         <>

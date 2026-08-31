@@ -17,6 +17,7 @@ import { Route as DropsRouteImport } from './routes/drops'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
 import { Route as KampagnenRouteImport } from './routes/kampagnen'
+import { Route as KontoRouteImport } from './routes/konto'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as MedienRouteImport } from './routes/medien'
 import { Route as ProdukteRouteImport } from './routes/produkte'
@@ -34,6 +35,7 @@ import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
+import { Route as ApiPublicJobsGoliveRouteImport } from './routes/api/public/jobs/golive'
 import { Route as ApiPublicJobsLifecycleRouteImport } from './routes/api/public/jobs/lifecycle'
 import { Route as ApiPublicNIdRouteImport } from './routes/api/public/n.$id'
 import { Route as ApiPublicNotificationsCampaignsRouteImport } from './routes/api/public/notifications/campaigns'
@@ -78,6 +80,11 @@ const FansRoute = FansRouteImport.update({
 const KampagnenRoute = KampagnenRouteImport.update({
   id: '/kampagnen',
   path: '/kampagnen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoRoute = KontoRouteImport.update({
+  id: '/konto',
+  path: '/konto',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeadsRoute = LeadsRouteImport.update({
@@ -165,6 +172,11 @@ const InhaltTokenRoute = InhaltTokenRouteImport.update({
   path: '/inhalt/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicJobsGoliveRoute = ApiPublicJobsGoliveRouteImport.update({
+  id: '/api/public/jobs/golive',
+  path: '/api/public/jobs/golive',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicJobsLifecycleRoute = ApiPublicJobsLifecycleRouteImport.update({
   id: '/api/public/jobs/lifecycle',
   path: '/api/public/jobs/lifecycle',
@@ -203,6 +215,7 @@ export interface FileRoutesByFullPath {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
+  '/konto': typeof KontoRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -220,6 +233,7 @@ export interface FileRoutesByFullPath {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/golive': typeof ApiPublicJobsGoliveRoute
   '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
@@ -235,6 +249,7 @@ export interface FileRoutesByTo {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
+  '/konto': typeof KontoRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -252,6 +267,7 @@ export interface FileRoutesByTo {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/golive': typeof ApiPublicJobsGoliveRoute
   '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
@@ -268,6 +284,7 @@ export interface FileRoutesById {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
+  '/konto': typeof KontoRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -285,6 +302,7 @@ export interface FileRoutesById {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/golive': typeof ApiPublicJobsGoliveRoute
   '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
   '/api/public/notifications/campaigns': typeof ApiPublicNotificationsCampaignsRoute
@@ -302,6 +320,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
+    | '/konto'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -319,6 +338,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/golive'
     | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
@@ -334,6 +354,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
+    | '/konto'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -351,6 +372,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/golive'
     | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
@@ -366,6 +388,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
+    | '/konto'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -383,6 +406,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/golive'
     | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
     | '/api/public/notifications/campaigns'
@@ -399,6 +423,7 @@ export interface RootRouteChildren {
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
   KampagnenRoute: typeof KampagnenRoute
+  KontoRoute: typeof KontoRoute
   LeadsRoute: typeof LeadsRoute
   MedienRoute: typeof MedienRoute
   ProdukteRoute: typeof ProdukteRoute
@@ -416,6 +441,7 @@ export interface RootRouteChildren {
   ZugriffeRoute: typeof ZugriffeRoute
   ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
+  ApiPublicJobsGoliveRoute: typeof ApiPublicJobsGoliveRoute
   ApiPublicJobsLifecycleRoute: typeof ApiPublicJobsLifecycleRoute
   ApiPublicNIdRoute: typeof ApiPublicNIdRoute
   ApiPublicNotificationsCampaignsRoute: typeof ApiPublicNotificationsCampaignsRoute
@@ -479,6 +505,13 @@ declare module '@tanstack/react-router' {
       path: '/kampagnen'
       fullPath: '/kampagnen'
       preLoaderRoute: typeof KampagnenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto': {
+      id: '/konto'
+      path: '/konto'
+      fullPath: '/konto'
+      preLoaderRoute: typeof KontoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leads': {
@@ -600,6 +633,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InhaltTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/golive': {
+      id: '/api/public/jobs/golive'
+      path: '/api/public/jobs/golive'
+      fullPath: '/api/public/jobs/golive'
+      preLoaderRoute: typeof ApiPublicJobsGoliveRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jobs/lifecycle': {
       id: '/api/public/jobs/lifecycle'
       path: '/api/public/jobs/lifecycle'
@@ -647,6 +687,7 @@ const rootRouteChildren: RootRouteChildren = {
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
   KampagnenRoute: KampagnenRoute,
+  KontoRoute: KontoRoute,
   LeadsRoute: LeadsRoute,
   MedienRoute: MedienRoute,
   ProdukteRoute: ProdukteRoute,
@@ -664,6 +705,7 @@ const rootRouteChildren: RootRouteChildren = {
   ZugriffeRoute: ZugriffeRoute,
   ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
+  ApiPublicJobsGoliveRoute: ApiPublicJobsGoliveRoute,
   ApiPublicJobsLifecycleRoute: ApiPublicJobsLifecycleRoute,
   ApiPublicNIdRoute: ApiPublicNIdRoute,
   ApiPublicNotificationsCampaignsRoute: ApiPublicNotificationsCampaignsRoute,
