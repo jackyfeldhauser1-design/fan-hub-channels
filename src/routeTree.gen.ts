@@ -17,6 +17,7 @@ import { Route as DropsRouteImport } from './routes/drops'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
 import { Route as KampagnenRouteImport } from './routes/kampagnen'
+import { Route as KontoRouteImport } from './routes/konto'
 import { Route as LeadsRouteImport } from './routes/leads'
 import { Route as MedienRouteImport } from './routes/medien'
 import { Route as ProdukteRouteImport } from './routes/produkte'
@@ -78,6 +79,11 @@ const FansRoute = FansRouteImport.update({
 const KampagnenRoute = KampagnenRouteImport.update({
   id: '/kampagnen',
   path: '/kampagnen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const KontoRoute = KontoRouteImport.update({
+  id: '/konto',
+  path: '/konto',
   getParentRoute: () => rootRouteImport,
 } as any)
 const LeadsRoute = LeadsRouteImport.update({
@@ -203,6 +209,7 @@ export interface FileRoutesByFullPath {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
+  '/konto': typeof KontoRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -235,6 +242,7 @@ export interface FileRoutesByTo {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
+  '/konto': typeof KontoRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -268,6 +276,7 @@ export interface FileRoutesById {
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
   '/kampagnen': typeof KampagnenRoute
+  '/konto': typeof KontoRoute
   '/leads': typeof LeadsRoute
   '/medien': typeof MedienRoute
   '/produkte': typeof ProdukteRoute
@@ -302,6 +311,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
+    | '/konto'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
+    | '/konto'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -366,6 +377,7 @@ export interface FileRouteTypes {
     | '/einstellungen'
     | '/fans'
     | '/kampagnen'
+    | '/konto'
     | '/leads'
     | '/medien'
     | '/produkte'
@@ -399,6 +411,7 @@ export interface RootRouteChildren {
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
   KampagnenRoute: typeof KampagnenRoute
+  KontoRoute: typeof KontoRoute
   LeadsRoute: typeof LeadsRoute
   MedienRoute: typeof MedienRoute
   ProdukteRoute: typeof ProdukteRoute
@@ -479,6 +492,13 @@ declare module '@tanstack/react-router' {
       path: '/kampagnen'
       fullPath: '/kampagnen'
       preLoaderRoute: typeof KampagnenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/konto': {
+      id: '/konto'
+      path: '/konto'
+      fullPath: '/konto'
+      preLoaderRoute: typeof KontoRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/leads': {
@@ -647,6 +667,7 @@ const rootRouteChildren: RootRouteChildren = {
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
   KampagnenRoute: KampagnenRoute,
+  KontoRoute: KontoRoute,
   LeadsRoute: LeadsRoute,
   MedienRoute: MedienRoute,
   ProdukteRoute: ProdukteRoute,

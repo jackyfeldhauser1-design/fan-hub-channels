@@ -99,7 +99,7 @@ function AccountPage() {
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             Aktive Zugänge <Download className="size-4 text-primary" />
           </div>
-          <p className="mt-2 font-display text-2xl font-bold">{a.access.filter((x) => x.active).length}</p>
+          <p className="mt-2 font-display text-2xl font-bold">{a.access.filter((x: any) => x.active).length}</p>
           <p className="text-xs text-muted-foreground">{a.access.length} Zugänge insgesamt</p>
         </div>
       </section>
@@ -112,7 +112,7 @@ function AccountPage() {
           <p className="mt-2 text-sm text-muted-foreground">Noch keine Zugänge – kaufe im Bot deinen ersten Inhalt.</p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
-            {a.access.map((x) => (
+            {a.access.map((x: any) => (
               <li key={x.id} className="flex flex-wrap items-center gap-3 py-3">
                 <div className="min-w-0 flex-1">
                   <p className="text-sm font-medium">{x.title}</p>
@@ -150,7 +150,7 @@ function AccountPage() {
           <p className="mt-2 text-sm text-muted-foreground">Noch keine Bestellungen.</p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
-            {a.purchases.map((p) => (
+            {a.purchases.map((p: any) => (
               <li key={p.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className="min-w-0 flex-1 truncate">{p.title}</span>
                 <span className="text-muted-foreground">
@@ -170,7 +170,7 @@ function AccountPage() {
           <p className="mt-2 text-sm text-muted-foreground">Noch keine Downloads protokolliert.</p>
         ) : (
           <ul className="mt-3 divide-y divide-border">
-            {a.downloads.map((d) => (
+            {a.downloads.map((d: any) => (
               <li key={d.id} className="flex items-center gap-3 py-2 text-sm">
                 <span className={d.allowed ? "text-emerald-500" : "text-destructive"}>{d.allowed ? "erlaubt" : "blockiert"}</span>
                 <span className="min-w-0 flex-1 truncate text-muted-foreground">{d.reason}</span>
