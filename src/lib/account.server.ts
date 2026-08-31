@@ -40,7 +40,8 @@ export async function readAccountTicket(ticket: string): Promise<string | null> 
 
 /** Kontoübersicht: Käufe, Sterne, Abo, aktive Zugänge und Downloadereignisse. */
 export async function loadAccount(db: any, tgUserId: string) {
-  const [{ data: fan }, { data: purchases }, { data: tokens }, { data: downloads }, { data: settings }] =
+  const [{ data: fan }, { data: purchases }, { data: tokens }, { data: downloads }] =
+
     await Promise.all([
       db.from("tg_users").select("id, username, first_name, blocked, created_at").eq("id", tgUserId).maybeSingle(),
       db
