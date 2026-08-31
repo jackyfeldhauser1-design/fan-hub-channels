@@ -198,6 +198,33 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await deliverProduct(db, tg, chatId, product, purchase, settings);
         }
 
+        /** Persönlichen Konto-Link (signiert, 7 Tage gültig) senden. */
+        async function sendAccountLink(chatId: number, fanId: string) {
+          const base = String(settings.app_base_url ?? "").replace(/\/$/, "");
+          if (!base) {
+            await tg("sendMessage", { chat_id: chatId, text: "Das Kundenkonto wird gerade eingerichtet." });
+            return;
+          }
+          const { issueAccountTicket } = await import("@/lib/account.server");
+          const ticket = await issueAccountTicket(fanId);
+          await tg("sendMessage", {
+            chat_id: chatId,
+            text: "🧾 <b>Dein Kundenkonto</b>\nKäufe, Stars, VIP-Status und alle Zugänge auf einen Blick. Der Link ist persönlich und 7 Tage gültig.",
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: [[{ text: "Konto öffnen", url: `${base}/konto?t=${encodeURIComponent(ticket)}` }]],
+            },
+          });
+        }
+
+        /** Meldung in den Kontrollraum (Admin-Chat). */
+        async function notifyControl(text: string) {
+          const control = String(settings.control_chat_id ?? "").trim();
+          if (!control) return;
+          await tg("sendMessage", { chat_id: control, text, parse_mode: "HTML", disable_notification: true });
+        }
+
+
         /** Rechnung senden und für die Warenkorb-Rettung merken. */
         async function invoice(
           chatId: number,
