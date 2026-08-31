@@ -799,7 +799,11 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             parse_mode: "HTML",
             reply_markup: { inline_keyboard: [[{ text: "Early Access sichern", callback_data: "ea" }]] },
           });
+        } else if (text.startsWith("/konto")) {
+          const user = await ensureUser(msg.from);
+          await sendAccountLink(chatId, user.id);
         } else if (text.startsWith("/id")) {
+
           await tg("sendMessage", { chat_id: chatId, text: `Chat-ID: <code>${chatId}</code>`, parse_mode: "HTML" });
         } else if (text) {
           await ensureUser(msg.from);
