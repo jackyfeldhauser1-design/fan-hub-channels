@@ -12,6 +12,8 @@ const uid = () => `id_${++seq}`;
 
 export class FakeDb {
   tables: Record<string, Row[]> = {};
+  /** Spalten-Standardwerte je Tabelle (bilden DB-DEFAULTs nach). */
+  defaults: Record<string, Row> = { invoice_intents: { paid: false }, purchases: { status: "paid" } };
 
   constructor(seed: Record<string, Row[]> = {}) {
     for (const [name, rows] of Object.entries(seed)) {
@@ -118,9 +120,11 @@ class Query implements PromiseLike<{ data: any; count: number | null; error: nul
     const rows = this.db.rows(this.table);
 
     if (this.mode === "insert" || this.mode === "upsert") {
+      const defaults = this.db.defaults[this.table] ?? {};
       const items = (Array.isArray(this.payload) ? this.payload : [this.payload]).map((r: Row) => ({
         id: r["id"] ?? uid(),
         created_at: new Date().toISOString(),
+        ...defaults,
         ...r,
       }));
       const written: Row[] = [];
