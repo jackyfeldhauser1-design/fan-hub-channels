@@ -67,7 +67,7 @@ export async function loadAccount(db: any, tgUserId: string) {
 
   const { activeSubscription } = await import("@/lib/billing.server");
   const sub = await activeSubscription(db, tgUserId);
-  const conf = (await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle()).data ?? settings;
+  const conf = (await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle()).data ?? {};
   const base = String(conf?.app_base_url ?? "").replace(/\/$/, "");
 
   const folderIds = [...new Set((tokens ?? []).map((t: any) => t.folder_id).filter(Boolean))];
