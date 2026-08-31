@@ -29,7 +29,7 @@ const mainMenu = (free: string, vip: string): Btn[][] => {
     { text: "🚀 Early Access", callback_data: "ea" },
     { text: "📣 Werbung buchen", callback_data: "ads" },
   ]);
-  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }]);
+  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }, { text: "🧾 Mein Konto", callback_data: "account" }]);
   void free;
   void vip;
   return rows;
