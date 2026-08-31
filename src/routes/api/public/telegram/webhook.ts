@@ -541,6 +541,27 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
           await flagRepeatPayment(db, user, product?.id ?? null);
           await billing.closeInvoiceIntents(db, user.id, payload);
+
+          const buyerLabel = user.username ? `@${user.username}` : (user.first_name ?? `Fan ${user.telegram_id}`);
+          const paidTitle = product?.title ?? (payload.startsWith("vip:") ? "VIP-Zugang" : payload.startsWith("lead:") ? "Early-Access-Slot" : payload.startsWith("sp:") ? "Werbepost" : "Trinkgeld");
+          await db.from("admin_audit").insert({
+            action: "payment_received",
+            target: paidTitle,
+            status: "ok",
+            detail: `${buyerLabel} · ⭐ ${sp.total_amount}`,
+            meta: {
+              charge_id: chargeId,
+              purchase_id: purchase?.id ?? null,
+              product_id: product?.id ?? null,
+              payload,
+              amount_stars: sp.total_amount,
+              telegram_id: user.telegram_id,
+            },
+          });
+          await notifyControl(
+            `💰 <b>Zahlung eingegangen</b>\n${paidTitle} · ⭐ ${sp.total_amount}\nKäufer: ${buyerLabel}\nBeleg: <code>${chargeId}</code>`,
+          );
+
           if (codeId && product) {
             await billing.redeemDiscount(
               db,
