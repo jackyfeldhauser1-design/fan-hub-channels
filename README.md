@@ -1,14 +1,18 @@
-# Welcome to your Lovable project
+# Fan Connect Bot
+
+Ich möchte eine Art @connector:telegram:"Telegram" bot Kette erstellen der in unterschiedliche Gruppen oder Channel weiterleitet eine kostenlose Gruppe für Fans . Dann in eine Gruppe wo mittels @connector:telegram:"Telegram" Währung meine digitalen Inhalte zu erwerben sind.schlage mir weitere Umsatz bringende Möglichkeiten vor die eingebaut werden können
 
 This project was built with [Lovable](https://lovable.dev).
 
+**Live app**: https://fan-hub-channels.lovable.app
+
 ## Build with Lovable
 
-Open your project in the [Lovable editor](https://lovable.dev) and keep building.
+Continue developing this project in the [Lovable editor](https://lovable.dev/projects/35deff30-24dd-4f21-b1d1-af6203c909df).
 
 - **Ship faster**: describe what you want to build and Lovable handles the code.
-- **Stay in sync**: connect the project to GitHub and every change made in Lovable is committed straight to your repository.
-- **Full ownership**: this code is yours. Push to your repository and your changes sync back into Lovable, ready for your next prompt.
+- **Stay in sync**: every change made in Lovable is committed straight to this repository.
+- **Full ownership**: this code is yours. Push to `main` on GitHub and your changes sync back into Lovable, ready for your next prompt.
 
 ## Development
 
@@ -20,10 +24,3 @@ cd <repository-name>
 npm i
 npm run dev
 ```
-
-## Built with
-
-- TanStack Start
-- TypeScript
-- React
-- Tailwind CSS
