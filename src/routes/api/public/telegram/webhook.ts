@@ -293,7 +293,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             });
             return Response.json({ ok: true });
           }
-          if (d.startsWith("buy_") || d.startsWith("ton_") || d.startsWith("tip_")) {
+          if (d.startsWith("buy_") || d.startsWith("ton_") || d.startsWith("trx_") || d.startsWith("tip_")) {
             const reason = await guardAction(db, user, settings, "buy");
             if (reason) {
               await tg("sendMessage", { chat_id: chatId, text: `⚠️ ${reason}` });
@@ -471,11 +471,18 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 label: p.title,
                 amount,
               });
+              const cryptoButtons = [];
               if (Number(p.price_ton) > 0 && settings.ton_wallet) {
+                cryptoButtons.push([{ text: `💎 ${p.price_ton} TON`, callback_data: `ton_${p.id}` }]);
+              }
+              if (Number(p.price_trx) > 0 && settings.trx_wallet) {
+                cryptoButtons.push([{ text: `🔺 ${p.price_trx} TRX`, callback_data: `trx_${p.id}` }]);
+              }
+              if (cryptoButtons.length) {
                 await tg("sendMessage", {
                   chat_id: chatId,
-                  text: "Lieber mit Krypto zahlen?",
-                  reply_markup: { inline_keyboard: [[{ text: `💎 ${p.price_ton} TON`, callback_data: `ton_${p.id}` }]] },
+                  text: "Lieber mit Krypto zahlen? Die Freischaltung erfolgt nach bestätigtem Zahlungseingang.",
+                  reply_markup: { inline_keyboard: cryptoButtons },
                 });
               }
             }
@@ -483,9 +490,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           } else if (d.startsWith("ton_")) {
             const id = d.slice(4);
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
-            if (p && settings.ton_wallet) {
+            if (p && Number(p.price_ton) > 0 && settings.ton_wallet) {
               const memo = `TON-${code()}`;
-              await db.from("purchases").insert({
+              const { data: purchase, error } = await db.from("purchases").insert({
                 tg_user_id: user.id,
                 product_id: p.id,
                 title_snapshot: p.title,
@@ -494,14 +501,38 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 status: "pending",
                 ton_memo: memo,
                 referrer_id: user.referred_by,
-              });
-              await logOrderEvent(db, null, user.id, "ton_created", memo);
-              const url = `ton://transfer/${settings.ton_wallet}?amount=${Math.round(Number(p.price_ton) * 1e9)}&text=${memo}`;
+              }).select("id").single();
+              if (error) throw error;
+              await logOrderEvent(db, purchase?.id ?? null, user.id, "ton_created", memo);
+              const url = `ton://transfer/${settings.ton_wallet}?amount=${Math.round(Number(p.price_ton) * 1e9)}&text=${encodeURIComponent(memo)}`;
               await tg("sendMessage", {
                 chat_id: chatId,
-                text: `💎 <b>Zahlung in TON</b>\nBetrag: <b>${p.price_ton} TON</b>\nWallet: <code>${settings.ton_wallet}</code>\nVerwendungszweck: <code>${memo}</code>\n\nNach Bestätigung wird dein Inhalt freigeschaltet.`,
+                text: `💎 <b>Zahlung in TON</b>\nBetrag: <b>${p.price_ton} TON</b>\nWallet: <code>${settings.ton_wallet}</code>\nVerwendungszweck: <code>${memo}</code>\n\nNach bestätigtem Eingang liefert der Bot den Inhalt automatisch aus.`,
                 parse_mode: "HTML",
-                reply_markup: { inline_keyboard: [[{ text: "In Wallet öffnen", url }]] },
+                reply_markup: { inline_keyboard: [[{ text: "In TON-Wallet öffnen", url }]] },
+              });
+            }
+          } else if (d.startsWith("trx_")) {
+            const id = d.slice(4);
+            const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
+            if (p && Number(p.price_trx) > 0 && settings.trx_wallet) {
+              const memo = `TRX-${code()}`;
+              const { data: purchase, error } = await db.from("purchases").insert({
+                tg_user_id: user.id,
+                product_id: p.id,
+                title_snapshot: p.title,
+                currency: "trx",
+                amount_trx: p.price_trx,
+                status: "pending",
+                trx_memo: memo,
+                referrer_id: user.referred_by,
+              }).select("id").single();
+              if (error) throw error;
+              await logOrderEvent(db, purchase?.id ?? null, user.id, "trx_created", memo);
+              await tg("sendMessage", {
+                chat_id: chatId,
+                text: `🔺 <b>Zahlung in TRX (TRON)</b>\nBetrag: <b>${p.price_trx} TRX</b>\nTRON-Wallet: <code>${settings.trx_wallet}</code>\nReferenz: <code>${memo}</code>\n\nSende ausschließlich über das TRON-Netzwerk. Nach bestätigtem Eingang liefert der Bot den Inhalt automatisch aus.`,
+                parse_mode: "HTML",
               });
             }
           }
