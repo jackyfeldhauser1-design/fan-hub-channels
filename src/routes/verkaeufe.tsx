@@ -34,7 +34,7 @@ function SalesPage() {
   const { data } = useQuery({ queryKey: ["purchases"], queryFn: () => listFn({ data: undefined as never }), enabled: isAdmin });
 
   return (
-    <DashLayout title="Verkäufe" subtitle="Stars werden automatisch verbucht, TON-Zahlungen bestätigst du hier.">
+    <DashLayout title="Verkäufe" subtitle="Stars werden automatisch verbucht, TON-/TRX-Zahlungen bestätigst du hier.">
       <div className="panel hidden overflow-x-auto md:block">
         <table className="w-full min-w-[720px] text-sm">
           <thead className="text-left text-xs uppercase tracking-wide text-muted-foreground">
@@ -59,15 +59,15 @@ function SalesPage() {
                 </td>
                 <td className="px-4 py-3">{p.title_snapshot}</td>
                 <td className="px-4 py-3 font-medium text-primary">
-                  {p.currency === "ton" ? `${p.amount_ton} TON` : `⭐ ${p.amount_stars}`}
+                  {p.currency === "ton" ? `${p.amount_ton} TON` : p.currency === "trx" ? `${p.amount_trx} TRX` : `⭐ ${p.amount_stars}`}
                 </td>
                 <td className="px-4 py-3 text-muted-foreground">⭐ {p.commission_stars}</td>
                 <td className="px-4 py-3">
                   <Badge variant={p.status === "paid" ? "default" : "secondary"}>{p.status}</Badge>
-                  {p.ton_memo ? <span className="ml-2 text-xs text-muted-foreground">{p.ton_memo}</span> : null}
+                  {p.ton_memo || p.trx_memo ? <span className="ml-2 text-xs text-muted-foreground">{p.ton_memo ?? p.trx_memo}</span> : null}
                 </td>
                 <td className="px-4 py-3 text-right">
-                  {p.status === "pending" && p.currency === "ton" ? (
+                  {p.status === "pending" && (p.currency === "ton" || p.currency === "trx") ? (
                     <Button
                       size="sm"
                       onClick={async () => {
@@ -107,11 +107,11 @@ function SalesPage() {
             </div>
             <div className="mt-3 flex items-center justify-between text-sm">
               <span className="font-medium text-primary">
-                {p.currency === "ton" ? `${p.amount_ton} TON` : `⭐ ${p.amount_stars}`}
+                {p.currency === "ton" ? `${p.amount_ton} TON` : p.currency === "trx" ? `${p.amount_trx} TRX` : `⭐ ${p.amount_stars}`}
               </span>
               <span className="text-xs text-muted-foreground">Provision ⭐ {p.commission_stars}</span>
             </div>
-            {p.status === "pending" && p.currency === "ton" ? (
+            {p.status === "pending" && (p.currency === "ton" || p.currency === "trx") ? (
               <Button
                 className="mt-3 w-full"
                 onClick={async () => {

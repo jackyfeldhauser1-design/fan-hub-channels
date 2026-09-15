@@ -39,23 +39,25 @@ export const getContentStudio = createServerFn({ method: "POST" })
     ] = await Promise.all([
       db
         .from("content_sets")
-        .select("*, products(id,title,price_stars,price_ton,active,kind,upsell_product_id), content_series(id,title), content_set_items(item_role,sort_order,media_file_id,media_files(id,display_name,mime_type,preview_allowed))")
+        .select("*, products(id,title,price_stars,price_ton,price_trx,active,kind,upsell_product_id), content_series(id,title), content_set_items(item_role,sort_order,media_file_id,media_files(id,display_name,mime_type,preview_allowed))")
         .order("created_at", { ascending: false }),
       db.from("media_folders").select("id,title,description,active,media_files(id,display_name,mime_type,preview_allowed,sort_order)").order("sort_order"),
       db.from("content_series").select("*").order("sort_order"),
       db.from("content_publications").select("*").order("created_at", { ascending: false }).limit(100),
-      db.from("purchases").select("product_id,amount_stars,status").eq("status", "paid").not("product_id", "is", null).limit(10000),
+      db.from("purchases").select("product_id,amount_stars,amount_ton,amount_trx,currency,status").eq("status", "paid").not("product_id", "is", null).limit(10000),
       db.from("content_access").select("content_set_id,status,last_opened_at").limit(10000),
       db.from("products").select("id,title,description,price_stars,active,sort_order").eq("kind", "bundle").order("sort_order"),
       db.from("bundle_items").select("bundle_id,product_id"),
     ]);
 
-    const sales = new Map<string, { count: number; revenue: number }>();
+    const sales = new Map<string, { count: number; stars: number; ton: number; trx: number }>();
     for (const row of purchases ?? []) {
       if (!row.product_id) continue;
-      const current = sales.get(row.product_id) ?? { count: 0, revenue: 0 };
+      const current = sales.get(row.product_id) ?? { count: 0, stars: 0, ton: 0, trx: 0 };
       current.count += 1;
-      current.revenue += Number(row.amount_stars ?? 0);
+      if (row.currency === "ton") current.ton += Number(row.amount_ton ?? 0);
+      else if (row.currency === "trx") current.trx += Number(row.amount_trx ?? 0);
+      else current.stars += Number(row.amount_stars ?? 0);
       sales.set(row.product_id, current);
     }
     const opens = new Map<string, number>();
@@ -66,7 +68,7 @@ export const getContentStudio = createServerFn({ method: "POST" })
     const analytics = Object.fromEntries(
       (sets ?? []).map((set: any) => {
         const stats = set.products?.id ? sales.get(set.products.id) : null;
-        return [set.id, { sales: stats?.count ?? 0, revenueStars: stats?.revenue ?? 0, ownersOpened: opens.get(set.id) ?? 0 }];
+        return [set.id, { sales: stats?.count ?? 0, revenueStars: stats?.stars ?? 0, revenueTon: stats?.ton ?? 0, revenueTrx: stats?.trx ?? 0, ownersOpened: opens.get(set.id) ?? 0 }];
       }),
     );
     const bundleItemMap = new Map<string, string[]>();
@@ -99,6 +101,7 @@ export const createContentSet = createServerFn({ method: "POST" })
         previewFileId: z.string().uuid().nullable().optional(),
         priceStars: z.number().int().min(1).max(1_000_000),
         priceTon: z.number().min(0).max(100000).default(0),
+        priceTrx: z.number().min(0).max(100000000).default(0),
         accessMode: z.enum(["permanent", "hours", "vip"]).default("permanent"),
         accessHours: z.number().int().min(1).max(8760).nullable().optional(),
         seriesId: z.string().uuid().nullable().optional(),
@@ -129,6 +132,7 @@ export const createContentSet = createServerFn({ method: "POST" })
         kind: "ppv",
         price_stars: data.priceStars,
         price_ton: data.priceTon,
+        price_trx: data.priceTrx,
         delivery_type: "text",
         delivery_payload: "content:pending",
         active: data.status === "active",
@@ -294,6 +298,8 @@ export const updateContentSet = createServerFn({ method: "POST" })
         description: z.string().max(3000).optional(),
         status: z.enum(["draft", "active", "archived"]).optional(),
         priceStars: z.number().int().min(1).max(1_000_000).optional(),
+        priceTon: z.number().min(0).max(100000).optional(),
+        priceTrx: z.number().min(0).max(100000000).optional(),
         accessMode: z.enum(["permanent", "hours", "vip"]).optional(),
         accessHours: z.number().int().min(1).max(8760).nullable().optional(),
         seriesId: z.string().uuid().nullable().optional(),
@@ -323,6 +329,8 @@ export const updateContentSet = createServerFn({ method: "POST" })
     if (data.title !== undefined) productPatch['title'] = data.title;
     if (data.description !== undefined) productPatch['description'] = data.description;
     if (data.priceStars !== undefined) productPatch['price_stars'] = data.priceStars;
+    if (data.priceTon !== undefined) productPatch['price_ton'] = data.priceTon;
+    if (data.priceTrx !== undefined) productPatch['price_trx'] = data.priceTrx;
     if (data.status !== undefined) productPatch['active'] = data.status === "active";
     if (set.product_id && Object.keys(productPatch).length) {
       const { error } = await db.from("products").update(productPatch).eq("id", set.product_id);
@@ -383,6 +391,7 @@ export const createContentBundle = createServerFn({ method: "POST" })
         kind: "bundle",
         price_stars: data.priceStars,
         price_ton: 0,
+        price_trx: 0,
         delivery_type: "text",
         delivery_payload: "bundle:content",
         active: true,
@@ -432,7 +441,7 @@ export const publishContentSet = createServerFn({ method: "POST" })
 
     const { data: set } = await db
       .from("content_sets")
-      .select("id,title,description,status,access_mode,access_hours,products(id,price_stars,active),content_set_items(item_role,sort_order,media_files(storage_path,mime_type))")
+      .select("id,title,description,status,access_mode,access_hours,products(id,price_stars,price_ton,price_trx,active),content_set_items(item_role,sort_order,media_files(storage_path,mime_type))")
       .eq("id", data.id)
       .maybeSingle();
     if (!set) throw new Error("Content-Set nicht gefunden");
@@ -451,7 +460,8 @@ export const publishContentSet = createServerFn({ method: "POST" })
     if (!username) throw new Error("Bot-Benutzername konnte nicht ermittelt werden.");
 
     const accessText = set.access_mode === "hours" ? `${set.access_hours ?? 24}h Zugriff` : set.access_mode === "vip" ? "👑 Im VIP-Zugang enthalten" : "dauerhaft";
-    const priceText = set.access_mode === "vip" ? "" : ` · <b>⭐ ${set.products.price_stars}</b>`;
+    const cryptoPrices = [Number(set.products.price_ton) > 0 ? `${set.products.price_ton} TON` : "", Number(set.products.price_trx) > 0 ? `${set.products.price_trx} TRX` : ""].filter(Boolean).join(" · ");
+    const priceText = set.access_mode === "vip" ? "" : ` · <b>⭐ ${set.products.price_stars}${cryptoPrices ? ` · ${cryptoPrices}` : ""}</b>`;
     const caption = `🔒 <b>${escapeHtml(set.title)}</b>\n\n${escapeHtml(set.description || "Exklusiver Content")}\n\n${accessText}${priceText}`;
     const markup = { inline_keyboard: [[{ text: set.access_mode === "vip" ? "👑 VIP im Bot öffnen" : "🔓 Im Bot freischalten", url: `https://t.me/${username}?start=c_${set.id}` }]] };
     const preview = (set.content_set_items ?? [])

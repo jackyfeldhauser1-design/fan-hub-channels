@@ -115,7 +115,12 @@ function SettingsPage() {
             </div>
             <div className="space-y-1.5">
               <Label>TON-Wallet</Label>
-              <Input value={form.ton_wallet} onChange={(e) => setForm({ ...form, ton_wallet: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="UQ…" />
+              <Input value={form.ton_wallet ?? ""} onChange={(e) => setForm({ ...form, ton_wallet: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="UQ…" />
+            </div>
+            <div className="space-y-1.5">
+              <Label>TRON-Wallet (TRX)</Label>
+              <Input value={form.trx_wallet ?? ""} onChange={(e) => setForm({ ...form, trx_wallet: e.target.value })} autoCapitalize="none" autoCorrect="off" placeholder="T…" />
+              <p className="text-xs text-muted-foreground">Nur öffentliche Empfangsadresse – niemals Seed Phrase oder Private Key.</p>
             </div>
             <div className="space-y-1.5">
               <Label>Affiliate-Provision (%)</Label>
@@ -194,6 +199,7 @@ function SettingsPage() {
                     free_group_url: form.free_group_url,
                     vip_group_url: form.vip_group_url,
                     ton_wallet: form.ton_wallet,
+                    trx_wallet: form.trx_wallet ?? "",
                     affiliate_percent: Number(form.affiliate_percent),
                     tip_message: form.tip_message,
                     upsell_message: form.upsell_message,
@@ -252,7 +258,7 @@ function SettingsPage() {
             <p className="mb-2 flex items-center gap-2 text-foreground">
               <CheckCircle2 className="size-4 text-primary" /> Funnel-Kette
             </p>
-            /start → Gratis-Gruppe für Fans → Shop, Pay-per-View, VIP-Zugang → Zahlung per Stars oder TON → sichere
+            /start → Gratis-Gruppe für Fans → Shop, Pay-per-View, VIP-Zugang → Zahlung per Stars, TON oder TRX → sichere
             Auslieferung (Einmal-Link) → Upsell → Empfehlungslink mit Provision. Zusätzlich im Bot: /warteliste für
             Early-Access-Slots und /werbung für bezahlte Werbeposts.
           </div>

@@ -178,6 +178,7 @@ const settingsSchema = z.object({
   free_group_url: z.string().max(300),
   vip_group_url: z.string().max(300),
   ton_wallet: z.string().max(120),
+  trx_wallet: z.string().max(120),
   affiliate_percent: z.number().int().min(0).max(90),
   tip_message: z.string().max(500),
   upsell_message: z.string().max(500),
@@ -239,6 +240,7 @@ const productSchema = z.object({
   kind: z.enum(["single", "bundle", "ppv", "tip"]),
   price_stars: z.number().int().min(0).max(1000000),
   price_ton: z.number().min(0).max(100000),
+  price_trx: z.number().min(0).max(100000000),
   delivery_type: z.enum(["text", "file", "link"]),
   delivery_payload: z.string().max(2000),
   active: z.boolean(),
@@ -277,7 +279,7 @@ export const listPurchases = createServerFn({ method: "POST" })
     return data ?? [];
   });
 
-export const confirmTonPurchase = createServerFn({ method: "POST" })
+export const confirmCryptoPurchase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
@@ -288,26 +290,41 @@ export const confirmTonPurchase = createServerFn({ method: "POST" })
       .eq("id", data.id)
       .maybeSingle();
     if (!purchase) throw new Error("Kauf nicht gefunden");
-    await db.from("purchases").update({ status: "paid" }).eq("id", data.id);
-    const chatId = purchase.tg_users?.telegram_id;
-    if (chatId && purchase.product_id) {
-      const { data: p } = await db.from("products").select("*").eq("id", purchase.product_id).maybeSingle();
-      if (p) {
-        if (p.delivery_type === "file" && p.delivery_payload) {
-          await tg("sendDocument", { chat_id: chatId, document: p.delivery_payload, caption: p.title });
-        } else if (p.delivery_type === "link" && p.delivery_payload) {
-          await tg("sendMessage", {
-            chat_id: chatId,
-            text: `✅ ${p.title}`,
-            reply_markup: { inline_keyboard: [[{ text: "Jetzt öffnen", url: p.delivery_payload }]] },
-          });
-        } else {
-          await tg("sendMessage", { chat_id: chatId, text: `✅ ${p.title}\n\n${p.delivery_payload}` });
-        }
-      }
+    if (purchase.currency !== "ton" && purchase.currency !== "trx") {
+      throw new Error("Nur TON- oder TRX-Zahlungen können manuell bestätigt werden.");
     }
-    return { ok: true };
+    if (purchase.status === "paid" && purchase.delivery_status === "delivered") {
+      return { ok: true, duplicate: true };
+    }
+    if (!purchase.product_id || !purchase.tg_users?.telegram_id) {
+      throw new Error("Kauf ist nicht vollständig mit Produkt und Telegram-Konto verknüpft.");
+    }
+
+    const { data: product } = await db.from("products").select("*").eq("id", purchase.product_id).maybeSingle();
+    if (!product) throw new Error("Produkt nicht gefunden");
+
+    const { error: paidError } = await db
+      .from("purchases")
+      .update({ status: "paid", delivery_status: "pending" })
+      .eq("id", data.id);
+    if (paidError) throw new Error(paidError.message);
+
+    const { deliverProduct, logOrderEvent } = await import("@/lib/fulfillment.server");
+    await logOrderEvent(db, purchase.id, purchase.tg_user_id, "paid", `${purchase.currency}:admin-confirmed`);
+    const result = await deliverProduct(
+      db,
+      tg as any,
+      Number(purchase.tg_users.telegram_id),
+      product,
+      { ...purchase, status: "paid", delivery_status: "pending" },
+      {},
+    );
+    if (!result.ok) throw new Error("Zahlung bestätigt, Auslieferung muss erneut versucht werden.");
+    return { ok: true, duplicate: false };
   });
+
+/** Rückwärtskompatibel für bestehende UI-Imports. */
+export const confirmTonPurchase = confirmCryptoPurchase;
 
 export const listFans = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
