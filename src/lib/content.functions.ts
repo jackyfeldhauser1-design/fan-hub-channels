@@ -44,18 +44,20 @@ export const getContentStudio = createServerFn({ method: "POST" })
       db.from("media_folders").select("id,title,description,active,media_files(id,display_name,mime_type,preview_allowed,sort_order)").order("sort_order"),
       db.from("content_series").select("*").order("sort_order"),
       db.from("content_publications").select("*").order("created_at", { ascending: false }).limit(100),
-      db.from("purchases").select("product_id,amount_stars,status").eq("status", "paid").not("product_id", "is", null).limit(10000),
+      db.from("purchases").select("product_id,amount_stars,amount_ton,amount_trx,currency,status").eq("status", "paid").not("product_id", "is", null).limit(10000),
       db.from("content_access").select("content_set_id,status,last_opened_at").limit(10000),
       db.from("products").select("id,title,description,price_stars,active,sort_order").eq("kind", "bundle").order("sort_order"),
       db.from("bundle_items").select("bundle_id,product_id"),
     ]);
 
-    const sales = new Map<string, { count: number; revenue: number }>();
+    const sales = new Map<string, { count: number; stars: number; ton: number; trx: number }>();
     for (const row of purchases ?? []) {
       if (!row.product_id) continue;
-      const current = sales.get(row.product_id) ?? { count: 0, revenue: 0 };
+      const current = sales.get(row.product_id) ?? { count: 0, stars: 0, ton: 0, trx: 0 };
       current.count += 1;
-      current.revenue += Number(row.amount_stars ?? 0);
+      if (row.currency === "ton") current.ton += Number(row.amount_ton ?? 0);
+      else if (row.currency === "trx") current.trx += Number(row.amount_trx ?? 0);
+      else current.stars += Number(row.amount_stars ?? 0);
       sales.set(row.product_id, current);
     }
     const opens = new Map<string, number>();
@@ -66,7 +68,7 @@ export const getContentStudio = createServerFn({ method: "POST" })
     const analytics = Object.fromEntries(
       (sets ?? []).map((set: any) => {
         const stats = set.products?.id ? sales.get(set.products.id) : null;
-        return [set.id, { sales: stats?.count ?? 0, revenueStars: stats?.revenue ?? 0, ownersOpened: opens.get(set.id) ?? 0 }];
+        return [set.id, { sales: stats?.count ?? 0, revenueStars: stats?.stars ?? 0, revenueTon: stats?.ton ?? 0, revenueTrx: stats?.trx ?? 0, ownersOpened: opens.get(set.id) ?? 0 }];
       }),
     );
     const bundleItemMap = new Map<string, string[]>();
