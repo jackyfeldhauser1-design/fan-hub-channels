@@ -75,6 +75,8 @@ function ContentStudio() {
   const analytics = (query.data as any)?.analytics ?? {};
   const bundles = (query.data as any)?.bundles ?? [];
   const totalRevenue = Object.values(analytics).reduce((sum: number, row: any) => sum + Number(row?.revenueStars ?? 0), 0);
+  const totalTon = Object.values(analytics).reduce((sum: number, row: any) => sum + Number(row?.revenueTon ?? 0), 0);
+  const totalTrx = Object.values(analytics).reduce((sum: number, row: any) => sum + Number(row?.revenueTrx ?? 0), 0);
   const selectedFolder = useMemo(() => folders.find((f: any) => f.id === form.folderId), [folders, form.folderId]);
 
   const create = useMutation({
@@ -207,7 +209,7 @@ function ContentStudio() {
             <div className="panel p-4"><p className="text-xs text-muted-foreground">Aktiv</p><p className="mt-1 text-2xl font-bold">{sets.filter((s: any) => s.status === "active").length}</p></div>
             <div className="panel p-4"><p className="text-xs text-muted-foreground">Serien</p><p className="mt-1 text-2xl font-bold">{series.length}</p></div>
             <div className="panel p-4"><p className="text-xs text-muted-foreground">Bundles</p><p className="mt-1 text-2xl font-bold">{bundles.length}</p></div>
-            <div className="panel p-4"><p className="text-xs text-muted-foreground">Content-Umsatz</p><p className="mt-1 flex items-center gap-1 text-2xl font-bold"><TrendingUp className="size-5" />⭐ {totalRevenue}</p></div>
+            <div className="panel p-4"><p className="text-xs text-muted-foreground">Content-Umsatz</p><p className="mt-1 flex items-center gap-1 text-lg font-bold"><TrendingUp className="size-5" />⭐ {totalRevenue} · {totalTon} TON · {totalTrx} TRX</p></div>
             <div className="panel p-4"><p className="text-xs text-muted-foreground">Prinzip</p><p className="mt-1 flex items-center gap-1 font-semibold"><LockKeyhole className="size-4" /> Telegram only</p></div>
           </section>
 
@@ -315,7 +317,7 @@ function ContentStudio() {
                       <div className="flex items-center gap-2"><h3 className="font-semibold">{set.title}</h3>{set.status === "active" ? <CheckCircle2 className="size-4 text-emerald-500" /> : set.status === "archived" ? <Archive className="size-4" /> : <span className="rounded bg-muted px-2 py-0.5 text-xs">Entwurf</span>}</div>
                       <p className="mt-1 text-sm text-muted-foreground">{set.description || "Keine Beschreibung"}</p>
                       <p className="mt-2 text-xs text-muted-foreground">⭐ {set.products?.price_stars ?? 0}{Number(set.products?.price_ton) > 0 ? ` · ${set.products.price_ton} TON` : ""}{Number(set.products?.price_trx) > 0 ? ` · ${set.products.price_trx} TRX` : ""} · {protectedCount} geschützte Medien · {previewCount} Preview · {set.access_mode === "hours" ? `${set.access_hours}h` : set.access_mode}{set.content_series?.title ? ` · Serie: ${set.content_series.title}` : ""}</p>
-                      <p className="mt-1 text-xs text-muted-foreground">Verkäufe: {analytics[set.id]?.sales ?? 0} · Umsatz: ⭐ {analytics[set.id]?.revenueStars ?? 0} · bereits geöffnet: {analytics[set.id]?.ownersOpened ?? 0}</p>
+                      <p className="mt-1 text-xs text-muted-foreground">Verkäufe: {analytics[set.id]?.sales ?? 0} · Umsatz: ⭐ {analytics[set.id]?.revenueStars ?? 0} · {analytics[set.id]?.revenueTon ?? 0} TON · {analytics[set.id]?.revenueTrx ?? 0} TRX · bereits geöffnet: {analytics[set.id]?.ownersOpened ?? 0}</p>
                     </div>
                     {isAdmin && <div className="flex min-w-56 flex-col gap-2">
                       <div className="flex flex-wrap gap-2">
