@@ -471,7 +471,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 label: p.title,
                 amount,
               });
-              const cryptoButtons = [];
+              const cryptoButtons: Array<Array<{ text: string; callback_data: string }>> = [];
               if (Number(p.price_ton) > 0 && settings.ton_wallet) {
                 cryptoButtons.push([{ text: `💎 ${p.price_ton} TON`, callback_data: `ton_${p.id}` }]);
               }
