@@ -63,7 +63,7 @@ function OrdersPage() {
                 {o.tg_users?.username ? `@${o.tg_users.username}` : (o.tg_users?.first_name ?? "—")}
               </span>
               <span className="font-medium text-primary">
-                {o.currency === "ton" ? `${o.amount_ton} TON` : `⭐ ${o.amount_stars}`}
+                {o.currency === "ton" ? `${o.amount_ton} TON` : o.currency === "trx" ? `${o.amount_trx} TRX` : `⭐ ${o.amount_stars}`}
               </span>
               <Badge variant={o.status === "paid" ? "default" : "secondary"}>Zahlung: {o.status}</Badge>
               <Badge variant={o.delivery_status === "delivered" ? "default" : "outline"}>
