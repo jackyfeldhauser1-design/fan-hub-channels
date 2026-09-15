@@ -39,7 +39,7 @@ export const getContentStudio = createServerFn({ method: "POST" })
     ] = await Promise.all([
       db
         .from("content_sets")
-        .select("*, products(id,title,price_stars,price_ton,active,kind,upsell_product_id), content_series(id,title), content_set_items(item_role,sort_order,media_file_id,media_files(id,display_name,mime_type,preview_allowed))")
+        .select("*, products(id,title,price_stars,price_ton,price_trx,active,kind,upsell_product_id), content_series(id,title), content_set_items(item_role,sort_order,media_file_id,media_files(id,display_name,mime_type,preview_allowed))")
         .order("created_at", { ascending: false }),
       db.from("media_folders").select("id,title,description,active,media_files(id,display_name,mime_type,preview_allowed,sort_order)").order("sort_order"),
       db.from("content_series").select("*").order("sort_order"),
@@ -99,6 +99,7 @@ export const createContentSet = createServerFn({ method: "POST" })
         previewFileId: z.string().uuid().nullable().optional(),
         priceStars: z.number().int().min(1).max(1_000_000),
         priceTon: z.number().min(0).max(100000).default(0),
+        priceTrx: z.number().min(0).max(100000000).default(0),
         accessMode: z.enum(["permanent", "hours", "vip"]).default("permanent"),
         accessHours: z.number().int().min(1).max(8760).nullable().optional(),
         seriesId: z.string().uuid().nullable().optional(),
@@ -129,6 +130,7 @@ export const createContentSet = createServerFn({ method: "POST" })
         kind: "ppv",
         price_stars: data.priceStars,
         price_ton: data.priceTon,
+        price_trx: data.priceTrx,
         delivery_type: "text",
         delivery_payload: "content:pending",
         active: data.status === "active",
@@ -294,6 +296,8 @@ export const updateContentSet = createServerFn({ method: "POST" })
         description: z.string().max(3000).optional(),
         status: z.enum(["draft", "active", "archived"]).optional(),
         priceStars: z.number().int().min(1).max(1_000_000).optional(),
+        priceTon: z.number().min(0).max(100000).optional(),
+        priceTrx: z.number().min(0).max(100000000).optional(),
         accessMode: z.enum(["permanent", "hours", "vip"]).optional(),
         accessHours: z.number().int().min(1).max(8760).nullable().optional(),
         seriesId: z.string().uuid().nullable().optional(),
@@ -323,6 +327,8 @@ export const updateContentSet = createServerFn({ method: "POST" })
     if (data.title !== undefined) productPatch['title'] = data.title;
     if (data.description !== undefined) productPatch['description'] = data.description;
     if (data.priceStars !== undefined) productPatch['price_stars'] = data.priceStars;
+    if (data.priceTon !== undefined) productPatch['price_ton'] = data.priceTon;
+    if (data.priceTrx !== undefined) productPatch['price_trx'] = data.priceTrx;
     if (data.status !== undefined) productPatch['active'] = data.status === "active";
     if (set.product_id && Object.keys(productPatch).length) {
       const { error } = await db.from("products").update(productPatch).eq("id", set.product_id);
@@ -383,6 +389,7 @@ export const createContentBundle = createServerFn({ method: "POST" })
         kind: "bundle",
         price_stars: data.priceStars,
         price_ton: 0,
+        price_trx: 0,
         delivery_type: "text",
         delivery_payload: "bundle:content",
         active: true,
