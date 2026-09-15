@@ -85,6 +85,14 @@ export async function grantVipAccess(
     kind: "vip_granted",
     detail: invite.url ? (invite.personal ? "persönlicher Einmal-Link" : "Fallback-Link") : invite.error,
   });
+  // VIP-only Content-Sets are kept in the same entitlement system as paid sets.
+  // This makes "Meine Inhalte" the single Telegram library for the fan.
+  try {
+    const { syncVipContentAccess } = await import("@/lib/content.server");
+    await syncVipContentAccess(db, user.id);
+  } catch {
+    // A channel invite must not fail just because optional content sync is unavailable.
+  }
   if (purchaseId) {
     await db
       .from("purchases")

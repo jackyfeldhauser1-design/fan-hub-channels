@@ -178,6 +178,33 @@ export const setFolderPreview = createServerFn({ method: "POST" })
   .handler(async ({ data, context }) => {
     const { db, isAdmin } = await adminDb(context);
     if (!isAdmin) throw new Error("Forbidden");
+
+    if (data.fileId) {
+      const { data: file, error: fileError } = await db
+        .from("media_files")
+        .select("id")
+        .eq("id", data.fileId)
+        .eq("folder_id", data.folderId)
+        .maybeSingle();
+      if (fileError) throw new Error(fileError.message);
+      if (!file) throw new Error("Die gewählte Preview-Datei gehört nicht zu diesem Ordner.");
+    }
+
+    const { error: resetError } = await db
+      .from("media_files")
+      .update({ preview_allowed: false })
+      .eq("folder_id", data.folderId);
+    if (resetError) throw new Error(resetError.message);
+
+    if (data.fileId) {
+      const { error: allowError } = await db
+        .from("media_files")
+        .update({ preview_allowed: true })
+        .eq("id", data.fileId)
+        .eq("folder_id", data.folderId);
+      if (allowError) throw new Error(allowError.message);
+    }
+
     const { error } = await db.from("media_folders").update({ preview_file_id: data.fileId }).eq("id", data.folderId);
     if (error) throw new Error(error.message);
     return { ok: true };

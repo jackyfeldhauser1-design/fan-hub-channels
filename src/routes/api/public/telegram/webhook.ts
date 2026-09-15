@@ -29,7 +29,7 @@ const mainMenu = (free: string, vip: string): Btn[][] => {
     { text: "🚀 Early Access", callback_data: "ea" },
     { text: "📣 Werbung buchen", callback_data: "ads" },
   ]);
-  rows.push([{ text: "ℹ️ Meine Käufe", callback_data: "mine" }, { text: "🧾 Mein Konto", callback_data: "account" }]);
+  rows.push([{ text: "🔓 Meine Inhalte", callback_data: "my_content" }, { text: "🧾 Meine Käufe", callback_data: "mine" }]);
   void free;
   void vip;
   return rows;
@@ -71,6 +71,29 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         // Replay-Schutz: doppelte oder veraltete Updates werden verworfen.
         const replay = await acceptTelegramUpdate(db, update);
         if (!replay.accept) {
+          // Telegram wiederholt dieselbe update_id, wenn unser Handler nach der
+          // Zahlungsbuchung bei der Content-Zustellung fehlgeschlagen ist. In
+          // diesem Sonderfall darf der Replay-Schutz die idempotente Zustellung
+          // nicht verhindern.
+          const retryChargeId = msg?.successful_payment?.telegram_payment_charge_id as string | undefined;
+          if (replay.reason === "duplicate update_id" && retryChargeId && msg?.chat?.id) {
+            const { data: pendingPurchase } = await db
+              .from("purchases")
+              .select("id,tg_user_id,product_id,delivery_status")
+              .eq("telegram_charge_id", retryChargeId)
+              .maybeSingle();
+            if (pendingPurchase?.product_id && pendingPurchase.delivery_status !== "delivered") {
+              const { data: retryProduct } = await db.from("products").select("*").eq("id", pendingPurchase.product_id).maybeSingle();
+              const retrySettings = (await db.from("bot_settings").select("*").eq("id", true).maybeSingle()).data ?? {};
+              if (retryProduct) {
+                await deliverProduct(db, tg, msg.chat.id, retryProduct, {
+                  id: pendingPurchase.id,
+                  tg_user_id: pendingPurchase.tg_user_id,
+                }, retrySettings);
+                return Response.json({ ok: true, duplicate: true, deliveryRetried: true });
+              }
+            }
+          }
           console.warn(`Telegram update abgewiesen: ${replay.reason}`);
           return Response.json({ ok: true, ignored: replay.reason });
         }
@@ -198,21 +221,26 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await deliverProduct(db, tg, chatId, product, purchase, settings);
         }
 
-        /** Persönlichen Konto-Link (signiert, 7 Tage gültig) senden. */
-        async function sendAccountLink(chatId: number, fanId: string) {
-          const base = String(settings.app_base_url ?? "").replace(/\/$/, "");
-          if (!base) {
-            await tg("sendMessage", { chat_id: chatId, text: "Das Kundenkonto wird gerade eingerichtet." });
+        async function sendMyContent(chatId: number, userId: string) {
+          const { listFanContent } = await import("@/lib/content.server");
+          const rows = await listFanContent(db, userId);
+          if (!rows.length) {
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: "🔒 Du hast noch keine aktiven Inhalte. Öffne den Shop und schalte dein erstes Set frei.",
+              reply_markup: { inline_keyboard: [[{ text: "🛍 Shop öffnen", callback_data: "shop" }]] },
+            });
             return;
           }
-          const { issueAccountTicket } = await import("@/lib/account.server");
-          const ticket = await issueAccountTicket(fanId);
           await tg("sendMessage", {
             chat_id: chatId,
-            text: "🧾 <b>Dein Kundenkonto</b>\nKäufe, Stars, VIP-Status und alle Zugänge auf einen Blick. Der Link ist persönlich und 7 Tage gültig.",
+            text: "🔓 <b>Meine Inhalte</b>\nWähle einen freigeschalteten Inhalt:",
             parse_mode: "HTML",
             reply_markup: {
-              inline_keyboard: [[{ text: "Konto öffnen", url: `${base}/konto?t=${encodeURIComponent(ticket)}` }]],
+              inline_keyboard: rows.slice(0, 20).map((r: any) => [{
+                text: `${r.content_sets.title}${r.expires_at ? ` · bis ${new Date(r.expires_at).toLocaleDateString("de-DE")}` : ""}`.slice(0, 60),
+                callback_data: `content_${r.content_sets.id}`,
+              }]),
             },
           });
         }
@@ -232,7 +260,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           opts: { title: string; description: string; payload: string; label: string; amount: number },
         ) {
           const amount = Math.max(1, Math.round(opts.amount));
-          await tg("sendInvoice", {
+          const sent = await tg("sendInvoice", {
             chat_id: chatId,
             title: opts.title.slice(0, 32),
             description: opts.description.slice(0, 255),
@@ -240,7 +268,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             currency: "XTR",
             prices: [{ label: opts.label.slice(0, 32), amount }],
           });
-          if (userId) {
+          // Nur einen offenen Warenkorb speichern, wenn Telegram die Rechnung
+          // tatsächlich angenommen hat. Sonst kann der Fan den Button erneut
+          // verwenden, ohne dass ein Phantom-Invoice entsteht.
+          if (sent && userId) {
             const { recordInvoiceIntent } = await import("@/lib/billing.server");
             await recordInvoiceIntent(db, userId, chatId, opts.payload, opts.title, amount);
           }
@@ -293,7 +324,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             } else {
               await tg("sendMessage", { chat_id: chatId, text: "Die Gratis-Gruppe wird gerade eingerichtet." });
             }
-          } else if (d === "shop") await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
+          } else if (d === "shop") await listProducts(chatId, ["single", "bundle", "ppv"], "🛍 Shop & Content");
           else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
           else if (d === "vip") {
             const { hasVipAccess, grantVipAccess } = await import("@/lib/vip.server");
@@ -349,6 +380,19 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               text: `🤝 <b>Dein Empfehlungslink</b>\n${link}\n\nDu bekommst <b>${settings.affiliate_percent ?? 20}%</b> von jedem Kauf deiner Geworbenen.\nBisher verdient: <b>⭐ ${total}</b>`,
               parse_mode: "HTML",
             });
+          } else if (d === "my_content") {
+            await sendMyContent(chatId, user.id);
+          } else if (d.startsWith("content_")) {
+            const reason = await guardAction(db, user, settings, "access");
+            if (reason) {
+              await tg("sendMessage", { chat_id: chatId, text: `⚠️ ${reason}` });
+              return Response.json({ ok: true });
+            }
+            const { deliverContentSet } = await import("@/lib/content.server");
+            const result = await deliverContentSet(db, tg, chatId, user.id, d.slice(8));
+            if (!result.ok) {
+              await tg("sendMessage", { chat_id: chatId, text: "🔒 Dieser Inhalt ist nicht freigeschaltet oder der Zugriff ist abgelaufen." });
+            }
           } else if (d === "mine") {
             const { data: rows } = await db
               .from("purchases")
@@ -364,8 +408,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 : "Du hast noch nichts gekauft.",
               parse_mode: "HTML",
             });
-          } else if (d === "account") {
-            await sendAccountLink(chatId, user.id);
           } else if (d === "ea") {
 
             const price = Math.max(1, Number(settings.early_access_price_stars ?? 250));
@@ -486,10 +528,16 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           // Doppelzustellungen von Telegram dürfen keinen zweiten Kauf anlegen
           const { data: already } = await db
             .from("purchases")
-            .select("id")
+            .select("id, tg_user_id, product_id, delivery_status")
             .eq("telegram_charge_id", chargeId)
             .maybeSingle();
-          if (already) return Response.json({ ok: true, duplicate: true });
+          if (already) {
+            if (already.product_id && already.delivery_status !== "delivered") {
+              const { data: retryProduct } = await db.from("products").select("*").eq("id", already.product_id).maybeSingle();
+              if (retryProduct) await deliver(chatId, retryProduct, { id: already.id, tg_user_id: already.tg_user_id });
+            }
+            return Response.json({ ok: true, duplicate: true, deliveryRetried: already.delivery_status !== "delivered" });
+          }
 
           const [productPart = "", codePart = ""] = payload.split("|");
           const codeId = codePart?.startsWith("c:") ? codePart.slice(2) : "";
@@ -512,7 +560,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             await db.from("sponsored_posts").update({ status: "paid" }).eq("id", payload.slice(3));
           }
 
-          const { data: purchase } = await db
+          const { data: purchase, error: purchaseError } = await db
             .from("purchases")
             .insert({
               tg_user_id: user.id,
@@ -538,7 +586,26 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             .select("id, tg_user_id")
             .single();
 
-          await logOrderEvent(db, purchase?.id ?? null, user.id, "paid", `stars:${sp.total_amount}`);
+          if (purchaseError || !purchase) {
+            // Parallel eintreffende Telegram-Zahlungsupdates können beide die
+            // Vorabprüfung passieren. Der eindeutige Charge-Index entscheidet;
+            // in diesem Fall verwenden wir den bereits angelegten Kauf weiter.
+            const { data: racedPurchase } = await db
+              .from("purchases")
+              .select("id,tg_user_id,product_id,delivery_status")
+              .eq("telegram_charge_id", chargeId)
+              .maybeSingle();
+            if (racedPurchase) {
+              if (racedPurchase.product_id && racedPurchase.delivery_status !== "delivered") {
+                const { data: retryProduct } = await db.from("products").select("*").eq("id", racedPurchase.product_id).maybeSingle();
+                if (retryProduct) await deliver(chatId, retryProduct, { id: racedPurchase.id, tg_user_id: racedPurchase.tg_user_id });
+              }
+              return Response.json({ ok: true, duplicate: true, deliveryRetried: racedPurchase.delivery_status !== "delivered" });
+            }
+            throw new Error(purchaseError?.message ?? "Zahlung konnte nicht gespeichert werden");
+          }
+
+          await logOrderEvent(db, purchase.id, user.id, "paid", `stars:${sp.total_amount}`);
           await flagRepeatPayment(db, user, product?.id ?? null);
           await billing.closeInvoiceIntents(db, user.id, payload);
 
@@ -586,22 +653,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             await grantVipAccess(db, tg as any, chatId, user, settings, purchase?.id ?? null);
           } else if (product) {
             await deliver(chatId, product, purchase);
-            if (product.upsell_product_id) {
-              const { data: up } = await db
-                .from("products")
-                .select("id, title, price_stars, active")
-                .eq("id", product.upsell_product_id)
-                .maybeSingle();
-              if (up?.active)
-                await tg("sendMessage", {
-                  chat_id: chatId,
-                  text: `${settings.upsell_message ?? "Passend dazu:"}\n\n<b>${up.title}</b> — ⭐ ${up.price_stars}`,
-                  parse_mode: "HTML",
-                  reply_markup: {
-                    inline_keyboard: [[{ text: `⭐ ${up.price_stars} kaufen`, callback_data: `buy_${up.id}` }]],
-                  },
-                });
-            }
           } else if (payload.startsWith("lead:"))
             await tg("sendMessage", {
               chat_id: chatId,
@@ -613,11 +664,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               text: "✅ Deine Werbebuchung ist bezahlt und wird nach Freigabe veröffentlicht.",
             });
           else await tg("sendMessage", { chat_id: chatId, text: "💛 Danke für dein Trinkgeld!" });
-
-          if (product || payload.startsWith("vip:")) await sendAccountLink(chatId, user.id);
-
-
-
 
 
           if (user.referred_by && commission > 0) {
@@ -640,6 +686,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         if (text.startsWith("/start")) {
           const payload = text.split(" ")[1];
           const user = await ensureUser(msg.from, payload);
+          // Content-Angebot aus Shop-/Community-Post: /start c_<content-set-id>
+          if (payload?.startsWith("c_")) {
+            const { offerContentSet } = await import("@/lib/content.server");
+            await offerContentSet(db, tg, chatId, user, payload.slice(2));
+            return Response.json({ ok: true });
+          }
           // Direkter Kauf-Link aus einem Shop-/Community-Post: /start p_<id>
           if (payload?.startsWith("p_")) {
             const { data: p } = await db.from("products").select("*").eq("id", payload.slice(2)).maybeSingle();
@@ -724,7 +776,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           );
         } else if (text.startsWith("/shop")) {
           await ensureUser(msg.from);
-          await listProducts(chatId, ["single", "bundle"], "🛍 Digitale Inhalte & Bundles");
+          await listProducts(chatId, ["single", "bundle", "ppv"], "🛍 Shop & Content");
         } else if (text.startsWith("/code")) {
           const user = await ensureUser(msg.from);
           const entered = text.slice(5).trim();
@@ -799,9 +851,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             parse_mode: "HTML",
             reply_markup: { inline_keyboard: [[{ text: "Early Access sichern", callback_data: "ea" }]] },
           });
-        } else if (text.startsWith("/konto")) {
+        } else if (text.startsWith("/konto") || text.startsWith("/meineinhalte")) {
           const user = await ensureUser(msg.from);
-          await sendAccountLink(chatId, user.id);
+          await sendMyContent(chatId, user.id);
         } else if (text.startsWith("/id")) {
 
           await tg("sendMessage", { chat_id: chatId, text: `Chat-ID: <code>${chatId}</code>`, parse_mode: "HTML" });

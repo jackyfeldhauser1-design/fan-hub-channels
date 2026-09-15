@@ -61,11 +61,16 @@ export const getAccess = createServerFn({ method: "POST" }).handler(async () => 
     .from("user_roles")
     .select("id", { count: "exact", head: true })
     .eq("role", "admin");
+  const adminExists = (count ?? 0) > 0;
+  const bootstrapEnabled = process.env["ADMIN_BOOTSTRAP_ENABLED"] === "true";
+  const bootstrapUserId = String(process.env["ADMIN_BOOTSTRAP_USER_ID"] ?? "").trim();
   return {
     isAdmin: caller.role === "admin",
     role: caller.role,
-    adminExists: (count ?? 0) > 0,
+    adminExists,
     authenticated: true,
+    bootstrapAllowed:
+      !adminExists && bootstrapEnabled && (!bootstrapUserId || bootstrapUserId === caller.userId),
   };
 });
 
@@ -74,11 +79,18 @@ export const getAccess = createServerFn({ method: "POST" }).handler(async () => 
 export const claimAdmin = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
+    if (process.env["ADMIN_BOOTSTRAP_ENABLED"] !== "true") {
+      throw new Error("Admin-Bootstrap ist deaktiviert.");
+    }
+    const expectedUserId = String(process.env["ADMIN_BOOTSTRAP_USER_ID"] ?? "").trim();
+    if (expectedUserId && expectedUserId !== context.userId) throw new Error("Forbidden");
+
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const db = supabaseAdmin as any;
     const { count } = await db.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
     if ((count ?? 0) > 0) throw new Error("Es gibt bereits einen Admin.");
-    await db.from("user_roles").insert({ user_id: context.userId, role: "admin" });
+    const { error } = await db.from("user_roles").insert({ user_id: context.userId, role: "admin" });
+    if (error) throw new Error(error.message);
     return { isAdmin: true };
   });
 

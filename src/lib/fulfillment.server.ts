@@ -142,8 +142,63 @@ export async function deliverProduct(
 
   const gated = product.delivery_type === "link";
   let note = "direkt im Chat";
+  let contentHandled = false;
 
-  if (gated && purchase && contentUrl(settings, "x")) {
+  if (purchase?.tg_user_id && product.id && product.kind === "bundle") {
+    const { data: bundleRows, error: bundleError } = await db
+      .from("bundle_items")
+      .select("product_id")
+      .eq("bundle_id", product.id);
+    if (bundleError) throw new Error(bundleError.message);
+
+    const productIds = (bundleRows ?? []).map((row: any) => row.product_id).filter(Boolean);
+    if (productIds.length) {
+      const { contentSetForProduct, grantContentAccess, activeContentAccess, deliverContentSet } = await import("@/lib/content.server");
+      let deliveredSets = 0;
+      for (const childProductId of productIds) {
+        const contentSet = await contentSetForProduct(db, childProductId);
+        if (!contentSet) continue;
+        let access = await activeContentAccess(db, purchase.tg_user_id, contentSet.id);
+        if (!access) {
+          access = await grantContentAccess(db, {
+            tgUserId: purchase.tg_user_id,
+            contentSet,
+            purchaseId: purchase.id,
+            source: "bundle",
+          });
+        }
+        const delivered = await deliverContentSet(db, tg, chatId, purchase.tg_user_id, contentSet.id);
+        if (!delivered.ok) throw new Error(delivered.reason ?? "Bundle-Inhalt konnte nicht ausgeliefert werden");
+        deliveredSets += 1;
+      }
+      if (deliveredSets > 0) {
+        note = `Bundle (${deliveredSets} Content-Sets)`;
+        contentHandled = true;
+      }
+    }
+  }
+
+  if (!contentHandled && purchase?.tg_user_id && product.id) {
+    const { contentSetForProduct, grantContentAccess, activeContentAccess, deliverContentSet } = await import("@/lib/content.server");
+    const contentSet = await contentSetForProduct(db, product.id);
+    if (contentSet) {
+      let access = await activeContentAccess(db, purchase.tg_user_id, contentSet.id);
+      if (!access) {
+        access = await grantContentAccess(db, {
+          tgUserId: purchase.tg_user_id,
+          contentSet,
+          purchaseId: purchase.id,
+          source: "purchase",
+        });
+      }
+      const delivered = await deliverContentSet(db, tg, chatId, purchase.tg_user_id, contentSet.id);
+      if (!delivered.ok) throw new Error(delivered.reason ?? "Content konnte nicht ausgeliefert werden");
+      note = `Telegram-Content (${delivered.delivered ?? 0} Medien)`;
+      contentHandled = true;
+    }
+  }
+
+  if (!contentHandled && gated && purchase && contentUrl(settings, "x")) {
     const { token, ttl, maxViews } = await createAccessToken(db, {
       purchaseId: purchase.id,
       productId: product.id,
@@ -157,10 +212,10 @@ export async function deliverProduct(
       reply_markup: { inline_keyboard: [[{ text: "🔓 Inhalt öffnen", url: contentUrl(settings, token) }]] },
     });
     note = `Einmal-Link (${maxViews}× / ${ttl}h)`;
-  } else if (product.delivery_type === "file" && product.delivery_payload) {
+  } else if (!contentHandled && product.delivery_type === "file" && product.delivery_payload) {
     await tg("sendDocument", { chat_id: chatId, document: product.delivery_payload, caption: product.title });
     note = "Datei im Chat";
-  } else if (product.delivery_type === "link" && product.delivery_payload) {
+  } else if (!contentHandled && product.delivery_type === "link" && product.delivery_payload) {
     await tg("sendMessage", {
       chat_id: chatId,
       text: `✅ <b>${product.title}</b>\nDein Zugang:`,
@@ -168,7 +223,7 @@ export async function deliverProduct(
       reply_markup: { inline_keyboard: [[{ text: "Jetzt öffnen", url: product.delivery_payload }]] },
     });
     note = "Direktlink im Chat";
-  } else {
+  } else if (!contentHandled) {
     await tg("sendMessage", {
       chat_id: chatId,
       text: `✅ <b>${product.title}</b>\n\n${product.delivery_payload || "Danke für deinen Kauf!"}`,

@@ -3,7 +3,6 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { Sparkles } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
-import { lovable } from "@/integrations/lovable/index";
 import { useServerFn } from "@tanstack/react-start";
 import { useAuth } from "@/lib/useAuth";
 import { logLoginAttempt } from "@/lib/auth-log.functions";
@@ -29,7 +28,6 @@ export const Route = createFileRoute("/auth")({
 function AuthPage() {
   const navigate = useNavigate();
   const { session, loading } = useAuth();
-  const [mode, setMode] = useState<"login" | "signup">("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -88,23 +86,12 @@ function AuthPage() {
     e.preventDefault();
     setBusy(true);
     try {
-      if (mode === "login") {
-        const { error } = await supabase.auth.signInWithPassword({ email, password });
-        if (error) {
-          log(false, "password", error.message);
-          throw error;
-        }
-        await continueAfterSignIn("password");
-      } else {
-        const { error } = await supabase.auth.signUp({
-          email,
-          password,
-          options: { emailRedirectTo: window.location.origin },
-        });
-        if (error) throw error;
-        toast.success("Konto erstellt. Du kannst dich jetzt anmelden.");
-        setMode("login");
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) {
+        log(false, "password", error.message);
+        throw error;
       }
+      await continueAfterSignIn("password");
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Anmeldung fehlgeschlagen");
     } finally {
@@ -112,16 +99,6 @@ function AuthPage() {
     }
   }
 
-  async function google() {
-    const result = await lovable.auth.signInWithOAuth("google", { redirect_uri: window.location.origin });
-    if (result.error) {
-      log(false, "google", "OAuth abgebrochen");
-      toast.error("Google-Anmeldung fehlgeschlagen");
-      return;
-    }
-    if (result.redirected) return;
-    await continueAfterSignIn("google");
-  }
 
   return (
     <div className="grid min-h-screen place-items-center px-4 py-12">
@@ -131,7 +108,7 @@ function AuthPage() {
         </span>
         <h1 className="mt-5 text-2xl font-bold">Fan Funnel Studio</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Verwalte deine Telegram-Kette: Gratis-Gruppe, VIP-Zugang, Stars & TON.
+          Interner Teamzugang. Kunden werden ausschließlich über Telegram-Bots, Gruppen und Channels gesteuert.
         </p>
 
         {mfa ? (
@@ -172,22 +149,12 @@ function AuthPage() {
                 />
               </div>
               <Button type="submit" className="w-full" disabled={busy}>
-                {mode === "login" ? "Anmelden" : "Konto erstellen"}
+                Anmelden
               </Button>
             </form>
-
-            <Button variant="outline" className="mt-3 w-full" onClick={google}>
-              Mit Google fortfahren
-            </Button>
           </>
         )}
 
-        <button
-          className="mt-5 w-full text-center text-sm text-muted-foreground underline-offset-4 hover:underline"
-          onClick={() => setMode(mode === "login" ? "signup" : "login")}
-        >
-          {mode === "login" ? "Noch kein Konto? Jetzt registrieren" : "Schon registriert? Anmelden"}
-        </button>
       </div>
     </div>
   );
