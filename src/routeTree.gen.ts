@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenachrichtigungenRouteImport } from './routes/benachrichtigungen'
 import { Route as BestellungenRouteImport } from './routes/bestellungen'
+import { Route as ContentRouteImport } from './routes/content'
 import { Route as DropsRouteImport } from './routes/drops'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
@@ -60,6 +61,11 @@ const BenachrichtigungenRoute = BenachrichtigungenRouteImport.update({
 const BestellungenRoute = BestellungenRouteImport.update({
   id: '/bestellungen',
   path: '/bestellungen',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ContentRoute = ContentRouteImport.update({
+  id: '/content',
+  path: '/content',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DropsRoute = DropsRouteImport.update({
@@ -211,6 +217,7 @@ export interface FileRoutesByFullPath {
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
+  '/content': typeof ContentRoute
   '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -245,6 +252,7 @@ export interface FileRoutesByTo {
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
+  '/content': typeof ContentRoute
   '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -280,6 +288,7 @@ export interface FileRoutesById {
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
+  '/content': typeof ContentRoute
   '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -316,6 +325,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
+    | '/content'
     | '/drops'
     | '/einstellungen'
     | '/fans'
@@ -350,6 +360,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
+    | '/content'
     | '/drops'
     | '/einstellungen'
     | '/fans'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
+    | '/content'
     | '/drops'
     | '/einstellungen'
     | '/fans'
@@ -419,6 +431,7 @@ export interface RootRouteChildren {
   AuthRoute: typeof AuthRoute
   BenachrichtigungenRoute: typeof BenachrichtigungenRoute
   BestellungenRoute: typeof BestellungenRoute
+  ContentRoute: typeof ContentRoute
   DropsRoute: typeof DropsRoute
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
@@ -477,6 +490,13 @@ declare module '@tanstack/react-router' {
       path: '/bestellungen'
       fullPath: '/bestellungen'
       preLoaderRoute: typeof BestellungenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/content': {
+      id: '/content'
+      path: '/content'
+      fullPath: '/content'
+      preLoaderRoute: typeof ContentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/drops': {
@@ -683,6 +703,7 @@ const rootRouteChildren: RootRouteChildren = {
   AuthRoute: AuthRoute,
   BenachrichtigungenRoute: BenachrichtigungenRoute,
   BestellungenRoute: BestellungenRoute,
+  ContentRoute: ContentRoute,
   DropsRoute: DropsRoute,
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,

@@ -24,7 +24,7 @@ import {
   Star,
   Plug,
   TrendingUp,
-
+  Images,
 
 } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
@@ -38,7 +38,8 @@ const nav = [
   { to: "/status", label: "Status", icon: Activity },
   { to: "/verbinden", label: "Verbinden", icon: Plug },
   { to: "/drops", label: "Drops", icon: Rocket },
-  { to: "/produkte", label: "Inhalte & Preise", icon: Package },
+  { to: "/content", label: "Content Studio", icon: Images },
+  { to: "/produkte", label: "Produkte & Preise", icon: Package },
   { to: "/stars", label: "Stars & Preise", icon: Star },
 
   { to: "/medien", label: "Medien-Ordner", icon: FolderLock },
@@ -58,7 +59,7 @@ const nav = [
   { to: "/einstellungen", label: "Bot-Setup", icon: Settings2 },
 ] as const;
 
-const primaryPaths = ["/", "/bestellungen", "/produkte", "/fans", "/einstellungen"] as const;
+const primaryPaths = ["/", "/bestellungen", "/content", "/fans", "/einstellungen"] as const;
 const primaryNav = primaryPaths.map((p) => nav.find((n) => n.to === p)!);
 const secondaryNav = nav.filter((n) => !primaryPaths.includes(n.to as (typeof primaryPaths)[number]));
 
@@ -85,7 +86,7 @@ export function DashLayout({ title, subtitle, children }: { title: string; subti
     navigate({ to: "/auth" });
   };
 
-  if (loading || !session) {
+  if (loading || !session || access.isLoading) {
     return <div className="grid min-h-screen place-items-center text-muted-foreground">Lädt…</div>;
   }
 
@@ -148,32 +149,28 @@ export function DashLayout({ title, subtitle, children }: { title: string; subti
           {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
         </div>
 
-        {access.data && !access.data.isAdmin ? (
+        {access.data && !access.data.role ? (
           <div className="panel p-6">
-            <h2 className="text-lg font-semibold">Adminzugang</h2>
-            {access.data.adminExists ? (
-              <p className="mt-2 text-sm text-muted-foreground">
-                Dieses Konto hat keine Adminrechte. Bitte melde dich mit dem Adminkonto an.
-              </p>
-            ) : (
-              <>
-                <p className="mt-2 text-sm text-muted-foreground">
-                  Noch kein Admin vorhanden. Übernimm jetzt die Verwaltung mit diesem Konto.
-                </p>
-                <Button
-                  className="mt-4"
-                  onClick={async () => {
-                    await claimFn({ data: undefined as never });
-                    access.refetch();
-                  }}
-                >
-                  Adminrechte übernehmen
-                </Button>
-              </>
-            )}
+            <h2 className="text-lg font-semibold">Kein Teamzugang</h2>
+            <p className="mt-2 text-sm text-muted-foreground">
+              Dieses Konto besitzt keine interne Teamrolle. Kundenkonten sind für dieses Board nicht vorgesehen.
+            </p>
+            {(access.data as any).bootstrapAllowed ? (
+              <Button
+                className="mt-4"
+                onClick={async () => {
+                  await claimFn({ data: undefined as never });
+                  access.refetch();
+                }}
+              >
+                Einmaligen Admin-Bootstrap ausführen
+              </Button>
+            ) : null}
           </div>
-        ) : (
+        ) : access.data?.role ? (
           children
+        ) : (
+          <div className="panel p-6 text-sm text-muted-foreground">Zugriff konnte nicht bestätigt werden.</div>
         )}
       </main>
 

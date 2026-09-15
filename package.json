@@ -10,7 +10,10 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "test": "vitest run",
-    "format": "prettier --write ."
+    "typecheck": "tsc --noEmit",
+    "format": "prettier --write .",
+    "preflight": "node scripts/release-preflight.mjs",
+    "preflight:network": "node scripts/release-preflight.mjs --network"
   },
   "overrides": {
     "rolldown": "1.2.1"
