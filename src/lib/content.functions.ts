@@ -439,7 +439,7 @@ export const publishContentSet = createServerFn({ method: "POST" })
 
     const { data: set } = await db
       .from("content_sets")
-      .select("id,title,description,status,access_mode,access_hours,products(id,price_stars,active),content_set_items(item_role,sort_order,media_files(storage_path,mime_type))")
+      .select("id,title,description,status,access_mode,access_hours,products(id,price_stars,price_ton,price_trx,active),content_set_items(item_role,sort_order,media_files(storage_path,mime_type))")
       .eq("id", data.id)
       .maybeSingle();
     if (!set) throw new Error("Content-Set nicht gefunden");
@@ -458,7 +458,8 @@ export const publishContentSet = createServerFn({ method: "POST" })
     if (!username) throw new Error("Bot-Benutzername konnte nicht ermittelt werden.");
 
     const accessText = set.access_mode === "hours" ? `${set.access_hours ?? 24}h Zugriff` : set.access_mode === "vip" ? "👑 Im VIP-Zugang enthalten" : "dauerhaft";
-    const priceText = set.access_mode === "vip" ? "" : ` · <b>⭐ ${set.products.price_stars}</b>`;
+    const cryptoPrices = [Number(set.products.price_ton) > 0 ? `${set.products.price_ton} TON` : "", Number(set.products.price_trx) > 0 ? `${set.products.price_trx} TRX` : ""].filter(Boolean).join(" · ");
+    const priceText = set.access_mode === "vip" ? "" : ` · <b>⭐ ${set.products.price_stars}${cryptoPrices ? ` · ${cryptoPrices}` : ""}</b>`;
     const caption = `🔒 <b>${escapeHtml(set.title)}</b>\n\n${escapeHtml(set.description || "Exklusiver Content")}\n\n${accessText}${priceText}`;
     const markup = { inline_keyboard: [[{ text: set.access_mode === "vip" ? "👑 VIP im Bot öffnen" : "🔓 Im Bot freischalten", url: `https://t.me/${username}?start=c_${set.id}` }]] };
     const preview = (set.content_set_items ?? [])
