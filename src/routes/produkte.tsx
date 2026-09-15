@@ -46,6 +46,7 @@ const empty = {
   kind: "single" as const,
   price_stars: 100,
   price_ton: 0,
+  price_trx: 0,
   delivery_type: "text" as const,
   delivery_payload: "",
   active: true,
@@ -72,7 +73,7 @@ function ProductsPage() {
 
   async function save() {
     try {
-      await saveFn({ data: { ...form, price_stars: Number(form.price_stars), price_ton: Number(form.price_ton), sort_order: Number(form.sort_order) } });
+      await saveFn({ data: { ...form, price_stars: Number(form.price_stars), price_ton: Number(form.price_ton), price_trx: Number(form.price_trx), sort_order: Number(form.sort_order) } });
       toast.success("Gespeichert");
       setOpen(false);
       qc.invalidateQueries({ queryKey: ["products"] });
@@ -105,6 +106,7 @@ function ProductsPage() {
             <p className="mt-4 font-display text-xl font-bold gold-text">
               ⭐ {p.price_stars}
               {Number(p.price_ton) > 0 ? ` · ${p.price_ton} TON` : ""}
+              {Number(p.price_trx) > 0 ? ` · ${p.price_trx} TRX` : ""}
             </p>
             <div className="mt-4 flex gap-2">
               <Button
@@ -174,7 +176,11 @@ function ProductsPage() {
               </div>
               <div className="space-y-1.5">
                 <Label>Preis in TON</Label>
-                <Input type="number" inputMode="numeric" step="0.01" value={form.price_ton} onChange={(e) => setForm({ ...form, price_ton: e.target.value })} />
+                <Input type="number" inputMode="decimal" min="0" step="0.01" value={form.price_ton} onChange={(e) => setForm({ ...form, price_ton: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Preis in TRX</Label>
+                <Input type="number" inputMode="decimal" min="0" step="0.01" value={form.price_trx ?? 0} onChange={(e) => setForm({ ...form, price_trx: e.target.value })} />
               </div>
             </div>
             <div className="space-y-1.5">
