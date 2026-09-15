@@ -254,6 +254,7 @@ export type Database = {
           tip_amounts: string
           tip_message: string
           ton_wallet: string
+          trx_wallet: string
           updated_at: string
           upsell_message: string
           vip_group_url: string
@@ -289,6 +290,7 @@ export type Database = {
           tip_amounts?: string
           tip_message?: string
           ton_wallet?: string
+          trx_wallet?: string
           updated_at?: string
           upsell_message?: string
           vip_group_url?: string
@@ -324,6 +326,7 @@ export type Database = {
           tip_amounts?: string
           tip_message?: string
           ton_wallet?: string
+          trx_wallet?: string
           updated_at?: string
           upsell_message?: string
           vip_group_url?: string
@@ -1329,6 +1332,7 @@ export type Database = {
           kind: Database["public"]["Enums"]["product_kind"]
           price_stars: number
           price_ton: number
+          price_trx: number
           sale_price_stars: number
           sale_until: string | null
           sort_order: number
@@ -1348,6 +1352,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["product_kind"]
           price_stars?: number
           price_ton?: number
+          price_trx?: number
           sale_price_stars?: number
           sale_until?: string | null
           sort_order?: number
@@ -1367,6 +1372,7 @@ export type Database = {
           kind?: Database["public"]["Enums"]["product_kind"]
           price_stars?: number
           price_ton?: number
+          price_trx?: number
           sale_price_stars?: number
           sale_until?: string | null
           sort_order?: number
@@ -1457,6 +1463,7 @@ export type Database = {
         Row: {
           amount_stars: number
           amount_ton: number
+          amount_trx: number
           commission_stars: number
           created_at: string
           currency: Database["public"]["Enums"]["pay_currency"]
@@ -1471,11 +1478,13 @@ export type Database = {
           tg_user_id: string
           title_snapshot: string
           ton_memo: string | null
+          trx_memo: string | null
           updated_at: string
         }
         Insert: {
           amount_stars?: number
           amount_ton?: number
+          amount_trx?: number
           commission_stars?: number
           created_at?: string
           currency?: Database["public"]["Enums"]["pay_currency"]
@@ -1490,11 +1499,13 @@ export type Database = {
           tg_user_id: string
           title_snapshot?: string
           ton_memo?: string | null
+          trx_memo?: string | null
           updated_at?: string
         }
         Update: {
           amount_stars?: number
           amount_ton?: number
+          amount_trx?: number
           commission_stars?: number
           created_at?: string
           currency?: Database["public"]["Enums"]["pay_currency"]
@@ -1509,6 +1520,7 @@ export type Database = {
           tg_user_id?: string
           title_snapshot?: string
           ton_memo?: string | null
+          trx_memo?: string | null
           updated_at?: string
         }
         Relationships: [
@@ -1811,7 +1823,7 @@ export type Database = {
       notify_channel: "telegram" | "email" | "slack"
       notify_kind: "expiring" | "expired" | "unpaid" | "blocked" | "reactivated"
       notify_status: "queued" | "sent" | "retrying" | "dead" | "skipped_optout"
-      pay_currency: "stars" | "ton"
+      pay_currency: "stars" | "ton" | "trx"
       pay_status: "pending" | "paid" | "failed" | "refunded"
       product_kind: "single" | "bundle" | "ppv" | "tip"
       sponsor_status:
@@ -1954,7 +1966,7 @@ export const Constants = {
       notify_channel: ["telegram", "email", "slack"],
       notify_kind: ["expiring", "expired", "unpaid", "blocked", "reactivated"],
       notify_status: ["queued", "sent", "retrying", "dead", "skipped_optout"],
-      pay_currency: ["stars", "ton"],
+      pay_currency: ["stars", "ton", "trx"],
       pay_status: ["pending", "paid", "failed", "refunded"],
       product_kind: ["single", "bundle", "ppv", "tip"],
       sponsor_status: [
