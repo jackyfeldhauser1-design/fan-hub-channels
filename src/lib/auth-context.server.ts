@@ -41,7 +41,21 @@ export async function resolveCaller(): Promise<Caller> {
   const userId = error ? null : data.user?.id ?? null;
   if (!userId) return anon;
 
-  return { authenticated: true, userId, role: await roleOfUser(supabase, userId), supabase };
+  // The access token above proves the caller identity. Resolve the internal role
+  // with the server-only client so role detection does not depend on forwarding
+  // the bearer token through PostgREST/RLS (notably with new sb_publishable_ keys).
+  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
+  const { data: roleRows, error: roleError } = await (supabaseAdmin as any)
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", userId);
+  if (roleError) throw new Error(roleError.message);
+  const roles = ((roleRows ?? []) as { role: string }[])
+    .map((row) => row.role)
+    .filter((role): role is TeamRole => role in ROLE_RANK);
+  const role = roles.length ? roles.sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a])[0]! : null;
+
+  return { authenticated: true, userId, role, supabase };
 }
 
 /** Höchste Rolle des Nutzers (RLS erlaubt nur eigene Rollen zu lesen). */
