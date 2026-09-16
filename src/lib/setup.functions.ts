@@ -80,11 +80,22 @@ export const startGuidedSetup = createServerFn({ method: "POST" })
 /** Live-Fortschritt des geführten Setups. */
 export const getSetupProgress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async () => {
-    const { requireCallerRole } = await import("@/lib/auth-context.server");
-    const { db } = (await requireCallerRole("viewer")) as unknown as { db: any };
-    const { readSetupProgress } = await import("@/lib/setup.server");
-    return readSetupProgress(db);
+  .handler(async ({ context }) => {
+    const { data: settings } = await context.supabase
+      .from("bot_settings")
+      .select("community_chat_id, shop_chat_id, control_chat_id, app_base_url")
+      .eq("id", true)
+      .maybeSingle();
+    const defs = [
+      ["community", "Community", "community_chat_id", "Kostenlose Fan-Gruppe – Einstieg aus dem Bot."],
+      ["shop", "Shop", "shop_chat_id", "VIP-/Kaufbereich für Drops und Verkaufsposts."],
+      ["control", "Kontrollraum", "control_chat_id", "Privater Admin-Chat für Alarme, Testposts und Fehler."],
+    ] as const;
+    const items = defs.map(([target, label, column, hint]) => {
+      const chatId = String((settings as any)?.[column] ?? "").trim();
+      return { target, label, hint, chatId, connected: Boolean(chatId), status: chatId ? "connected" : "open", detail: "", chatTitle: "" };
+    });
+    return { botUsername: "", baseUrl: settings?.app_base_url ?? "", connected: items.filter((i) => i.connected).length, total: items.length, items };
   });
 
 /** Zuordnung zurücksetzen und neu einrichten. */
