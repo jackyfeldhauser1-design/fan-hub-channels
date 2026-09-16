@@ -56,12 +56,7 @@ export const getAccess = createServerFn({ method: "POST" }).handler(async () => 
   if (!caller.authenticated) {
     return { isAdmin: false, role: null as TeamRole | null, adminExists: false, authenticated: false };
   }
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { count } = await (supabaseAdmin as any)
-    .from("user_roles")
-    .select("id", { count: "exact", head: true })
-    .eq("role", "admin");
-  const adminExists = (count ?? 0) > 0;
+  const adminExists = caller.role === "admin";
   const bootstrapEnabled = process.env["ADMIN_BOOTSTRAP_ENABLED"] === "true";
   const bootstrapUserId = String(process.env["ADMIN_BOOTSTRAP_USER_ID"] ?? "").trim();
   return {

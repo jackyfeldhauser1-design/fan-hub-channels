@@ -27,8 +27,8 @@ export async function resolveCaller(): Promise<Caller> {
   }
   if (!auth?.startsWith("Bearer ")) return anon;
 
-  const url = process.env["SUPABASE_URL"];
-  const key = process.env["SUPABASE_PUBLISHABLE_KEY"];
+  const url = import.meta.env["VITE_SUPABASE_URL"] || process.env["SUPABASE_URL"];
+  const key = import.meta.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || process.env["SUPABASE_PUBLISHABLE_KEY"];
   if (!url || !key) return anon;
 
   const { createClient } = await import("@supabase/supabase-js");
@@ -42,19 +42,7 @@ export async function resolveCaller(): Promise<Caller> {
   const userId = error ? null : data.user?.id ?? null;
   if (!userId) return anon;
 
-  // The access token above proves the caller identity. Resolve the internal role
-  // with the server-only client so role detection does not depend on forwarding
-  // the bearer token through PostgREST/RLS (notably with new sb_publishable_ keys).
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  const { data: roleRows, error: roleError } = await (supabaseAdmin as any)
-    .from("user_roles")
-    .select("role")
-    .eq("user_id", userId);
-  if (roleError) throw new Error(roleError.message);
-  const roles = ((roleRows ?? []) as { role: string }[])
-    .map((row) => row.role)
-    .filter((role): role is TeamRole => role in ROLE_RANK);
-  const role = roles.length ? roles.sort((a, b) => ROLE_RANK[b] - ROLE_RANK[a])[0]! : null;
+  const role = await roleOfUser(supabase, userId);
 
   return { authenticated: true, userId, role, supabase };
 }
