@@ -37,7 +37,8 @@ export async function resolveCaller(): Promise<Caller> {
     global: { headers: { Authorization: auth } },
   });
 
-  const { data, error } = await supabase.auth.getUser();
+  const token = auth.slice(7);
+  const { data, error } = await supabase.auth.getUser(token);
   const userId = error ? null : data.user?.id ?? null;
   if (!userId) return anon;
 
