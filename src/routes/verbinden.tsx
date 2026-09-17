@@ -5,7 +5,6 @@ import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Loader2, Slack, Webhook, Send } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
-import { ConnectPanel } from "@/components/ConnectPanel";
 import { GuidedSetupWizard } from "@/components/GuidedSetupWizard";
 import { SetupToolsPanel } from "@/components/SetupToolsPanel";
 
@@ -117,10 +116,6 @@ function ConnectWizardPage() {
           </h2>
           <GuidedSetupWizard />
           <SetupToolsPanel />
-          <ConnectPanel
-            defaultBaseUrl={typeof window !== "undefined" ? window.location.origin : ""}
-            onConnected={() => overview.refetch()}
-          />
 
           {telegram ? (
             <div className="panel p-6">
