@@ -120,7 +120,7 @@ export function GuidedSetupWizard() {
         </div>
 
         <ul className="space-y-3">
-          {(p?.items ?? []).map((item) => {
+          {(p?.items ?? []).map((item: any) => {
             const link = links.find((l) => l.target === item.target);
             return (
               <li key={item.target} className="rounded-lg border border-border p-4">
