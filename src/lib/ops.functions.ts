@@ -1001,190 +1001,43 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
   .inputValidator((d: unknown) =>
     z.object({ baseUrl: z.string().url().optional(), sendTest: z.boolean().default(true) }).parse(d ?? {}),
   )
-  .handler(async ({ context, data }) => {
-    const { db } = await requireRole(context, "admin");
-    const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
-    await enforceRateLimit(db, "auto_connect", context.userId, 10, 600_000);
-
-    const steps: { key: string; label: string; ok: boolean; detail: string }[] = [];
-    const add = (key: string, label: string, ok: boolean, detail: string) => steps.push({ key, label, ok, detail });
-
-    // 1) Bot
-    let bot: { username: string; link: string } | null = null;
-    try {
-      const me = await tg("getMe", {});
-      const username = me.result?.username ?? "";
-      bot = { username, link: username ? `https://t.me/${username}` : "" };
-      add("bot", "Bot verbunden", true, username ? `@${username}` : "Bot erreichbar");
-    } catch (e) {
-      add("bot", "Bot verbunden", false, e instanceof Error ? e.message.slice(0, 200) : "Bot nicht erreichbar");
-      return { steps, bot, chats: [], assigned: null, posts: [] };
-    }
-
-    const { data: settings } = await db
-      .from("bot_settings")
-      .select("app_base_url, community_chat_id, shop_chat_id, control_chat_id")
-      .eq("id", true)
-      .maybeSingle();
-
-    // 2) Webhook
-    let webhookUrl = "";
-    try {
-      const info = await tg("getWebhookInfo", {});
-      webhookUrl = info.result?.url ?? "";
-      const base = (data.baseUrl || settings?.app_base_url || "").replace(/\/$/, "");
-      const wanted = base ? `${base}/api/public/telegram/webhook` : "";
-      if (wanted && webhookUrl !== wanted) {
-        const { createHash } = await import("crypto");
-        const secret = createHash("sha256")
-          .update(`telegram-webhook:${process.env["TELEGRAM_API_KEY"]}`)
-          .digest("base64url");
-        await tg("setWebhook", {
-          url: wanted,
-          secret_token: secret,
-          allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query"],
-        });
-        webhookUrl = wanted;
-      }
-      add("webhook", "Webhook aktiv", Boolean(webhookUrl), webhookUrl || "Keine öffentliche Adresse hinterlegt");
-    } catch (e) {
-      add("webhook", "Webhook aktiv", false, e instanceof Error ? e.message.slice(0, 200) : "Fehler");
-    }
-
-    // 3) Chats erkennen (Webhook aktiv → gespeicherte Updates nutzen)
-    const seen = new Map<string, { chatId: string; title: string; type: string }>();
-    const addChat = (c: any) => {
-      if (!c?.id) return;
-      seen.set(String(c.id), {
-        chatId: String(c.id),
-        title: c.title ?? c.username ?? [c.first_name, c.last_name].filter(Boolean).join(" ") ?? "",
-        type: c.type ?? "",
-      });
+  .handler(async ({ context }) => {
+    const invoke = async (action: string) => {
+      const { data, error } = await context.supabase.functions.invoke("telegram-admin", { body: { action } });
+      if (error) throw new Error(error.message);
+      if (data?.error) throw new Error(String(data.error));
+      return data as any;
     };
-    try {
-      if (webhookUrl) {
-        const { data: rows } = await db
-          .from("telegram_updates")
-          .select("raw")
-          .order("update_id", { ascending: false })
-          .limit(200);
-        for (const r of (rows ?? []) as any[]) {
-          const u = r.raw ?? {};
-          addChat(
-            u.message?.chat ??
-              u.edited_message?.chat ??
-              u.channel_post?.chat ??
-              u.callback_query?.message?.chat ??
-              u.my_chat_member?.chat,
-          );
-        }
-      } else {
-        const res = await tg("getUpdates", { limit: 100, allowed_updates: ["message", "channel_post", "my_chat_member"] });
-        for (const u of (res.result ?? []) as any[]) {
-          addChat(u.message?.chat ?? u.channel_post?.chat ?? u.my_chat_member?.chat);
-        }
-      }
-    } catch {
-      /* Erkennung ist optional */
-    }
-    const chats = [...seen.values()];
-    add(
-      "chats",
-      "Chats erkannt",
-      chats.length > 0,
-      chats.length > 0
-        ? `${chats.length} Chat(s) gefunden`
-        : "Bot in Gruppe/Kanal als Admin aufnehmen, dort eine Nachricht senden und erneut verbinden",
-    );
-
-    // 4) Zuordnung: bestehende Werte gewinnen, sonst Heuristik
-    const groups = chats.filter((c) => c.type === "group" || c.type === "supergroup" || c.type === "channel");
-    const privates = chats.filter((c) => c.type === "private");
-    const isShop = (t: string) => /vip|shop|premium|drop|plus/i.test(t);
-    const isCommunity = (t: string) => /free|gratis|community|fan/i.test(t);
-    const isControl = (t: string) => /admin|log|control|kontroll/i.test(t);
-    const shopCandidate = groups.find((c) => isShop(c.title));
-    const communityCandidate =
-      groups.find((c) => isCommunity(c.title) && c !== shopCandidate) ??
-      groups.find((c) => c !== shopCandidate);
-    const controlCandidate =
-      privates[0] ??
-      groups.find((c) => isControl(c.title) && c !== shopCandidate && c !== communityCandidate);
+    const [verify, progress] = await Promise.all([invoke("verify"), invoke("progress")]);
+    const steps = [
+      ...(verify.checks ?? []),
+      {
+        key: "chats",
+        label: "Chat-Zuordnung",
+        ok: Number(progress.connected ?? 0) === Number(progress.total ?? 3),
+        detail: `${progress.connected ?? 0}/${progress.total ?? 3} Ziele gesetzt (Community, Shop, Kontrollraum)`,
+      },
+    ];
+    const byTarget = new Map((progress.items ?? []).map((item: any) => [item.target, item.chatId ?? ""]));
     const assigned = {
-      community: (settings?.community_chat_id || communityCandidate?.chatId || "").trim(),
-      shop: (settings?.shop_chat_id || shopCandidate?.chatId || "").trim(),
-      control: (settings?.control_chat_id || controlCandidate?.chatId || "").trim(),
+      community: String(byTarget.get("community") ?? ""),
+      shop: String(byTarget.get("shop") ?? ""),
+      control: String(byTarget.get("control") ?? ""),
     };
-
-    if (assigned.community || assigned.shop || assigned.control) {
-      const { error } = await db
-        .from("bot_settings")
-        .update({
-          community_chat_id: assigned.community,
-          shop_chat_id: assigned.shop,
-          control_chat_id: assigned.control,
-        })
-        .eq("id", true);
-      add("save", "Chats zugeordnet", !error, error ? error.message : "Community, Shop und Kontrollraum gespeichert");
-    } else {
-      add("save", "Chats zugeordnet", false, "Noch keine passenden Chats vorhanden");
-    }
-
-    // 5) Testposts
-    const posts: { key: string; label: string; chatId: string; ok: boolean; error: string }[] = [];
-    if (data.sendTest) {
-      const text = "✅ Verbindung eingerichtet – der Funnel kann hier posten.";
-      for (const t of chatTargets(assigned)) {
-        if (!t.chatId.trim()) continue;
-        let ok = true;
-        let err = "";
-        let messageId = "";
-        try {
-          const res = await tg("sendMessage", { chat_id: t.chatId.trim(), text, disable_notification: true });
-          messageId = String(res.result?.message_id ?? "");
-        } catch (e) {
-          ok = false;
-          err = e instanceof Error ? e.message.slice(0, 300) : "Fehler";
-        }
-        await db.from("notification_deliveries").insert({
-          recipient_label: `Auto-Setup: ${t.label}`,
-          kind: "reactivated",
-          channel: "telegram",
-          target: t.chatId.trim(),
-          body: text,
-          status: ok ? "sent" : "dead",
-          attempt: 1,
-          error: err,
-          provider_message_id: messageId,
-        });
-        posts.push({ key: t.key, label: t.label, chatId: t.chatId.trim(), ok, error: err });
-      }
-      const failed = posts.filter((p) => !p.ok).length;
-      add(
-        "test",
-        "Testposts gesendet",
-        posts.length > 0 && failed === 0,
-        posts.length === 0 ? "Keine Ziele zum Testen" : failed ? `${failed} fehlgeschlagen` : `${posts.length} zugestellt`,
-      );
-    }
-
-    await auditLog(db, {
-      actorId: context.userId,
-      actorEmail: context.claims?.email ?? null,
-      action: "auto_connect",
-      target: "telegram",
-      chatId: assigned.community || assigned.shop || assigned.control || "",
-      status: steps.every((s) => s.ok) ? "ok" : "error",
-      detail: steps.map((s) => `${s.label}: ${s.ok ? "ok" : s.detail}`).join(" | ").slice(0, 500),
-      meta: { assigned },
-    });
-
-    return { steps, bot, chats, assigned, posts };
+    const username = String(verify.botUsername ?? progress.botUsername ?? "");
+    return {
+      steps,
+      bot: username ? { username, link: `https://t.me/${username}` } : null,
+      chats: (progress.items ?? []).filter((x: any) => x.chatId).map((x: any) => ({
+        chatId: String(x.chatId),
+        title: String(x.chatTitle ?? x.label ?? ""),
+        type: x.target === "control" ? "private" : "group",
+      })),
+      assigned,
+      posts: [],
+    };
   });
 
-/* --------------------------- Struktur zurücksetzen ------------------------- */
-
-/** Leert alle drei Kanal-Zuordnungen und sichert den alten Stand im Audit-Log. */
 export const resetChatStructure = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
