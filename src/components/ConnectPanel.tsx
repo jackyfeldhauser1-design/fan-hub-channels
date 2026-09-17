@@ -1,11 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
 import { CheckCircle2, XCircle, Plug, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import { autoConnectTelegram, resetChatStructure } from "@/lib/ops.functions";
 
 type Step = { key: string; label: string; ok: boolean; detail: string };
@@ -27,11 +25,10 @@ export function ConnectPanel({
 }) {
   const connectFn = useServerFn(autoConnectTelegram);
   const resetFn = useServerFn(resetChatStructure);
-  const [baseUrl, setBaseUrl] = useState(defaultBaseUrl);
   const [res, setRes] = useState<Result | null>(null);
 
   const connect = useMutation({
-    mutationFn: () => connectFn({ data: { baseUrl, sendTest: true } }),
+    mutationFn: () => connectFn({ data: { baseUrl: defaultBaseUrl, sendTest: false } }),
     onSuccess: (r: any) => {
       setRes(r as Result);
       if (r.assigned) onConnected?.(r.assigned);
@@ -52,25 +49,30 @@ export function ConnectPanel({
     onError: (e: any) => toast.error(e?.message ?? "Zurücksetzen fehlgeschlagen"),
   });
 
+  useEffect(() => {
+    connect.mutate();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const fullyConnected = Boolean(res?.assigned?.community && res?.assigned?.shop && res?.assigned?.control && res?.steps.every((s) => s.ok));
+
   return (
     <div className="panel space-y-4 p-6">
       <div className="flex items-center gap-2">
         <Plug className="size-4 text-primary" />
-        <h2 className="text-lg font-semibold">Telegram in einem Klick verbinden</h2>
+        <h2 className="text-lg font-semibold">Telegram-Verbindung</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Bot prüfen, Webhook aktivieren, erkannte Gruppen automatisch als Community-, Shop- und Kontrollraum-Chat zuordnen und
-        sofort einen Testpost senden – ohne Chat-IDs zu suchen.
+        Live-Status von Bot, Webhook und Community/Shop/Kontrollraum. Die Prüfung läuft über die Supabase-Telegram-Edge-Function.
       </p>
 
-      <div className="grid gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-        <div className="space-y-1.5">
-          <Label>Öffentliche App-Adresse</Label>
-          <Input value={baseUrl} onChange={(e) => setBaseUrl(e.target.value)} inputMode="url" autoCapitalize="none" autoCorrect="off" />
-        </div>
-        <Button disabled={disabled || connect.isPending} onClick={() => connect.mutate()} className="gap-2">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className={fullyConnected ? "text-sm font-medium text-emerald-500" : "text-sm text-muted-foreground"}>
+          {connect.isPending ? "Status wird geprüft…" : fullyConnected ? "Telegram vollständig verbunden · 3/3 Ziele bereit" : "Verbindung noch nicht vollständig"}
+        </p>
+        <Button disabled={disabled || connect.isPending} onClick={() => connect.mutate()} className="gap-2" variant="secondary">
           {connect.isPending ? <Loader2 className="size-4 animate-spin" /> : <Plug className="size-4" />}
-          {connect.isPending ? "Verbinde…" : "Kanäle erkennen & verbinden"}
+          Neu prüfen
         </Button>
       </div>
 
