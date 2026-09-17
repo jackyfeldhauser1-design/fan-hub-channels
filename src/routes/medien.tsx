@@ -23,7 +23,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { createContentSet, publishContentSet } from "@/lib/content.functions";
+import { quickPublishContent } from "@/lib/content.functions";
 
 export const Route = createFileRoute("/medien")({
   head: () => ({
@@ -74,8 +74,7 @@ function MediaPage() {
   const previewFn = useServerFn(previewMediaFile);
   const updateFileFn = useServerFn(updateMediaFile);
   const setPreviewFn = useServerFn(setFolderPreview);
-  const createContentFn = useServerFn(createContentSet);
-  const publishContentFn = useServerFn(publishContentSet);
+  const quickPublishFn = useServerFn(quickPublishContent);
 
   const [form, setForm] = useState({ title: "", description: "", price_stars: 250, price_ton: 0 });
   const [jobs, setJobs] = useState<Job[]>([]);
@@ -174,7 +173,7 @@ function MediaPage() {
     if (!sellFolder.files?.length) return toast.error("Dieser Ordner enthält noch keine Medien.");
     setSelling(true);
     try {
-      const created: any = await createContentFn({ data: {
+      await quickPublishFn({ data: {
         title: sellFolder.title,
         description: sellFolder.description || "Exklusiver Content",
         folderId: sellFolder.id,
@@ -184,10 +183,7 @@ function MediaPage() {
         priceTrx: sellMode === "vip" ? 0 : sellForm.priceTrx,
         accessMode: sellMode === "vip" ? "vip" : sellForm.accessMode,
         accessHours: sellForm.accessMode === "hours" ? sellForm.accessHours : null,
-        seriesId: null,
-        status: "active",
       } });
-      await publishContentFn({ data: { id: created.id, target: "shop" } });
       toast.success(sellMode === "vip" ? "VIP-Inhalt veröffentlicht" : "Bezahlter Inhalt veröffentlicht");
       setSellFolder(null);
       await qc.invalidateQueries({ queryKey: ["content-studio"] });

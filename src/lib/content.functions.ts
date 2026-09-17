@@ -11,6 +11,28 @@ function escapeHtml(value: unknown) {
     .replaceAll(">", "&gt;");
 }
 
+export const quickPublishContent = createServerFn({ method: "POST" })
+  .middleware([requireSupabaseAuth])
+  .inputValidator((input: unknown) =>
+    z.object({
+      title: z.string().min(1).max(140),
+      description: z.string().max(3000).default(""),
+      folderId: z.string().uuid(),
+      previewFileId: z.string().uuid().nullable().optional(),
+      priceStars: z.number().int().min(1).max(1_000_000),
+      priceTon: z.number().min(0).max(100000).default(0),
+      priceTrx: z.number().min(0).max(100000000).default(0),
+      accessMode: z.enum(["permanent", "hours", "vip"]).default("permanent"),
+      accessHours: z.number().int().min(1).max(8760).nullable().optional(),
+    }).parse(input),
+  )
+  .handler(async ({ context, data }) => {
+    const { data: result, error } = await context.supabase.functions.invoke("content-admin", { body: { action: "quick_publish", ...data } });
+    if (error) throw new Error(error.message);
+    if (result?.error) throw new Error(String(result.error));
+    return result;
+  });
+
 async function teamDb(context: any) {
   const { data } = await context.supabase
     .from("user_roles")
