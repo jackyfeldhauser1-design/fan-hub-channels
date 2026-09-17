@@ -18,78 +18,23 @@ export type PlatformState = {
 };
 
 /** Liest den Verbindungszustand aller unterstützten Plattformen. */
-export async function readPlatformOverview(db: any): Promise<PlatformState[]> {
-  const { data: settings } = await db
-    .from("bot_settings")
-    .select("app_base_url, community_chat_id, shop_chat_id, control_chat_id")
-    .eq("id", true)
-    .maybeSingle();
-
-  // Telegram
-  const items: PlatformState["items"] = [];
-  let botOk = false;
-  let botName = "";
-  try {
-    const me = await tgCall("getMe", {});
-    botName = me.result?.username ?? "";
-    botOk = true;
-    items.push({ label: "Bot-Token", ok: true, detail: botName ? `@${botName}` : "Bot erreichbar" });
-  } catch (e) {
-    items.push({ label: "Bot-Token", ok: false, detail: e instanceof Error ? e.message.slice(0, 160) : "Fehler" });
-  }
-  let hookUrl = "";
-  if (botOk) {
-    try {
-      const info = await tgCall("getWebhookInfo", {});
-      hookUrl = info.result?.url ?? "";
-      items.push({ label: "Webhook", ok: Boolean(hookUrl), detail: hookUrl || "nicht aktiv" });
-    } catch (e) {
-      items.push({ label: "Webhook", ok: false, detail: e instanceof Error ? e.message.slice(0, 160) : "Fehler" });
-    }
-  }
-  const chatKeys = ["community_chat_id", "shop_chat_id", "control_chat_id"];
-  const chatCount = chatKeys.filter((k) => settings?.[k]).length;
-  items.push({
-    label: "Chat-Zuordnung",
-    ok: chatCount >= 3,
-    detail: `${chatCount}/3 Ziele gesetzt (Community, Shop, Kontrollraum)`,
-  });
-
-  const telegram: PlatformState = {
-    id: "telegram",
-    name: "Telegram",
-    connected: botOk && Boolean(hookUrl) && chatCount === 3,
-    detail: botName ? `@${botName}` : "nicht verbunden",
-    items,
-  };
-
-  // Slack (Incoming Webhooks als Empfänger)
-  const { data: slackRows } = await db
-    .from("notification_recipients")
-    .select("id, label, chat_id, active")
-    .eq("channel", "slack");
-  const slack: PlatformState = {
-    id: "slack",
-    name: "Slack",
-    connected: (slackRows ?? []).some((r: any) => r.active),
-    detail: `${(slackRows ?? []).length} Kanal/Kanäle hinterlegt`,
-    items: (slackRows ?? []).map((r: any) => ({
-      label: r.label,
-      ok: Boolean(r.active),
-      detail: String(r.chat_id ?? "").slice(0, 60) + "…",
-    })),
-  };
-
-  // Ausgehende Webhooks
+export async function readPlatformOverview(db: any, telegramStatus?: any): Promise<PlatformState[]> {
+  const { data: settings } = await db.from("bot_settings").select("app_base_url, community_chat_id, shop_chat_id, control_chat_id").eq("id", true).maybeSingle();
+  const checks = telegramStatus?.checks ?? [];
+  const botCheck = checks.find((x: any) => x.key === "bot");
+  const hookCheck = checks.find((x: any) => x.key === "webhook");
+  const chatCount = ["community_chat_id", "shop_chat_id", "control_chat_id"].filter((k) => settings?.[k]).length;
+  const botName = telegramStatus?.botUsername ?? "";
+  const items: PlatformState["items"] = [
+    { label: "Bot-Token", ok: Boolean(botCheck?.ok), detail: botCheck?.detail ?? (botName ? `@${botName}` : "nicht verbunden") },
+    { label: "Webhook", ok: Boolean(hookCheck?.ok), detail: hookCheck?.detail ?? "nicht aktiv" },
+    { label: "Chat-Zuordnung", ok: chatCount >= 3, detail: `${chatCount}/3 Ziele gesetzt (Community, Shop, Kontrollraum)` },
+  ];
+  const telegram: PlatformState = { id: "telegram", name: "Telegram", connected: Boolean(botCheck?.ok) && Boolean(hookCheck?.ok) && chatCount === 3, detail: botName ? `@${botName}` : "nicht verbunden", items };
+  const { data: slackRows } = await db.from("notification_recipients").select("id, label, chat_id, active").eq("channel", "slack");
+  const slack: PlatformState = { id: "slack", name: "Slack", connected: (slackRows ?? []).some((r:any)=>r.active), detail: `${(slackRows ?? []).length} Kanal/Kanäle hinterlegt`, items: (slackRows ?? []).map((r:any)=>({label:r.label,ok:Boolean(r.active),detail:String(r.chat_id ?? "").slice(0,60)+"…"})) };
   const { data: hooks } = await db.from("notification_webhooks").select("id, url, active");
-  const webhook: PlatformState = {
-    id: "webhook",
-    name: "Externe Systeme (Webhook)",
-    connected: (hooks ?? []).some((h: any) => h.active),
-    detail: `${(hooks ?? []).length} Ziel(e)`,
-    items: (hooks ?? []).map((h: any) => ({ label: h.url, ok: Boolean(h.active), detail: h.active ? "aktiv" : "inaktiv" })),
-  };
-
+  const webhook: PlatformState = { id: "webhook", name: "Externe Systeme (Webhook)", connected: (hooks ?? []).some((h:any)=>h.active), detail: `${(hooks ?? []).length} Ziel(e)`, items: (hooks ?? []).map((h:any)=>({label:h.url,ok:Boolean(h.active),detail:h.active?"aktiv":"inaktiv"})) };
   return [telegram, slack, webhook];
 }
 
