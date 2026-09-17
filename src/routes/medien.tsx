@@ -3,7 +3,7 @@ import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { toast } from "sonner";
-import { FolderLock, Upload, Trash2, Eye, Plus, ArrowUp, ArrowDown, Star, Loader2, CheckCircle2, XCircle } from "lucide-react";
+import { FolderLock, Upload, Trash2, Eye, Plus, ArrowUp, ArrowDown, Star, Loader2, CheckCircle2, XCircle, ShoppingBag, Crown, Send } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { useAdmin } from "@/lib/useAdmin";
 import {
@@ -21,6 +21,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { createContentSet, publishContentSet } from "@/lib/content.functions";
 
 export const Route = createFileRoute("/medien")({
   head: () => ({
@@ -71,10 +74,16 @@ function MediaPage() {
   const previewFn = useServerFn(previewMediaFile);
   const updateFileFn = useServerFn(updateMediaFile);
   const setPreviewFn = useServerFn(setFolderPreview);
+  const createContentFn = useServerFn(createContentSet);
+  const publishContentFn = useServerFn(publishContentSet);
 
   const [form, setForm] = useState({ title: "", description: "", price_stars: 250, price_ton: 0 });
   const [jobs, setJobs] = useState<Job[]>([]);
   const [dragFolder, setDragFolder] = useState<string | null>(null);
+  const [sellFolder, setSellFolder] = useState<any | null>(null);
+  const [sellMode, setSellMode] = useState<"paid" | "vip">("paid");
+  const [sellForm, setSellForm] = useState({ priceStars: 499, priceTon: 0, priceTrx: 0, accessMode: "permanent" as "permanent" | "hours" | "vip", accessHours: 24, previewFileId: "" });
+  const [selling, setSelling] = useState(false);
 
   const query = useQuery({
     queryKey: ["media"],
@@ -145,6 +154,46 @@ function MediaPage() {
       updateFileFn({ data: { id: b.id, sortOrder: index } }),
     ]);
     qc.invalidateQueries({ queryKey: ["media"] });
+  }
+
+  function openSell(folder: any, mode: "paid" | "vip") {
+    setSellFolder(folder);
+    setSellMode(mode);
+    setSellForm({
+      priceStars: mode === "vip" ? 1 : Math.max(1, Number(folder.price_stars || 499)),
+      priceTon: 0,
+      priceTrx: 0,
+      accessMode: mode === "vip" ? "vip" : "permanent",
+      accessHours: 24,
+      previewFileId: folder.preview_file_id || "",
+    });
+  }
+
+  async function quickPublish() {
+    if (!sellFolder) return;
+    if (!sellFolder.files?.length) return toast.error("Dieser Ordner enthält noch keine Medien.");
+    setSelling(true);
+    try {
+      const created: any = await createContentFn({ data: {
+        title: sellFolder.title,
+        description: sellFolder.description || "Exklusiver Content",
+        folderId: sellFolder.id,
+        previewFileId: sellForm.previewFileId || null,
+        priceStars: sellMode === "vip" ? 1 : sellForm.priceStars,
+        priceTon: sellMode === "vip" ? 0 : sellForm.priceTon,
+        priceTrx: sellMode === "vip" ? 0 : sellForm.priceTrx,
+        accessMode: sellMode === "vip" ? "vip" : sellForm.accessMode,
+        accessHours: sellForm.accessMode === "hours" ? sellForm.accessHours : null,
+        seriesId: null,
+        status: "active",
+      } });
+      await publishContentFn({ data: { id: created.id, target: "shop" } });
+      toast.success(sellMode === "vip" ? "VIP-Inhalt veröffentlicht" : "Bezahlter Inhalt veröffentlicht");
+      setSellFolder(null);
+      await qc.invalidateQueries({ queryKey: ["content-studio"] });
+    } catch (e: any) {
+      toast.error(e?.message ?? "Veröffentlichung fehlgeschlagen");
+    } finally { setSelling(false); }
   }
 
   const folders = (query.data as any)?.folders ?? [];
@@ -226,7 +275,13 @@ function MediaPage() {
                       </p>
                     </div>
                     {isAdmin && (
-                      <div className="flex gap-2">
+                      <div className="flex flex-wrap gap-2">
+                        <Button size="sm" onClick={() => openSell(f, "paid")} disabled={!f.files.length}>
+                          <ShoppingBag className="mr-1.5 size-4" /> Verkaufen
+                        </Button>
+                        <Button size="sm" variant="secondary" onClick={() => openSell(f, "vip")} disabled={!f.files.length}>
+                          <Crown className="mr-1.5 size-4" /> VIP
+                        </Button>
                         <Button
                           variant="ghost"
                           size="sm"
@@ -395,6 +450,50 @@ function MediaPage() {
           </section>
         </div>
       )}
+
+      <Dialog open={Boolean(sellFolder)} onOpenChange={(open) => !open && setSellFolder(null)}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>{sellMode === "vip" ? "Als VIP-Inhalt veröffentlichen" : "Als bezahlten Inhalt veröffentlichen"}</DialogTitle>
+          </DialogHeader>
+          {sellFolder && (
+            <div className="space-y-4">
+              <div className="rounded-lg border p-3">
+                <p className="font-medium">{sellFolder.title}</p>
+                <p className="text-xs text-muted-foreground">{sellFolder.files.length} geschützte Datei(en) · Originale bleiben privat</p>
+              </div>
+              {sellMode === "paid" && (
+                <>
+                  <div className="grid gap-3 sm:grid-cols-3">
+                    <div className="space-y-1.5"><Label>Stars</Label><Input type="number" min={1} value={sellForm.priceStars} onChange={(e) => setSellForm({ ...sellForm, priceStars: Number(e.target.value) })} /></div>
+                    <div className="space-y-1.5"><Label>TON optional</Label><Input type="number" min={0} step="0.01" value={sellForm.priceTon} onChange={(e) => setSellForm({ ...sellForm, priceTon: Number(e.target.value) })} /></div>
+                    <div className="space-y-1.5"><Label>TRX optional</Label><Input type="number" min={0} step="0.01" value={sellForm.priceTrx} onChange={(e) => setSellForm({ ...sellForm, priceTrx: Number(e.target.value) })} /></div>
+                  </div>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-1.5"><Label>Zugriff</Label><Select value={sellForm.accessMode} onValueChange={(v: any) => setSellForm({ ...sellForm, accessMode: v })}><SelectTrigger><SelectValue /></SelectTrigger><SelectContent><SelectItem value="permanent">Dauerhaft</SelectItem><SelectItem value="hours">Zeitlich begrenzt</SelectItem></SelectContent></Select></div>
+                    {sellForm.accessMode === "hours" && <div className="space-y-1.5"><Label>Stunden</Label><Input type="number" min={1} max={8760} value={sellForm.accessHours} onChange={(e) => setSellForm({ ...sellForm, accessHours: Number(e.target.value) })} /></div>}
+                  </div>
+                </>
+              )}
+              <div className="space-y-1.5">
+                <Label>Öffentliche Vorschau</Label>
+                <Select value={sellForm.previewFileId || "none"} onValueChange={(v) => setSellForm({ ...sellForm, previewFileId: v === "none" ? "" : v })}>
+                  <SelectTrigger><SelectValue placeholder="Keine Vorschau" /></SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="none">Keine Vorschau</SelectItem>
+                    {sellFolder.files.filter((file: any) => file.preview_allowed === true || file.id === sellFolder.preview_file_id).map((file: any) => <SelectItem key={file.id} value={file.id}>{file.display_name}</SelectItem>)}
+                  </SelectContent>
+                </Select>
+                <p className="text-xs text-muted-foreground">Nur diese Vorschau kann im Shop sichtbar sein. Alle übrigen Dateien bleiben geschützt.</p>
+              </div>
+              <Button className="w-full" disabled={selling || (sellMode === "paid" && sellForm.priceStars < 1)} onClick={() => void quickPublish()}>
+                {selling ? <Loader2 className="mr-2 size-4 animate-spin" /> : <Send className="mr-2 size-4" />}
+                Jetzt in Telegram veröffentlichen
+              </Button>
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
     </DashLayout>
   );
 }
