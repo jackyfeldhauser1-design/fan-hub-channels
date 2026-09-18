@@ -258,7 +258,7 @@ export async function verifySetup(db: any) {
     .select("community_chat_id, shop_chat_id, control_chat_id, app_base_url")
     .eq("id", true)
     .maybeSingle();
-  const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
   const expectedUrl = base ? `${base}/api/public/telegram/webhook` : "";
 
   if (botOk) {
