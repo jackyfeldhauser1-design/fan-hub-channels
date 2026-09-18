@@ -33,18 +33,13 @@ function clientIp() {
 }
 
 async function botUsername() {
-  const res = await fetch("https://connector-gateway.lovable.dev/telegram/getMe", {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${process.env["LOVABLE_API_KEY"]}`,
-      "X-Connection-Api-Key": `${process.env["TELEGRAM_API_KEY"]}`,
-      "Content-Type": "application/json",
-    },
-    body: "{}",
-  });
-  if (!res.ok) return null;
-  const json = (await res.json()) as any;
-  return json?.result?.username ?? null;
+  try {
+    const { tgApi } = await import("@/lib/telegram.server");
+    const json = await tgApi("getMe", {});
+    return json.result?.username ? String(json.result.username) : null;
+  } catch {
+    return null;
+  }
 }
 
 export const submitLead = createServerFn({ method: "POST" })
