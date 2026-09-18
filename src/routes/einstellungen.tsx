@@ -44,12 +44,13 @@ function SettingsPage() {
   const { data } = useQuery({ queryKey: ["settings"], queryFn: () => getFn({ data: undefined as never }), enabled: isAdmin });
   const status = useQuery({ queryKey: ["botStatus"], queryFn: () => statusFn({ data: undefined as never }), retry: false, enabled: isAdmin });
   const [form, setForm] = useState<any>(null);
-  const [baseUrl, setBaseUrl] = useState(
-    "https://project--35deff30-24dd-4f21-b1d1-af6203c909df-dev.lovable.app",
-  );
+  const [baseUrl, setBaseUrl] = useState("");
 
   useEffect(() => {
-    if (data && !form) setForm(data);
+    if (data && !form) {
+      setForm(data);
+      setBaseUrl(data.app_base_url || (typeof window !== "undefined" ? window.location.origin : ""));
+    }
   }, [data, form]);
 
   if (!form) return <DashLayout title="Bot-Setup">Lädt…</DashLayout>;
@@ -190,6 +191,58 @@ function SettingsPage() {
             <Label>Upsell-Text nach dem Kauf</Label>
             <Input value={form.upsell_message} onChange={(e) => setForm({ ...form, upsell_message: e.target.value })} />
           </div>
+
+          <div className="rounded-xl border border-border p-4">
+            <h3 className="mb-3 font-semibold">Automationen</h3>
+            <div className="grid gap-4 sm:grid-cols-2">
+              <div className="space-y-1.5">
+                <Label>VIP-Laufzeit (Tage, 0 = dauerhaft)</Label>
+                <Input type="number" min={0} value={form.vip_period_days ?? 0} onChange={(e) => setForm({ ...form, vip_period_days: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>VIP-Erinnerung vor Ablauf (Tage)</Label>
+                <Input type="number" min={0} value={form.vip_reminder_days ?? 3} onChange={(e) => setForm({ ...form, vip_reminder_days: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Reaktivierung nach Inaktivität (Tage)</Label>
+                <Input type="number" min={0} value={form.reactivate_after_days ?? 14} onChange={(e) => setForm({ ...form, reactivate_after_days: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Warenkorb-Erinnerung nach (Minuten)</Label>
+                <Input type="number" min={0} value={form.cart_recovery_minutes ?? 30} onChange={(e) => setForm({ ...form, cart_recovery_minutes: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Rabattcode für Warenkorb-Rettung</Label>
+                <Input value={form.cart_recovery_code ?? ""} onChange={(e) => setForm({ ...form, cart_recovery_code: e.target.value.toUpperCase() })} placeholder="optional" />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Content-Ablaufwarnung (Stunden vorher)</Label>
+                <Input type="number" min={0} value={form.content_expiry_reminder_hours ?? 6} onChange={(e) => setForm({ ...form, content_expiry_reminder_hours: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Referral-Stufe ab Käufen</Label>
+                <Input type="number" min={1} value={form.referral_tier_threshold ?? 5} onChange={(e) => setForm({ ...form, referral_tier_threshold: e.target.value })} />
+              </div>
+              <div className="space-y-1.5">
+                <Label>Referral-Provision Stufe (%)</Label>
+                <Input type="number" min={0} max={90} value={form.referral_tier_percent ?? 30} onChange={(e) => setForm({ ...form, referral_tier_percent: e.target.value })} />
+              </div>
+              <div className="space-y-1.5 sm:col-span-2">
+                <Label>Trinkgeld-Stufen (Stars, kommagetrennt)</Label>
+                <Input value={form.tip_amounts ?? "50,150,500"} onChange={(e) => setForm({ ...form, tip_amounts: e.target.value })} placeholder="50,150,500" />
+              </div>
+            </div>
+            <label className="mt-4 flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                className="size-4 accent-[hsl(var(--primary))]"
+                checked={Boolean(form.sequence_enabled)}
+                onChange={(e) => setForm({ ...form, sequence_enabled: e.target.checked })}
+              />
+              Willkommens-Sequenz automatisch senden
+            </label>
+          </div>
+
           <Button
             onClick={async () => {
               try {
@@ -215,6 +268,16 @@ function SettingsPage() {
                     notify_blocked: Boolean(form.notify_blocked),
                     notify_unpaid: Boolean(form.notify_unpaid),
                     notify_expired: Boolean(form.notify_expired),
+                    vip_period_days: Number(form.vip_period_days ?? 0),
+                    vip_reminder_days: Number(form.vip_reminder_days ?? 3),
+                    reactivate_after_days: Number(form.reactivate_after_days ?? 14),
+                    sequence_enabled: Boolean(form.sequence_enabled),
+                    cart_recovery_minutes: Number(form.cart_recovery_minutes ?? 30),
+                    cart_recovery_code: String(form.cart_recovery_code ?? ""),
+                    referral_tier_threshold: Number(form.referral_tier_threshold ?? 5),
+                    referral_tier_percent: Number(form.referral_tier_percent ?? 30),
+                    tip_amounts: String(form.tip_amounts ?? "50,150,500"),
+                    content_expiry_reminder_hours: Number(form.content_expiry_reminder_hours ?? 6),
                   },
                 });
                 toast.success("Einstellungen gespeichert");
