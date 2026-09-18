@@ -51,6 +51,22 @@ add(exists('supabase/migrations/20260915000100_content_commerce_scaffold.sql') ?
 add(exists('src/routes/content.tsx') ? 'PASS' : 'FAIL', 'Content Studio', 'Route /content vorhanden');
 add(exists('src/lib/content.server.ts') ? 'PASS' : 'FAIL', 'Content-Auslieferung', 'Serverlogik vorhanden');
 
+const telegramAdmin = fs.readFileSync(path.join(root, 'src/lib/admin.functions.ts'), 'utf8');
+add(
+  telegramAdmin.includes('currentWebhookSecret') ? 'PASS' : 'FAIL',
+  'Telegram Webhook-Secret',
+  telegramAdmin.includes('currentWebhookSecret')
+    ? 'Registrierung und Prüfung nutzen dieselbe Secret-Quelle.'
+    : 'Webhook-Registrierung nutzt nicht currentWebhookSecret().',
+);
+add(
+  /allowed_updates:[\s\S]*my_chat_member/.test(telegramAdmin) ? 'PASS' : 'FAIL',
+  'Telegram Gruppen-Setup',
+  /allowed_updates:[\s\S]*my_chat_member/.test(telegramAdmin)
+    ? 'my_chat_member wird angefordert.'
+    : 'my_chat_member fehlt in allowed_updates.',
+);
+
 const auth = fs.readFileSync(path.join(root, 'src/routes/auth.tsx'), 'utf8');
 add(/signUp\s*\(/.test(auth) ? 'FAIL' : 'PASS', 'Kundenregistrierung', /signUp\s*\(/.test(auth) ? 'öffentliche signUp-Logik gefunden' : 'keine öffentliche Registrierung im Board');
 
