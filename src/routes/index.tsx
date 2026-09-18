@@ -107,8 +107,29 @@ function Overview() {
           hint={`${data?.todaySales ?? 0} Verkäufe heute`}
         />
         <Stat icon={Star} label="Umsatz gesamt (Stars)" value={`⭐ ${data?.stars ?? 0}`} hint={`${data?.weekStars ?? 0} in 7 Tagen`} />
-        <Stat icon={Gem} label="Umsatz (TON)" value={`${(data?.ton ?? 0).toFixed(2)}`} hint={`${data?.pendingTon ?? 0} offene Zahlungen`} />
+        <Stat icon={Gem} label="Krypto-Umsatz" value={`${(data?.ton ?? 0).toFixed(2)} TON`} hint={`${(data?.trx ?? 0).toFixed(2)} TRX · ${data?.pendingCrypto ?? 0} offen`} />
         <Stat icon={Users} label="Fans im Bot" value={`${data?.fans ?? 0}`} hint={`⭐ ${data?.commissions ?? 0} Provisionen`} />
+      </div>
+
+      <div className="panel mt-6 p-6">
+        <div className="flex items-center justify-between">
+          <h2 className="text-lg font-semibold">Funnel</h2>
+          <span className="text-xs text-muted-foreground">Start → Checkout → bezahlt → ausgeliefert → geöffnet</span>
+        </div>
+        <div className="mt-4 grid gap-3 sm:grid-cols-5">
+          {([
+            ["Bot-Start", data?.funnel?.started ?? 0],
+            ["Checkout", data?.funnel?.checkout ?? 0],
+            ["Bezahlt", data?.funnel?.paid ?? 0],
+            ["Ausgeliefert", data?.funnel?.delivered ?? 0],
+            ["Geöffnet", data?.funnel?.opened ?? 0],
+          ] as const).map(([label, value]) => (
+            <div key={label} className="rounded-xl border border-border p-3">
+              <p className="text-xs text-muted-foreground">{label}</p>
+              <p className="mt-1 text-2xl font-bold">{value}</p>
+            </div>
+          ))}
+        </div>
       </div>
 
       <div className="mt-6 grid gap-4 lg:grid-cols-3">
