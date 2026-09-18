@@ -1,0 +1,6 @@
+[build]
+  command = "bun run build"
+
+[dev]
+  command = "bun run dev"
+  port = 3000
