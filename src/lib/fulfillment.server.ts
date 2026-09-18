@@ -1,4 +1,5 @@
 import { createHash, randomBytes } from "crypto";
+import { resolvePublicBaseUrl } from "@/lib/base-url";
 
 export type Tg = (method: string, body: Record<string, unknown>) => Promise<any>;
 
@@ -122,7 +123,6 @@ export async function createAccessToken(
 }
 
 export function contentUrl(settings: any, token: string) {
-  const { resolvePublicBaseUrl } = await import("@/lib/base-url");
   const base = resolvePublicBaseUrl(settings);
   return base ? `${base}/inhalt/${token}` : "";
 }
