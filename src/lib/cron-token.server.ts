@@ -1,7 +1,7 @@
 import { authenticateCronRequest } from "@/integrations/supabase/cron-auth";
 
 /**
- * Autorisiert Cron-Aufrufe: zuerst das Plattform-Geheimnis (LOVABLE_CRON_SECRET),
+ * Autorisiert Cron-Aufrufe: zuerst das Plattform-Geheimnis (CRON_SECRET; Legacy-Fallback wird weiter akzeptiert),
  * alternativ ein in der Datenbank hinterlegtes Hash-Token (pg_cron-Jobs).
  */
 export async function authorizeCronRequest(request: Request): Promise<Response | null> {
