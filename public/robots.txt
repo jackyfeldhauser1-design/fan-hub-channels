@@ -25,4 +25,4 @@ Disallow: /einstellungen
 Disallow: /status
 Disallow: /api/
 
-Sitemap: https://fan-hub-channels.lovable.app/sitemap.xml
+Sitemap: https://fan-hub-channels.netlify.app/sitemap.xml
