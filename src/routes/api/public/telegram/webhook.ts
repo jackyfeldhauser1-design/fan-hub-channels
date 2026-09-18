@@ -562,8 +562,55 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
         // ---- pre checkout ----
         if (update.pre_checkout_query) {
-          await tg("answerPreCheckoutQuery", { pre_checkout_query_id: update.pre_checkout_query.id, ok: true });
-          return Response.json({ ok: true });
+          const pcq = update.pre_checkout_query;
+          const payload = String(pcq.invoice_payload ?? "");
+          const amount = Number(pcq.total_amount ?? 0);
+          const currency = String(pcq.currency ?? "");
+          let valid = currency === "XTR" && Number.isInteger(amount) && amount > 0;
+          let reason = "Dieses Angebot ist nicht mehr verfügbar. Bitte öffne den Shop erneut.";
+
+          if (valid && payload.startsWith("p:")) {
+            const [productPart = "", codePart = ""] = payload.split("|");
+            const productId = productPart.slice(2);
+            const codeId = codePart.startsWith("c:") ? codePart.slice(2) : "";
+            const { data: product } = await db.from("products").select("*").eq("id", productId).eq("active", true).maybeSingle();
+            valid = Boolean(product);
+            if (valid && product) {
+              let expected = Math.max(1, Math.round(Number(product.price_stars)));
+              if (codeId) {
+                const { data: dc } = await db.from("discount_codes").select("code").eq("id", codeId).maybeSingle();
+                if (!dc) valid = false;
+                else {
+                  const fan = await ensureUser(pcq.from);
+                  const { checkDiscount } = await import("@/lib/billing.server");
+                  const discounted = await checkDiscount(db, dc.code, fan.id, expected);
+                  valid = discounted.ok;
+                  if (discounted.ok) expected = Math.max(1, Math.round(discounted.price));
+                }
+              }
+              if (valid) valid = amount === expected;
+            }
+          } else if (valid && payload === "vip:access") {
+            valid = amount === Math.max(1, Math.round(Number(settings.vip_price_stars ?? 450)));
+          } else if (valid && payload.startsWith("tip:")) {
+            const expected = Number(payload.slice(4));
+            valid = Number.isInteger(expected) && expected > 0 && amount === expected;
+          } else if (valid && payload.startsWith("lead:")) {
+            const { data: lead } = await db.from("leads").select("id").eq("id", payload.slice(5)).maybeSingle();
+            valid = Boolean(lead) && amount === Math.max(1, Math.round(Number(settings.early_access_price_stars ?? 250)));
+          } else if (valid && payload.startsWith("sp:")) {
+            const { data: post } = await db.from("sponsored_posts").select("id,status").eq("id", payload.slice(3)).maybeSingle();
+            valid = Boolean(post) && post.status !== "paid" && amount === Math.max(1, Math.round(Number(settings.sponsor_price_stars ?? 1500)));
+          } else if (valid) {
+            valid = false;
+          }
+
+          await tg("answerPreCheckoutQuery", {
+            pre_checkout_query_id: pcq.id,
+            ok: valid,
+            ...(valid ? {} : { error_message: reason }),
+          });
+          return Response.json({ ok: true, precheckout: valid });
         }
 
         if (!msg?.chat?.id) return Response.json({ ok: true, ignored: true });
