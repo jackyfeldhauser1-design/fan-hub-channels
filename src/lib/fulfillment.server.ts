@@ -122,7 +122,8 @@ export async function createAccessToken(
 }
 
 export function contentUrl(settings: any, token: string) {
-  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");
+  const base = resolvePublicBaseUrl(settings);
   return base ? `${base}/inhalt/${token}` : "";
 }
 
