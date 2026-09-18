@@ -230,20 +230,29 @@ export async function runReactivation(db: any, settings: any): Promise<Result> {
   return { processed, sent, failed, detail: "" };
 }
 
-/** Führt alle Lebenszyklus-Jobs aus. */
+/** Führt alle Lebenszyklus-Jobs aus. Ein einzelner Fehler darf die übrigen Jobs nicht stoppen. */
 export async function runLifecycle(db: any) {
   const settings = (await db.from("bot_settings").select("*").eq("id", true).maybeSingle()).data ?? {};
+  const safe = async (name: string, fn: () => Promise<Result>): Promise<Result> => {
+    try {
+      return await fn();
+    } catch (error) {
+      const detail = error instanceof Error ? error.message : String(error);
+      console.error(`[lifecycle:${name}]`, detail);
+      return { processed: 0, sent: 0, failed: 1, detail };
+    }
+  };
   const parts = {
-    subscriptions: await runSubscriptions(db, settings),
-    sequences: await runSequences(db, settings),
-    cart: await runCartRecovery(db, settings),
-    contentExpiry: await runContentExpiry(db, settings),
-    cryptoVerification: await (async () => {
+    subscriptions: await safe("subscriptions", () => runSubscriptions(db, settings)),
+    sequences: await safe("sequences", () => runSequences(db, settings)),
+    cart: await safe("cart", () => runCartRecovery(db, settings)),
+    contentExpiry: await safe("contentExpiry", () => runContentExpiry(db, settings)),
+    cryptoVerification: await safe("cryptoVerification", async () => {
       const { verifyPendingCrypto } = await import("@/lib/crypto-verification.server");
       const r = await verifyPendingCrypto(db, settings);
       return { processed: r.checked, sent: r.delivered, failed: r.failed, detail: `${r.matched} matched` };
-    })(),
-    reactivation: await runReactivation(db, settings),
+    }),
+    reactivation: await safe("reactivation", () => runReactivation(db, settings)),
   };
   const sum = (k: "processed" | "sent" | "failed") =>
     Object.values(parts).reduce((a, p) => a + p[k], 0);
