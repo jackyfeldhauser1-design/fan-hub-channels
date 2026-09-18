@@ -25,9 +25,9 @@ export const Route = createFileRoute("/warteliste")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:url", content: "https://fan-hub-channels.lovable.app/warteliste" },
+      { property: "og:url", content: "https://fan-hub-channels.netlify.app/warteliste" },
     ],
-    links: [{ rel: "canonical", href: "https://fan-hub-channels.lovable.app/warteliste" }],
+    links: [{ rel: "canonical", href: "https://fan-hub-channels.netlify.app/warteliste" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -35,8 +35,8 @@ export const Route = createFileRoute("/warteliste")({
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Start", item: "https://fan-hub-channels.lovable.app" },
-            { "@type": "ListItem", position: 2, name: "Warteliste", item: "https://fan-hub-channels.lovable.app/warteliste" },
+            { "@type": "ListItem", position: 1, name: "Start", item: "https://fan-hub-channels.netlify.app" },
+            { "@type": "ListItem", position: 2, name: "Warteliste", item: "https://fan-hub-channels.netlify.app/warteliste" },
           ],
         }),
       },
