@@ -243,7 +243,7 @@ export async function verifySetup(db: any) {
     const me = await tgApi("getMe", {});
     botOk = true;
     botName = String(me.result?.username ?? username);
-    checks.push({ key: "bot", label: "Bot erreichbar", ok: true, detail: `@${botName}${token ? "" : " (Connector-Fallback)"}` });
+    checks.push({ key: "bot", label: "Bot erreichbar", ok: true, detail: `@${botName}${token ? "" : " (Environment-Token)"}` });
   } catch (e) {
     checks.push({
       key: "bot",
