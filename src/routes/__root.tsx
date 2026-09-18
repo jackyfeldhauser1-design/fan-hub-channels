@@ -10,7 +10,7 @@ import {
 import { useEffect, type ReactNode } from "react";
 
 import appCss from "../styles.css?url";
-import { reportLovableError } from "../lib/lovable-error-reporting";
+import { reportAppError } from "../lib/error-reporting";
 import { Toaster } from "@/components/ui/sonner";
 
 
@@ -40,7 +40,7 @@ function ErrorComponent({ error, reset }: { error: Error; reset: () => void }) {
   console.error(error);
   const router = useRouter();
   useEffect(() => {
-    reportLovableError(error, { boundary: "tanstack_root_error_component" });
+    reportAppError(error, { boundary: "tanstack_root_error_component" });
   }, [error]);
 
   return (
@@ -117,8 +117,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
           "@context": "https://schema.org",
           "@type": "Organization",
           name: "Telegram Fan Funnel Studio",
-          url: "https://fan-hub-channels.lovable.app",
-          logo: "https://fan-hub-channels.lovable.app/app-icon-512.png",
+          url: "https://fan-hub-channels.netlify.app",
+          logo: "https://fan-hub-channels.netlify.app/app-icon-512.png",
           description:
             "Telegram-Bot-Kette mit Gratis-Gruppe, VIP-Verkauf über Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
         }),
