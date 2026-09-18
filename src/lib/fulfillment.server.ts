@@ -122,7 +122,7 @@ export async function createAccessToken(
 }
 
 export function contentUrl(settings: any, token: string) {
-  const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
   return base ? `${base}/inhalt/${token}` : "";
 }
 
