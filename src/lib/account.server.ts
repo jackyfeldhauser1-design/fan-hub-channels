@@ -68,7 +68,8 @@ export async function loadAccount(db: any, tgUserId: string) {
   const { activeSubscription } = await import("@/lib/billing.server");
   const sub = await activeSubscription(db, tgUserId);
   const conf = (await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle()).data ?? {};
-  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(conf);
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");
+  const base = resolvePublicBaseUrl(conf);
 
   const folderIds = [...new Set((tokens ?? []).map((t: any) => t.folder_id).filter(Boolean))];
   const productIds = [...new Set((tokens ?? []).map((t: any) => t.product_id).filter(Boolean))];
@@ -173,6 +174,7 @@ export async function reissueAccess(db: any, tgUserId: string, accessId: string)
     detail: `Neuer Zugang über Kundenkonto (${maxViews}× / ${ttl}h)`,
   });
 
-  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");
+  const base = resolvePublicBaseUrl(settings);
   return { url: base ? `${base}/inhalt/${token}` : "", ttl, maxViews };
 }
