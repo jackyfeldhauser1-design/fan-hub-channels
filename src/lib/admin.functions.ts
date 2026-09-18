@@ -240,7 +240,8 @@ export const saveSettings = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => settingsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
-    await db.from("bot_settings").update(data).eq("id", true);
+    const { error } = await db.from("bot_settings").update(data).eq("id", true);
+    if (error) throw new Error(error.message);
     return { ok: true };
   });
 
@@ -328,6 +329,7 @@ export const confirmCryptoPurchase = createServerFn({ method: "POST" })
       .eq("id", data.id);
     if (paidError) throw new Error(paidError.message);
 
+    const { data: settings } = await db.from("bot_settings").select("*").eq("id", true).maybeSingle();
     const { deliverProduct, logOrderEvent } = await import("@/lib/fulfillment.server");
     await logOrderEvent(db, purchase.id, purchase.tg_user_id, "paid", `${purchase.currency}:admin-confirmed`);
     const result = await deliverProduct(
@@ -336,7 +338,7 @@ export const confirmCryptoPurchase = createServerFn({ method: "POST" })
       Number(purchase.tg_users.telegram_id),
       product,
       { ...purchase, status: "paid", delivery_status: "pending" },
-      {},
+      settings ?? {},
     );
     if (!result.ok) throw new Error("Zahlung bestätigt, Auslieferung muss erneut versucht werden.");
     return { ok: true, duplicate: false };
@@ -375,16 +377,20 @@ export const setupWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((input: unknown) => z.object({ baseUrl: z.string().url() }).parse(input))
   .handler(async ({ data, context }) => {
-    await requireAdmin(context);
+    const db = await requireAdmin(context);
+    const baseUrl = data.baseUrl.replace(/\/$/, "");
     const { currentWebhookSecret } = await import("@/lib/telegram.server");
     const secret = await currentWebhookSecret();
-    const url = `${data.baseUrl.replace(/\/$/, "")}/api/public/telegram/webhook`;
+    const url = `${baseUrl}/api/public/telegram/webhook`;
     const res = await tg("setWebhook", {
       url,
       secret_token: secret,
-      allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member"],
+      allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member", "channel_post"],
     });
-    return { ok: res.ok, url };
+    if (!res.ok) throw new Error(res.description ?? "Webhook konnte nicht gesetzt werden");
+    const { error } = await db.from("bot_settings").update({ app_base_url: baseUrl }).eq("id", true);
+    if (error) throw new Error(error.message);
+    return { ok: true, url };
   });
 
 // ---------- Bestell- & Liefer-Tracking ----------
