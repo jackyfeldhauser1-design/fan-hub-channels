@@ -48,7 +48,8 @@ export const Route = createFileRoute("/api/public/n/$id")({
         if (to && /^https:\/\//i.test(to)) return Response.redirect(to, 302);
 
         const { data: settings } = await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle();
-        const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n        const base = resolvePublicBaseUrl(settings);
+        const { resolvePublicBaseUrl } = await import("@/lib/base-url");
+        const base = resolvePublicBaseUrl(settings);
         if (base) return Response.redirect(base, 302);
         return new Response("OK");
       },
