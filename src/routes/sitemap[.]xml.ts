@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const BASE_URL = "https://fan-hub-channels.lovable.app";
+const BASE_URL = "https://fan-hub-channels.netlify.app";
 
 const entries = [
   { path: "/", changefreq: "weekly", priority: "1.0" },
