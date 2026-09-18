@@ -1,10 +1,9 @@
-<!-- LOVABLE:BEGIN -->
-> [!IMPORTANT]
-> This project is connected to [Lovable](https://lovable.dev). Avoid rewriting
-> published git history — force pushing, or rebasing/amending/squashing commits
-> that are already pushed — as it rewrites history on Lovable's side and the
-> user will likely lose their project history.
->
-> Commits you push to the connected branch sync back to Lovable and show up in
-> the editor, so keep the branch in a working state.
-<!-- LOVABLE:END -->
+# Repository rules
+
+- GitHub `main` is the source of truth.
+- Keep the project host-independent.
+- Supabase is the database/auth/storage backend.
+- Telegram Bot API is accessed directly; do not introduce hosted connector gateways.
+- Never commit secrets, bot tokens, service-role keys, wallet private keys, or local `.env` files.
+- Run typecheck, tests, build, and release preflight before production deployment.
+- Preserve existing user data and Telegram channel/bot configuration during migrations.
