@@ -98,7 +98,9 @@ export const getOverview = createServerFn({ method: "POST" })
     const [
       { data: paid },
       { count: fans },
-      { data: pendingTon },
+      { data: pendingCrypto },
+      { count: checkoutIntents },
+      { count: contentOpened },
       { data: settings },
       { count: products },
       { count: folders },
@@ -106,9 +108,11 @@ export const getOverview = createServerFn({ method: "POST" })
       { count: failedDeliveries },
       { data: cred },
     ] = await Promise.all([
-      db.from("purchases").select("amount_stars, commission_stars, created_at, title_snapshot, currency, amount_ton").eq("status", "paid"),
+      db.from("purchases").select("amount_stars, commission_stars, created_at, title_snapshot, currency, amount_ton, amount_trx, delivery_status").eq("status", "paid"),
       db.from("tg_users").select("id", { count: "exact", head: true }),
-      db.from("purchases").select("id").eq("status", "pending").eq("currency", "ton"),
+      db.from("purchases").select("id,currency").eq("status", "pending").in("currency", ["ton", "trx"]),
+      db.from("invoice_intents").select("id", { count: "exact", head: true }),
+      db.from("content_access").select("id", { count: "exact", head: true }).not("last_opened_at", "is", null),
       db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
       db.from("products").select("id", { count: "exact", head: true }).eq("active", true),
       db.from("media_folders").select("id", { count: "exact", head: true }).eq("active", true),
@@ -118,7 +122,9 @@ export const getOverview = createServerFn({ method: "POST" })
     ]);
     const rows = paid ?? [];
     const stars = rows.reduce((s: number, r: any) => s + r.amount_stars, 0);
-    const ton = rows.reduce((s: number, r: any) => s + Number(r.amount_ton), 0);
+    const ton = rows.reduce((s: number, r: any) => s + Number(r.amount_ton ?? 0), 0);
+    const trx = rows.reduce((s: number, r: any) => s + Number(r.amount_trx ?? 0), 0);
+    const delivered = rows.filter((r: any) => r.delivery_status === "delivered").length;
     const commissions = rows.reduce((s: number, r: any) => s + r.commission_stars, 0);
     const since = Date.now() - 7 * 864e5;
     const week = rows.filter((r: any) => new Date(r.created_at).getTime() > since);
@@ -127,10 +133,18 @@ export const getOverview = createServerFn({ method: "POST" })
     return {
       stars,
       ton,
+      trx,
       commissions,
       sales: rows.length,
       fans: fans ?? 0,
-      pendingTon: (pendingTon ?? []).length,
+      pendingCrypto: (pendingCrypto ?? []).length,
+      funnel: {
+        started: fans ?? 0,
+        checkout: checkoutIntents ?? 0,
+        paid: rows.length,
+        delivered,
+        opened: contentOpened ?? 0,
+      },
       weekStars: week.reduce((s: number, r: any) => s + r.amount_stars, 0),
       weekSales: week.length,
       todayStars: today.reduce((s: number, r: any) => s + r.amount_stars, 0),
