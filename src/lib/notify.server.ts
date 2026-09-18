@@ -381,7 +381,7 @@ export async function notifyAccessIssue(
   });
   const tpl = await renderStoredTemplate(db, kind, vars, "admin");
   const body = tpl.body ?? "";
-  const base = String(settings.app_base_url ?? "");
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
   const recipients = await resolveRecipients(db, opts.tokenId, settings.control_chat_id ?? "");
 
   // Opt-in/Opt-out je Empfänger
@@ -471,7 +471,7 @@ export async function runCampaign(db: any, campaignId: string) {
   const { data: c } = await db.from("notification_campaigns").select("*").eq("id", campaignId).maybeSingle();
   if (!c) throw new Error("Kampagne nicht gefunden");
   const { data: settings } = await db.from("bot_settings").select("app_base_url, control_chat_id").eq("id", true).maybeSingle();
-  const base = String(settings?.app_base_url ?? "");
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
   const nowIso = new Date().toISOString();
 
   let q = db.from("access_tokens").select("id, tg_user_id, expires_at, revoked, views, max_views").limit(500);
