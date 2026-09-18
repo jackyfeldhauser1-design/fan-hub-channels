@@ -170,7 +170,7 @@ function MediaPage() {
 
   async function quickPublish() {
     if (!sellFolder) return;
-    if (!sellFolder.files?.length) return toast.error("Dieser Ordner enthält noch keine Medien.");
+    if (!sellFolder.files?.length) {\n      toast.error("Dieser Ordner enthält noch keine Medien.");\n      return;\n    }
     setSelling(true);
     try {
       await quickPublishFn({ data: {
