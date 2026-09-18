@@ -398,7 +398,7 @@ export async function buildGoLiveReport(db: any) {
 /** Setzt den Webhook auf die hinterlegte Basis-Adresse (Selbstheilung im Tagesjob). */
 export async function repairWebhook(db: any) {
   const { data: settings } = await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle();
-  const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
   if (!base) return { ok: false, detail: "Keine Basis-Adresse hinterlegt." };
   const url = `${base}/api/public/telegram/webhook`;
   const { tgApi, currentWebhookSecret } = await import("@/lib/telegram.server");
