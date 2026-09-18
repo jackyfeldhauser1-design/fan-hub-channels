@@ -74,7 +74,7 @@ export async function readDrops(db: any) {
     channels: {
       shop: settings?.shop_chat_id ?? "",
       community: settings?.community_chat_id ?? "",
-      baseUrl: settings?.app_base_url ?? "",
+      baseUrl: (await import("@/lib/base-url")).resolvePublicBaseUrl(settings),
     },
   };
 }
