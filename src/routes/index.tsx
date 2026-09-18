@@ -18,9 +18,9 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Alle Kennzahlen deines Telegram-Verkaufsfunnels in einem Dashboard." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:url", content: "https://fan-hub-channels.lovable.app/" },
+      { property: "og:url", content: "https://fan-hub-channels.netlify.app/" },
     ],
-    links: [{ rel: "canonical", href: "https://fan-hub-channels.lovable.app/" }],
+    links: [{ rel: "canonical", href: "https://fan-hub-channels.netlify.app/" }],
     scripts: [
       {
         type: "application/ld+json",
@@ -28,7 +28,7 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "Telegram Fan Funnel Studio",
-          url: "https://fan-hub-channels.lovable.app",
+          url: "https://fan-hub-channels.netlify.app",
         }),
       },
     ],
