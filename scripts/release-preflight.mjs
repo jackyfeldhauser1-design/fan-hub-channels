@@ -50,6 +50,7 @@ if (String(env.ADMIN_BOOTSTRAP_ENABLED ?? 'false').toLowerCase() === 'true') {
 add(exists('supabase/migrations/20260915000100_content_commerce_scaffold.sql') ? 'PASS' : 'FAIL', 'Content-Migration', '20260915000100_content_commerce_scaffold.sql');
 add(exists('src/routes/content.tsx') ? 'PASS' : 'FAIL', 'Content Studio', 'Route /content vorhanden');
 add(exists('src/lib/content.server.ts') ? 'PASS' : 'FAIL', 'Content-Auslieferung', 'Serverlogik vorhanden');
+add(exists('src/lib/crypto-verification.server.ts') ? 'PASS' : 'FAIL', 'Crypto-Verifikation', 'TON/TRX Auto-Prüfung vorhanden');
 
 const telegramAdmin = fs.readFileSync(path.join(root, 'src/lib/admin.functions.ts'), 'utf8');
 add(
