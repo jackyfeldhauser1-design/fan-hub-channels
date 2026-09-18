@@ -74,6 +74,26 @@ add(/signUp\s*\(/.test(auth) ? 'FAIL' : 'PASS', 'Kundenregistrierung', /signUp\s
 const konto = fs.readFileSync(path.join(root, 'src/routes/konto.tsx'), 'utf8');
 add(/ausschließlich über den Telegram-Bot/i.test(konto) ? 'PASS' : 'WARN', 'Kunden-Webkonto', 'Web-Kundenbereich ist deaktiviert und verweist auf Telegram');
 
+const telegramServer = fs.readFileSync(path.join(root, 'src/lib/telegram.server.ts'), 'utf8');
+add(!telegramServer.includes('connector-gateway.lovable.dev') ? 'PASS' : 'FAIL', 'Telegram direkt', 'Kein Lovable-Connector-Gateway im aktiven Telegram-Pfad');
+add(telegramServer.includes('TELEGRAM_BOT_TOKEN') ? 'PASS' : 'FAIL', 'Telegram Bot-Token', 'Direkter Bot-Token-Fallback vorhanden');
+
+const webhookRoute = fs.readFileSync(path.join(root, 'src/routes/api/public/telegram/webhook.ts'), 'utf8');
+add(
+  webhookRoute.includes('precheckout: valid') && webhookRoute.includes('error_message') ? 'PASS' : 'FAIL',
+  'Stars Pre-Checkout',
+  'Payload und Betrag werden vor Zahlung geprüft',
+);
+
+const lifecycle = fs.readFileSync(path.join(root, 'src/lib/lifecycle.server.ts'), 'utf8');
+add(
+  lifecycle.includes('const safe = async') && lifecycle.includes('[lifecycle:') ? 'PASS' : 'FAIL',
+  'Lifecycle Isolation',
+  'Ein Jobfehler stoppt nicht alle Automationen',
+);
+
+add(exists('src/routes/api/health.ts') ? 'PASS' : 'FAIL', 'Healthcheck', '/api/health vorhanden');
+
 if (useNetwork && env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) {
   try {
     const res = await fetch(`${String(env.SUPABASE_URL).replace(/\/$/, '')}/rest/v1/`, { headers: { apikey: env.SUPABASE_PUBLISHABLE_KEY }, signal: AbortSignal.timeout(8000) });
