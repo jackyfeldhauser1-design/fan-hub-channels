@@ -352,15 +352,13 @@ export const setupWebhook = createServerFn({ method: "POST" })
   .inputValidator((input: unknown) => z.object({ baseUrl: z.string().url() }).parse(input))
   .handler(async ({ data, context }) => {
     await requireAdmin(context);
-    const { createHash } = await import("crypto");
-    const secret = createHash("sha256")
-      .update(`telegram-webhook:${process.env["TELEGRAM_API_KEY"]}`)
-      .digest("base64url");
+    const { currentWebhookSecret } = await import("@/lib/telegram.server");
+    const secret = await currentWebhookSecret();
     const url = `${data.baseUrl.replace(/\/$/, "")}/api/public/telegram/webhook`;
     const res = await tg("setWebhook", {
       url,
       secret_token: secret,
-      allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query"],
+      allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member"],
     });
     return { ok: res.ok, url };
   });
