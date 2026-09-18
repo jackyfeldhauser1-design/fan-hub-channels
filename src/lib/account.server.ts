@@ -173,6 +173,6 @@ export async function reissueAccess(db: any, tgUserId: string, accessId: string)
     detail: `Neuer Zugang über Kundenkonto (${maxViews}× / ${ttl}h)`,
   });
 
-  const base = String(settings.app_base_url ?? "").replace(/\/$/, "");
+  const { resolvePublicBaseUrl } = await import("@/lib/base-url");\n  const base = resolvePublicBaseUrl(settings);
   return { url: base ? `${base}/inhalt/${token}` : "", ttl, maxViews };
 }
