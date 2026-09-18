@@ -293,7 +293,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             });
             return Response.json({ ok: true });
           }
-          if (d.startsWith("buy_") || d.startsWith("ton_") || d.startsWith("trx_") || d.startsWith("tip_")) {
+          if (d.startsWith("buy_") || d.startsWith("buyc_") || d.startsWith("star_") || d.startsWith("ton_") || d.startsWith("trx_") || d.startsWith("tip_")) {
             const reason = await guardAction(db, user, settings, "buy");
             if (reason) {
               await tg("sendMessage", { chat_id: chatId, text: `⚠️ ${reason}` });
@@ -450,10 +450,12 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             const rest = d.slice(withCode ? 5 : 4);
             const [id, codeId] = withCode ? rest.split("|") : [rest, ""];
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
-            if (p) {
-              let amount = Number(p.price_stars);
-              let payload = `p:${p.id}`;
-              if (codeId) {
+            if (p?.active) {
+              // Rabattcodes gelten aktuell nur für Stars, da TON/TRX als feste
+              // On-Chain-Beträge am Produkt hinterlegt sind.
+              if (withCode && codeId) {
+                let amount = Number(p.price_stars);
+                let payload = `p:${p.id}`;
                 const { data: dc } = await db.from("discount_codes").select("code").eq("id", codeId).maybeSingle();
                 if (dc) {
                   const { checkDiscount } = await import("@/lib/billing.server");
@@ -463,30 +465,49 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                     payload = `p:${p.id}|c:${codeId}`;
                   }
                 }
-              }
-              await invoice(chatId, user.id, {
-                title: p.title,
-                description: p.description || p.title,
-                payload,
-                label: p.title,
-                amount,
-              });
-              const cryptoButtons: Array<Array<{ text: string; callback_data: string }>> = [];
-              if (Number(p.price_ton) > 0 && settings.ton_wallet) {
-                cryptoButtons.push([{ text: `💎 ${p.price_ton} TON`, callback_data: `ton_${p.id}` }]);
-              }
-              if (Number(p.price_trx) > 0 && settings.trx_wallet) {
-                cryptoButtons.push([{ text: `🔺 ${p.price_trx} TRX`, callback_data: `trx_${p.id}` }]);
-              }
-              if (cryptoButtons.length) {
-                await tg("sendMessage", {
-                  chat_id: chatId,
-                  text: "Lieber mit Krypto zahlen? Die Freischaltung erfolgt nach bestätigtem Zahlungseingang.",
-                  reply_markup: { inline_keyboard: cryptoButtons },
+                await invoice(chatId, user.id, {
+                  title: p.title,
+                  description: p.description || p.title,
+                  payload,
+                  label: p.title,
+                  amount,
                 });
+              } else {
+                const paymentButtons: Array<Array<{ text: string; callback_data: string }>> = [];
+                if (Number(p.price_stars) > 0) {
+                  paymentButtons.push([{ text: `⭐ ${p.price_stars} Stars`, callback_data: `star_${p.id}` }]);
+                }
+                if (Number(p.price_ton) > 0 && settings.ton_wallet) {
+                  paymentButtons.push([{ text: `💎 ${p.price_ton} TON`, callback_data: `ton_${p.id}` }]);
+                }
+                if (Number(p.price_trx) > 0 && settings.trx_wallet) {
+                  paymentButtons.push([{ text: `🔺 ${p.price_trx} TRX`, callback_data: `trx_${p.id}` }]);
+                }
+                if (!paymentButtons.length) {
+                  await tg("sendMessage", { chat_id: chatId, text: "Für dieses Angebot ist gerade keine Zahlungsart verfügbar." });
+                } else {
+                  await tg("sendMessage", {
+                    chat_id: chatId,
+                    text: `💳 <b>${p.title}</b>\n\nWähle deine Zahlungsart:`,
+                    parse_mode: "HTML",
+                    reply_markup: { inline_keyboard: paymentButtons },
+                  });
+                }
               }
             }
 
+          } else if (d.startsWith("star_")) {
+            const id = d.slice(5);
+            const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
+            if (p?.active && Number(p.price_stars) > 0) {
+              await invoice(chatId, user.id, {
+                title: p.title,
+                description: p.description || p.title,
+                payload: `p:${p.id}`,
+                label: p.title,
+                amount: Number(p.price_stars),
+              });
+            }
           } else if (d.startsWith("ton_")) {
             const id = d.slice(4);
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
