@@ -159,7 +159,7 @@ export const getOverview = createServerFn({ method: "POST" })
         folders: folders ?? 0,
         files: files ?? 0,
         vipPrice: Number(settings?.vip_price_stars ?? 0),
-        baseUrl: settings?.app_base_url ?? "",
+        baseUrl: (await import("@/lib/base-url")).resolvePublicBaseUrl(settings),
         failedDeliveries: failedDeliveries ?? 0,
       },
     };
@@ -198,6 +198,16 @@ const settingsSchema = z.object({
   notify_blocked: z.boolean(),
   notify_unpaid: z.boolean(),
   notify_expired: z.boolean(),
+  vip_period_days: z.number().int().min(0).max(3650),
+  vip_reminder_days: z.number().int().min(0).max(365),
+  reactivate_after_days: z.number().int().min(0).max(3650),
+  sequence_enabled: z.boolean(),
+  cart_recovery_minutes: z.number().int().min(0).max(10080),
+  cart_recovery_code: z.string().max(60),
+  referral_tier_threshold: z.number().int().min(1).max(100000),
+  referral_tier_percent: z.number().int().min(0).max(90),
+  tip_amounts: z.string().max(100),
+  content_expiry_reminder_hours: z.number().int().min(0).max(720),
 });
 
 /** Nur die Preis-/Stars-Einstellungen (eigene Seite im Admin-Board). */
