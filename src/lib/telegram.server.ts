@@ -6,8 +6,6 @@
  */
 import { createHash } from "crypto";
 
-const GATEWAY = "https://connector-gateway.lovable.dev/telegram";
-
 let cache: { token: string; username: string; previous: string; previousUntil: number; at: number } | null = null;
 
 /** Liest den gespeicherten Bot-Token (60 Sekunden gecached). */
@@ -50,15 +48,17 @@ export async function validWebhookSecrets(): Promise<string[]> {
   if (token) out.push(deriveWebhookSecret(token));
   // Übergangsfrist nach einem Token-Wechsel: alter Schlüssel bleibt kurz gültig.
   if (cache?.previous && cache.previousUntil > Date.now()) out.push(deriveWebhookSecret(cache.previous));
-  const apiKey = process.env["TELEGRAM_API_KEY"];
-  if (apiKey) out.push(deriveWebhookSecret(apiKey));
+  const envToken = process.env["TELEGRAM_BOT_TOKEN"];
+  if (envToken) out.push(deriveWebhookSecret(envToken));
   return out;
 }
 
 /** Der Schlüssel, mit dem der Webhook aktuell registriert werden soll. */
 export async function currentWebhookSecret(): Promise<string> {
   const { token } = await getBotToken();
-  return deriveWebhookSecret(token || `${process.env["TELEGRAM_API_KEY"]}`);
+  const active = token || process.env["TELEGRAM_BOT_TOKEN"] || "";
+  if (!active) throw new Error("Telegram bot token is not configured");
+  return deriveWebhookSecret(active);
 }
 
 type TgResponse = { ok: boolean; result?: any; description?: string };
@@ -71,13 +71,11 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
  * damit einzelne Störungen keine Zustellung verlieren.
  */
 export async function tgApi(method: string, body: Record<string, unknown> = {}): Promise<TgResponse> {
-  const { token } = await getBotToken();
-  const url = token ? `https://api.telegram.org/bot${token}/${method}` : `${GATEWAY}/${method}`;
+  const stored = await getBotToken();
+  const token = stored.token || process.env["TELEGRAM_BOT_TOKEN"] || "";
+  if (!token) throw new Error("Telegram bot token is not configured");
+  const url = `https://api.telegram.org/bot${token}/${method}`;
   const headers: Record<string, string> = { "Content-Type": "application/json" };
-  if (!token) {
-    headers["Authorization"] = `Bearer ${process.env["LOVABLE_API_KEY"]}`;
-    headers["X-Connection-Api-Key"] = `${process.env["TELEGRAM_API_KEY"]}`;
-  }
 
   let lastError = "";
   for (let attempt = 0; attempt < 3; attempt++) {
