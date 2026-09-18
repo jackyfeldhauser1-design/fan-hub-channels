@@ -92,7 +92,8 @@ add(
   'Ein Jobfehler stoppt nicht alle Automationen',
 );
 
-add(exists('src/routes/api/health.ts') ? 'PASS' : 'FAIL', 'Healthcheck', '/api/health vorhanden');
+const serverEntry = fs.readFileSync(path.join(root, 'src/server.ts'), 'utf8');
+add(serverEntry.includes('"/api/health"') ? 'PASS' : 'FAIL', 'Healthcheck', '/api/health im Server-Entry vorhanden');
 
 if (useNetwork && env.SUPABASE_URL && env.SUPABASE_PUBLISHABLE_KEY) {
   try {
