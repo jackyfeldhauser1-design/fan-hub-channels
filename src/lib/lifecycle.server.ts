@@ -156,6 +156,40 @@ export async function runCartRecovery(db: any, settings: any): Promise<Result> {
   return { processed: rows?.length ?? 0, sent, failed, detail: "" };
 }
 
+/** Warnt vor dem Ablauf zeitlich begrenzter Content-Zugriffe und markiert abgelaufene Rechte. */
+export async function runContentExpiry(db: any, settings: any): Promise<Result> {
+  const reminderHours = Math.max(0, Number(settings?.content_expiry_reminder_hours ?? 6));
+  let sent = 0, failed = 0, processed = 0;
+  const { data: rows } = await db
+    .from("content_access")
+    .select("id,tg_user_id,content_set_id,expires_at,expiry_reminded_at,tg_users!inner(telegram_id,blocked),content_sets!inner(title)")
+    .eq("status", "active")
+    .not("expires_at", "is", null)
+    .limit(500);
+
+  for (const row of rows ?? []) {
+    processed++;
+    const expires = new Date(row.expires_at).getTime();
+    const fan = (row as any).tg_users;
+    const title = (row as any).content_sets?.title ?? "dein Inhalt";
+    if (expires <= Date.now()) {
+      await db.from("content_access").update({ status: "expired" }).eq("id", row.id);
+      continue;
+    }
+    const hoursLeft = Math.ceil((expires - Date.now()) / 3_600_000);
+    if (reminderHours > 0 && hoursLeft <= reminderHours && !row.expiry_reminded_at && !fan?.blocked) {
+      const ok = await send(
+        fan.telegram_id,
+        `⏳ Dein Zugriff auf <b>${title}</b> läuft in etwa <b>${hoursLeft} Stunde(n)</b> ab.`,
+        [[{ text: "🔓 Meine Inhalte", callback_data: "my_content" }, { text: "🛍 Shop", callback_data: "shop" }]],
+      );
+      await db.from("content_access").update({ expiry_reminded_at: new Date().toISOString() }).eq("id", row.id);
+      ok ? sent++ : failed++;
+    }
+  }
+  return { processed, sent, failed, detail: "" };
+}
+
 /** Spricht Fans ohne Kauf seit X Tagen erneut an. */
 export async function runReactivation(db: any, settings: any): Promise<Result> {
   const days = Math.max(0, Number(settings?.reactivate_after_days ?? 14));
@@ -203,6 +237,7 @@ export async function runLifecycle(db: any) {
     subscriptions: await runSubscriptions(db, settings),
     sequences: await runSequences(db, settings),
     cart: await runCartRecovery(db, settings),
+    contentExpiry: await runContentExpiry(db, settings),
     reactivation: await runReactivation(db, settings),
   };
   const sum = (k: "processed" | "sent" | "failed") =>
