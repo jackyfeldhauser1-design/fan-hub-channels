@@ -57,8 +57,8 @@ export async function readHealth(db: any) {
     {
       key: "baseurl",
       label: "App-Adresse",
-      ok: Boolean(settings?.app_base_url),
-      detail: settings?.app_base_url || "nicht gesetzt",
+      ok: Boolean((await import("@/lib/base-url")).resolvePublicBaseUrl(settings)),
+      detail: (await import("@/lib/base-url")).resolvePublicBaseUrl(settings) || "nicht gesetzt",
     },
   ];
 
