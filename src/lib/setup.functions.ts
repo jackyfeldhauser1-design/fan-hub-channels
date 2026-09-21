@@ -182,7 +182,12 @@ export const rotateBotToken = createServerFn({ method: "POST" })
 /** Setup-Prüfung mit konkreten Fehlermeldungen. */
 export const verifySetupStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .handler(async ({ context }) => telegramAdmin(context, "verify"));
+  .handler(async () => {
+    const { requireCallerRole } = await import("@/lib/auth-context.server");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
+    const { verifySetup } = await import("@/lib/setup.server");
+    return verifySetup(db);
+  });
 
 /** Admin-Audit der Telegram-Zuordnung und Posts als CSV oder JSON exportieren. */
 export const exportSetupAudit = createServerFn({ method: "POST" })
