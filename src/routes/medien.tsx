@@ -24,6 +24,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { quickPublishContent } from "@/lib/content.functions";
+import { supabase } from "@/integrations/supabase/client";
 
 export const Route = createFileRoute("/medien")({
   head: () => ({
@@ -50,16 +51,12 @@ function human(bytes: number) {
 
 type Job = { id: string; folderId: string; name: string; progress: number; status: "wartet" | "läuft" | "fertig" | "fehler"; error?: string };
 
-/** Datei mit Fortschritt in den geschützten Speicher laden. */
-function putWithProgress(url: string, file: File, onProgress: (pct: number) => void) {
-  return new Promise<void>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("PUT", url);
-    xhr.upload.onprogress = (e) => e.lengthComputable && onProgress(Math.round((e.loaded / e.total) * 100));
-    xhr.onload = () => (xhr.status >= 200 && xhr.status < 300 ? resolve() : reject(new Error(`Upload fehlgeschlagen (${xhr.status})`)));
-    xhr.onerror = () => reject(new Error("Netzwerkfehler beim Upload"));
-    xhr.send(file);
+/** Datei sicher über Supabase Signed Upload laden. */
+async function uploadSigned(path: string, token: string, file: File) {
+  const { error } = await supabase.storage.from("media-vault").uploadToSignedUrl(path, token, file, {
+    contentType: file.type || "application/octet-stream",
   });
+  if (error) throw new Error(error.message);
 }
 
 function MediaPage() {
@@ -121,8 +118,10 @@ function MediaPage() {
       const job = queued[i]!;
       patchJob(job.id, { status: "läuft" });
       try {
-        const { path, signedUrl } = await uploadUrlFn({ data: { folderId, filename: file.name } });
-        await putWithProgress(signedUrl, file, (pct) => patchJob(job.id, { progress: pct }));
+        const { path, token } = await uploadUrlFn({ data: { folderId, filename: file.name } });
+        patchJob(job.id, { progress: 10 });
+        await uploadSigned(path, token, file);
+        patchJob(job.id, { progress: 90 });
         await registerFn({
           data: {
             folderId,
