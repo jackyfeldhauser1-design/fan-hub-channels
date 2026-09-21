@@ -6,13 +6,14 @@ import { z } from "zod";
 export const getPlatformOverview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { roleOfUser } = await import("@/lib/auth-context.server");
+    const { roleOfUser, requireCallerRole } = await import("@/lib/auth-context.server");
     const role = await roleOfUser(context.supabase, context.userId);
     if (!role) throw new Error("Forbidden");
-    const { data: telegramStatus, error: telegramError } = await context.supabase.functions.invoke("telegram-admin", { body: { action: "verify" } });
-    if (telegramError) throw new Error(telegramError.message);
+    const { db } = (await requireCallerRole("viewer")) as unknown as { db: any };
+    const { verifySetup } = await import("@/lib/setup.server");
+    const telegramStatus = await verifySetup(db);
     const { readPlatformOverview } = await import("@/lib/connect.server");
-    return { role, platforms: await readPlatformOverview(context.supabase, telegramStatus) };
+    return { role, platforms: await readPlatformOverview(db, telegramStatus) };
   });
 
 /** Slack-Kanal verbinden: Test senden und als Empfänger speichern. */
