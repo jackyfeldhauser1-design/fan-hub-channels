@@ -463,7 +463,7 @@ export const publishContentSet = createServerFn({ method: "POST" })
 
     const { data: set } = await db
       .from("content_sets")
-      .select("id,title,description,status,access_mode,access_hours,products(id,price_stars,price_ton,price_trx,active),content_set_items(item_role,sort_order,media_files(storage_path,mime_type))")
+      .select("id,title,description,status,access_mode,access_hours,products(id,price_stars,price_ton,price_trx,active),content_set_items(item_role,sort_order,media_files(id,storage_path,mime_type))")
       .eq("id", data.id)
       .maybeSingle();
     if (!set) throw new Error("Content-Set nicht gefunden");
@@ -484,14 +484,26 @@ export const publishContentSet = createServerFn({ method: "POST" })
     const accessText = set.access_mode === "hours" ? `${set.access_hours ?? 24}h Zugriff` : set.access_mode === "vip" ? "👑 Im VIP-Zugang enthalten" : "dauerhaft";
     const cryptoPrices = [Number(set.products.price_ton) > 0 ? `${set.products.price_ton} TON` : "", Number(set.products.price_trx) > 0 ? `${set.products.price_trx} TRX` : ""].filter(Boolean).join(" · ");
     const priceText = set.access_mode === "vip" ? "" : ` · <b>⭐ ${set.products.price_stars}${cryptoPrices ? ` · ${cryptoPrices}` : ""}</b>`;
-    const caption = `🔒 <b>${escapeHtml(set.title)}</b>\n\n${escapeHtml(set.description || "Exklusiver Content")}\n\n${accessText}${priceText}`;
+    const caption = `${data.target === "community" ? "🔐 <b>Verpixelte Vorschau</b>\n\n" : ""}🔒 <b>${escapeHtml(set.title)}</b>\n\n${escapeHtml(set.description || "Exklusiver Content")}\n\n${accessText}${priceText}${data.target === "community" ? "\n\nOriginale erst nach erfolgreicher Freischaltung." : ""}`;
     const markup = { inline_keyboard: [[{ text: set.access_mode === "vip" ? "👑 VIP im Bot öffnen" : "🔓 Im Bot freischalten", url: `https://t.me/${username}?start=c_${set.id}` }]] };
-    const preview = (set.content_set_items ?? [])
-      .filter((x: any) => x.item_role === "preview")
-      .sort((a: any, b: any) => a.sort_order - b.sort_order)[0]?.media_files;
+    const items = (set.content_set_items ?? []).slice().sort((a: any, b: any) => a.sort_order - b.sort_order);
+    const preview = items.find((x: any) => x.item_role === "preview")?.media_files;
+    const protectedImage = items.find((x: any) => x.item_role === "protected" && String(x.media_files?.mime_type ?? "").startsWith("image/"))?.media_files;
 
     let sent: any = null;
-    if (preview?.storage_path) {
+    if (data.target === "community" && protectedImage?.storage_path) {
+      const { createPixelatedTeaser } = await import("@/lib/teaser.server");
+      const teaserUrl = await createPixelatedTeaser(db, set.id, protectedImage);
+      if (teaserUrl) {
+        sent = await tgSafe("sendPhoto", {
+          chat_id: chatId,
+          photo: teaserUrl,
+          caption,
+          parse_mode: "HTML",
+          reply_markup: markup,
+        });
+      }
+    } else if (preview?.storage_path) {
       const { data: signed, error } = await db.storage.from("media-vault").createSignedUrl(preview.storage_path, 300);
       if (error) throw new Error(error.message);
       const mime = String(preview.mime_type ?? "");
@@ -502,7 +514,8 @@ export const publishContentSet = createServerFn({ method: "POST" })
         parse_mode: "HTML",
         reply_markup: markup,
       });
-    } else {
+    }
+    if (!sent) {
       sent = await tgSafe("sendMessage", { chat_id: chatId, text: caption, parse_mode: "HTML", reply_markup: markup });
     }
 
