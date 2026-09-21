@@ -221,7 +221,7 @@ export const openSecureContent = createServerFn({ method: "POST" })
   });
 
 /**
- * Download-Schutz: erzeugt pro Datei einen nur 60 Sekunden gültigen Link,
+ * Download-Schutz: erzeugt pro Datei einen 1 Stunde gültigen Link,
  * nachdem Token, Zahlung, Sperre und Gerätebindung erneut geprüft wurden.
  * Jeder Versuch wird protokolliert.
  */
@@ -274,7 +274,7 @@ export const requestMediaDownload = createServerFn({ method: "POST" })
 
     const { data: signed, error } = await db.storage
       .from("media-vault")
-      .createSignedUrl(file.storage_path, 60, { download: file.display_name || true });
+      .createSignedUrl(file.storage_path, 3600, { download: file.display_name || true });
     if (error || !signed?.signedUrl) return deny("Datei nicht verfügbar");
 
     await db.from("media_downloads").insert({
@@ -288,5 +288,5 @@ export const requestMediaDownload = createServerFn({ method: "POST" })
     });
     await logOrderEvent(db, row.purchase_id, row.tg_user_id, "delivered", `Download: ${file.display_name}`);
 
-    return { status: "ok" as const, url: signed.signedUrl as string, expiresIn: 60 };
+    return { status: "ok" as const, url: signed.signedUrl as string, expiresIn: 3600 };
   });
