@@ -44,6 +44,15 @@ Deno.serve(async(req)=>{try{
       }
     }catch(e){chats.push({key,configured:true,ok:false,detail:e instanceof Error?e.message:String(e)});}
   }
+  let webhookProbe:any=null;
+  if(body?.webhookProbe===true){
+    const bytes=new TextEncoder().encode(`telegram-webhook:${token}`);
+    const digest=await crypto.subtle.digest("SHA-256",bytes);
+    const secret=btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+    const r=await fetch(expected,{method:"POST",headers:{"Content-Type":"application/json","x-telegram-bot-api-secret-token":secret},body:"{}"});
+    const payload=await r.json().catch(()=>null);
+    webhookProbe={status:r.status,ok:r.ok&&payload?.ok===true};
+  }
   let outboundTest:any=null;
   if(body?.deliveryTest===true&&String(settings?.control_chat_id||"").trim()){
     const chatId=String(settings.control_chat_id).trim();
@@ -56,10 +65,11 @@ Deno.serve(async(req)=>{try{
   const lastError=String(webhook?.last_error_message||"");
   const url=String(webhook?.url||"");
   return json({
-    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true),
+    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true)&&(webhookProbe?webhookProbe.ok:true),
     bot:{username:String(me?.username||cred?.bot_username||""),id:me?.id??null},
     webhook:{url,expected,match:url===expected,pending:Number(webhook?.pending_update_count||0),lastError,lastErrorAt:webhook?.last_error_date?new Date(webhook.last_error_date*1000).toISOString():null},
     chats,
-    outboundTest
+    outboundTest,
+    webhookProbe
   });
 }catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);}});
