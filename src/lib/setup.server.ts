@@ -264,11 +264,25 @@ export async function verifySetup(db: any) {
 
   if (botOk) {
     try {
-      const info = await tgApi("getWebhookInfo", {});
-      const url = String(info.result?.url ?? "");
-      const pending = Number(info.result?.pending_update_count ?? 0);
-      const lastError = String(info.result?.last_error_message ?? "");
-      const match = Boolean(url) && (!expectedUrl || url === expectedUrl);
+      let info = await tgApi("getWebhookInfo", {});
+      let url = String(info.result?.url ?? "");
+      let pending = Number(info.result?.pending_update_count ?? 0);
+      let lastError = String(info.result?.last_error_message ?? "");
+      let match = Boolean(url) && (!expectedUrl || url === expectedUrl);
+
+      if (expectedUrl && (!match || lastError)) {
+        await tgApi("setWebhook", {
+          url: expectedUrl,
+          secret_token: await currentWebhookSecret(),
+          allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member", "channel_post"],
+        });
+        info = await tgApi("getWebhookInfo", {});
+        url = String(info.result?.url ?? "");
+        pending = Number(info.result?.pending_update_count ?? 0);
+        lastError = String(info.result?.last_error_message ?? "");
+        match = Boolean(url) && url === expectedUrl;
+      }
+
       checks.push({
         key: "webhook",
         label: "Webhook aktiv",
