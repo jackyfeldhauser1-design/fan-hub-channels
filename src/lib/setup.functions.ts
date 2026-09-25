@@ -13,7 +13,43 @@ async function telegramAdmin(context: any, action: string, payload: Record<strin
 export const saveBotToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ token: z.string().trim().min(20).max(200), baseUrl: z.string().url().optional() }).parse(d ?? {}))
-  .handler(async ({ context, data }) => telegramAdmin(context, "save_token", data));
+  .handler(async ({ context, data }) => {
+    const { requireCallerRole } = await import("@/lib/auth-context.server");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
+    const { verifyToken, clearBotTokenCache, deriveWebhookSecret, tgApi } = await import("@/lib/telegram.server");
+    const me = await verifyToken(data.token);
+
+    const { error: credentialError } = await db.from("bot_credentials").upsert(
+      { id: true, bot_token: data.token, bot_username: me.username },
+      { onConflict: "id" },
+    );
+    if (credentialError) throw new Error(credentialError.message);
+    clearBotTokenCache();
+
+    const { data: settings } = await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle();
+    const { resolvePublicBaseUrl } = await import("@/lib/base-url");
+    const configured = resolvePublicBaseUrl(settings);
+    const base = String(data.baseUrl || configured || "").replace(/\/$/, "");
+    if (!base) throw new Error("Keine Basis-URL für den Telegram-Webhook hinterlegt.");
+
+    const webhookUrl = `${base}/api/public/telegram/webhook`;
+    await tgApi("setWebhook", {
+      url: webhookUrl,
+      secret_token: deriveWebhookSecret(data.token),
+      allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member", "channel_post"],
+    });
+    await db.from("bot_settings").update({ app_base_url: base }).eq("id", true);
+    await db.from("admin_audit").insert({
+      actor_id: context.userId,
+      action: "bot_token_saved",
+      target: `@${me.username}`,
+      status: "ok",
+      detail: `Webhook gesetzt: ${webhookUrl}`,
+      meta: {},
+    });
+
+    return { username: me.username, webhookUrl, webhookError: "" };
+  });
 
 export const startGuidedSetup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
