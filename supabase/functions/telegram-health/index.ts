@@ -44,6 +44,21 @@ Deno.serve(async(req)=>{try{
       }
     }catch(e){chats.push({key,configured:true,ok:false,detail:e instanceof Error?e.message:String(e)});}
   }
+  let purchaseTest:any=null;
+  if(body?.purchaseTest===true&&String(settings?.control_chat_id||"").trim()){
+    const {data:testProduct,error:testProductError}=await db.from("products").select("id,title,description,price_stars,active").eq("title","System-Test · 1 Star").maybeSingle();
+    if(testProductError)throw testProductError;
+    if(!testProduct?.active)throw new Error("1-Star-Testprodukt ist nicht aktiv.");
+    const sent=await tg(token,"sendInvoice",{
+      chat_id:String(settings.control_chat_id).trim(),
+      title:String(testProduct.title).slice(0,32),
+      description:String(testProduct.description||"Zahlungs- und Auslieferungstest").slice(0,255),
+      payload:`p:${testProduct.id}`,
+      currency:"XTR",
+      prices:[{label:"System-Test",amount:1}]
+    });
+    purchaseTest={sent:Boolean(sent?.message_id),messageId:sent?.message_id??null};
+  }
   let webhookProbe:any=null;
   if(body?.webhookProbe===true){
     const bytes=new TextEncoder().encode(`telegram-webhook:${token}`);
@@ -65,11 +80,12 @@ Deno.serve(async(req)=>{try{
   const lastError=String(webhook?.last_error_message||"");
   const url=String(webhook?.url||"");
   return json({
-    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true)&&(webhookProbe?webhookProbe.ok:true),
+    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true)&&(webhookProbe?webhookProbe.ok:true)&&(purchaseTest?purchaseTest.sent:true),
     bot:{username:String(me?.username||cred?.bot_username||""),id:me?.id??null},
     webhook:{url,expected,match:url===expected,pending:Number(webhook?.pending_update_count||0),lastError,lastErrorAt:webhook?.last_error_date?new Date(webhook.last_error_date*1000).toISOString():null},
     chats,
     outboundTest,
-    webhookProbe
+    webhookProbe,
+    purchaseTest
   });
 }catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);}});
