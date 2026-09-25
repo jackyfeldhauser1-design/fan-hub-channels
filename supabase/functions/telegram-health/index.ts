@@ -19,8 +19,16 @@ Deno.serve(async(req)=>{try{
   if(!token)return json({ok:false,error:"bot_not_configured"},503);
 
   const me=await tg(token,"getMe");
-  const webhook=await tg(token,"getWebhookInfo");
+  const body=await req.json().catch(()=>({}));
   const expected=`${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-webhook`;
+  let webhook=await tg(token,"getWebhookInfo");
+  if(body?.repair===true&&String(webhook?.url||"")!==expected){
+    const bytes=new TextEncoder().encode(`telegram-webhook:${token}`);
+    const digest=await crypto.subtle.digest("SHA-256",bytes);
+    const secret=btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
+    await tg(token,"setWebhook",{url:expected,secret_token:secret,allowed_updates:["message","edited_message","callback_query","pre_checkout_query","my_chat_member","channel_post"],drop_pending_updates:false});
+    webhook=await tg(token,"getWebhookInfo");
+  }
   const chats:any[]=[];
   for(const [key,chatId] of Object.entries({community:settings?.community_chat_id,shop:settings?.shop_chat_id,control:settings?.control_chat_id})){
     const id=String(chatId||"").trim();
