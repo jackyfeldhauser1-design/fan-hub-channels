@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useMemo, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Archive, Bot, CheckCircle2, FolderOpen, Images, Layers3, LockKeyhole, Package, Plus, Send, Sparkles, TrendingUp } from "lucide-react";
+import { Archive, Bot, CheckCircle2, Copy, FolderOpen, Images, Layers3, LockKeyhole, Package, Plus, Send, Sparkles, TrendingUp, WandSparkles } from "lucide-react";
 import { toast } from "sonner";
 import { DashLayout } from "@/components/DashLayout";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Textarea } from "@/components/ui/textarea";
 import { useAdmin } from "@/lib/useAdmin";
+import { supabase } from "@/integrations/supabase/client";
 import {
   cleanupContentSmokeTest,
   createContentBundle,
@@ -62,6 +63,7 @@ function ContentStudio() {
   });
   const [seriesForm, setSeriesForm] = useState({ title: "", description: "" });
   const [bundleForm, setBundleForm] = useState({ title: "", description: "", priceStars: 999, setIds: [] as string[] });
+  const [promo, setPromo] = useState<Record<string, { loading?: boolean; hook?: string; caption?: string; cta?: string; angle?: string; ai?: boolean; error?: string }>>({});
 
   const query = useQuery({
     queryKey: ["content-studio"],
@@ -170,6 +172,25 @@ function ContentStudio() {
       toast.success("Bundle angelegt");
     } catch (e: any) {
       toast.error(e?.message ?? "Bundle konnte nicht angelegt werden");
+    }
+  }
+
+  async function generatePromo(set: any) {
+    setPromo((old) => ({ ...old, [set.id]: { loading: true } }));
+    try {
+      const { data, error } = await supabase.functions.invoke("promo-assistant", {
+        body: {
+          title: set.title,
+          description: set.description || "",
+          priceStars: Number(set.products?.price_stars || 0),
+          priceTon: Number(set.products?.price_ton || 0),
+          sales: Number(analytics[set.id]?.sales || 0),
+        },
+      });
+      if (error) throw error;
+      setPromo((old) => ({ ...old, [set.id]: { ...(data || {}), loading: false } }));
+    } catch (e: any) {
+      setPromo((old) => ({ ...old, [set.id]: { loading: false, error: e?.message ?? "Promo konnte nicht erstellt werden" } }));
     }
   }
 
@@ -319,10 +340,40 @@ function ContentStudio() {
                       <p className="mt-2 text-xs text-muted-foreground">⭐ {set.products?.price_stars ?? 0}{Number(set.products?.price_ton) > 0 ? ` · ${set.products.price_ton} TON` : ""}{Number(set.products?.price_trx) > 0 ? ` · ${set.products.price_trx} TRX` : ""} · {protectedCount} geschützte Medien · {previewCount} Preview · {set.access_mode === "hours" ? `${set.access_hours}h` : set.access_mode}{set.content_series?.title ? ` · Serie: ${set.content_series.title}` : ""}</p>
                       <p className="mt-1 text-xs text-muted-foreground">Verkäufe: {analytics[set.id]?.sales ?? 0} · Umsatz: ⭐ {analytics[set.id]?.revenueStars ?? 0} · {analytics[set.id]?.revenueTon ?? 0} TON · {analytics[set.id]?.revenueTrx ?? 0} TRX · bereits geöffnet: {analytics[set.id]?.ownersOpened ?? 0}</p>
                     </div>
+                    {promo[set.id] && !promo[set.id]?.loading ? (
+                      <div className="mt-4 rounded-xl border border-border bg-muted/30 p-4">
+                        {promo[set.id]?.error ? (
+                          <p className="text-sm text-destructive">{promo[set.id]?.error}</p>
+                        ) : (
+                          <div className="space-y-3">
+                            <div className="flex items-center justify-between gap-3">
+                              <div className="flex items-center gap-2">
+                                <Sparkles className="size-4 text-primary" />
+                                <p className="text-sm font-semibold">Verkaufsassistent {promo[set.id]?.ai ? "· KI" : "· Smart-Vorlage"}</p>
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="ghost"
+                                onClick={() => navigator.clipboard.writeText([promo[set.id]?.hook, promo[set.id]?.caption, promo[set.id]?.cta].filter(Boolean).join("\n\n"))}
+                              >
+                                <Copy className="mr-1.5 size-4" /> Kopieren
+                              </Button>
+                            </div>
+                            <p className="text-sm font-medium">{promo[set.id]?.hook}</p>
+                            <p className="text-sm text-muted-foreground">{promo[set.id]?.caption}</p>
+                            <p className="text-sm"><span className="text-muted-foreground">CTA:</span> {promo[set.id]?.cta}</p>
+                            <p className="text-xs text-muted-foreground">Verkaufswinkel: {promo[set.id]?.angle}</p>
+                          </div>
+                        )}
+                      </div>
+                    ) : null}
                     {isAdmin && <div className="flex min-w-56 flex-col gap-2">
                       <div className="flex flex-wrap gap-2">
                         {set.status !== "active" ? <Button size="sm" variant="secondary" onClick={() => patch(set.id, { status: "active" })}>Aktivieren</Button> : <Button size="sm" variant="secondary" onClick={() => patch(set.id, { status: "draft" })}>Pausieren</Button>}
                         <Button size="sm" disabled={set.status !== "active"} onClick={() => publish(set.id)}><Send className="mr-1.5 size-4" /> Shop-Gruppe</Button>
+                        <Button size="sm" variant="outline" onClick={() => generatePromo(set)} disabled={promo[set.id]?.loading}>
+                          <WandSparkles className="mr-1.5 size-4" /> {promo[set.id]?.loading ? "Erstellt…" : "Promo"}
+                        </Button>
                         {set.status !== "archived" && <Button size="sm" variant="outline" onClick={() => patch(set.id, { status: "archived" })}><Archive className="mr-1.5 size-4" /> Archiv</Button>}
                       </div>
                       <Select value={set.series_id ?? "none"} onValueChange={(value) => patch(set.id, { seriesId: value === "none" ? null : value })}>
