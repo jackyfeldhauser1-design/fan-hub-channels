@@ -381,7 +381,9 @@ export const setupWebhook = createServerFn({ method: "POST" })
     const baseUrl = data.baseUrl.replace(/\/$/, "");
     const { currentWebhookSecret } = await import("@/lib/telegram.server");
     const secret = await currentWebhookSecret();
-    const url = `${baseUrl}/api/public/telegram/webhook`;
+    const { resolveTelegramWebhookUrl } = await import("@/lib/base-url");
+    const url = resolveTelegramWebhookUrl({ app_base_url: baseUrl });
+    if (!url) throw new Error("Keine Telegram-Webhook-URL verfügbar.");
     const res = await tg("setWebhook", {
       url,
       secret_token: secret,
