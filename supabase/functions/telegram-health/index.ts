@@ -44,12 +44,22 @@ Deno.serve(async(req)=>{try{
       }
     }catch(e){chats.push({key,configured:true,ok:false,detail:e instanceof Error?e.message:String(e)});}
   }
+  let outboundTest:any=null;
+  if(body?.deliveryTest===true&&String(settings?.control_chat_id||"").trim()){
+    const chatId=String(settings.control_chat_id).trim();
+    const sent=await tg(token,"sendMessage",{chat_id:chatId,text:"✅ Telegram Live-Test: Senden funktioniert.",disable_notification:true});
+    outboundTest={sent:Boolean(sent?.message_id),deleted:false};
+    if(sent?.message_id){
+      try{await tg(token,"deleteMessage",{chat_id:chatId,message_id:sent.message_id});outboundTest.deleted=true;}catch{}
+    }
+  }
   const lastError=String(webhook?.last_error_message||"");
   const url=String(webhook?.url||"");
   return json({
-    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok),
+    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true),
     bot:{username:String(me?.username||cred?.bot_username||""),id:me?.id??null},
     webhook:{url,expected,match:url===expected,pending:Number(webhook?.pending_update_count||0),lastError,lastErrorAt:webhook?.last_error_date?new Date(webhook.last_error_date*1000).toISOString():null},
-    chats
+    chats,
+    outboundTest
   });
 }catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);}});
