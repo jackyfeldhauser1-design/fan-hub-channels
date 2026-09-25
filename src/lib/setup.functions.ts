@@ -27,12 +27,13 @@ export const saveBotToken = createServerFn({ method: "POST" })
     clearBotTokenCache();
 
     const { data: settings } = await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle();
-    const { resolvePublicBaseUrl } = await import("@/lib/base-url");
+    const { resolvePublicBaseUrl, resolveTelegramWebhookUrl } = await import("@/lib/base-url");
     const configured = resolvePublicBaseUrl(settings);
     const base = String(data.baseUrl || configured || "").replace(/\/$/, "");
     if (!base) throw new Error("Keine Basis-URL für den Telegram-Webhook hinterlegt.");
 
-    const webhookUrl = `${base}/api/public/telegram/webhook`;
+    const webhookUrl = resolveTelegramWebhookUrl({ app_base_url: base });
+    if (!webhookUrl) throw new Error("Keine Telegram-Webhook-URL verfügbar.");
     await tgApi("setWebhook", {
       url: webhookUrl,
       secret_token: deriveWebhookSecret(data.token),
