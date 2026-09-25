@@ -74,8 +74,8 @@ export const getOpsStatus = createServerFn({ method: "POST" })
     try {
       const info = await tg("getWebhookInfo", {});
       const url = info.result?.url ?? "";
-      const base = String(settings?.app_base_url ?? "").replace(/\/$/, "");
-      const expected = base ? `${base}/api/public/telegram/webhook` : "";
+      const { resolveTelegramWebhookUrl } = await import("@/lib/base-url");
+      const expected = resolveTelegramWebhookUrl(settings);
       webhook = {
         url,
         expected,
