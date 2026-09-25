@@ -258,9 +258,8 @@ export async function verifySetup(db: any) {
     .select("community_chat_id, shop_chat_id, control_chat_id, app_base_url")
     .eq("id", true)
     .maybeSingle();
-  const { resolvePublicBaseUrl } = await import("@/lib/base-url");
-  const base = resolvePublicBaseUrl(settings);
-  const expectedUrl = base ? `${base}/api/public/telegram/webhook` : "";
+  const { resolveTelegramWebhookUrl } = await import("@/lib/base-url");
+  const expectedUrl = resolveTelegramWebhookUrl(settings);
 
   if (botOk) {
     try {
@@ -413,10 +412,9 @@ export async function buildGoLiveReport(db: any) {
 /** Setzt den Webhook auf die hinterlegte Basis-Adresse (Selbstheilung im Tagesjob). */
 export async function repairWebhook(db: any) {
   const { data: settings } = await db.from("bot_settings").select("app_base_url").eq("id", true).maybeSingle();
-  const { resolvePublicBaseUrl } = await import("@/lib/base-url");
-  const base = resolvePublicBaseUrl(settings);
-  if (!base) return { ok: false, detail: "Keine Basis-Adresse hinterlegt." };
-  const url = `${base}/api/public/telegram/webhook`;
+  const { resolveTelegramWebhookUrl } = await import("@/lib/base-url");
+  const url = resolveTelegramWebhookUrl(settings);
+  if (!url) return { ok: false, detail: "Keine Webhook-Adresse konfigurierbar." };
   const { tgApi, currentWebhookSecret } = await import("@/lib/telegram.server");
   try {
     const info = await tgApi("getWebhookInfo", {});
