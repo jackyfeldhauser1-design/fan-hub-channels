@@ -38,7 +38,7 @@ const nav = [
   { to: "/status", label: "Status", icon: Activity },
   { to: "/verbinden", label: "Verbinden", icon: Plug },
   { to: "/drops", label: "Drops", icon: Rocket },
-  { to: "/content", label: "Content Studio", icon: Images },
+  { to: "/content", label: "Content", icon: Images },
   { to: "/produkte", label: "Produkte & Preise", icon: Package },
   { to: "/stars", label: "Stars & Preise", icon: Star },
 
@@ -47,7 +47,7 @@ const nav = [
   { to: "/umsatz", label: "Umsatz & Abos", icon: TrendingUp },
 
   { to: "/bestellungen", label: "Bestellungen", icon: Truck },
-  { to: "/fans", label: "Fans & Affiliates", icon: Users },
+  { to: "/fans", label: "Fans", icon: Users },
   { to: "/zugriffe", label: "Zugriffe", icon: KeyRound },
   { to: "/benachrichtigungen", label: "Benachrichtigungen", icon: BellRing },
   { to: "/kampagnen", label: "Kampagnen", icon: Megaphone },
@@ -56,7 +56,7 @@ const nav = [
   { to: "/leads", label: "Warteliste", icon: Rocket },
   { to: "/team", label: "Team & Rollen", icon: UserCog },
   { to: "/zwei-faktor", label: "Zwei-Faktor", icon: ShieldCheck },
-  { to: "/einstellungen", label: "Bot-Setup", icon: Settings2 },
+  { to: "/einstellungen", label: "Einstellungen", icon: Settings2 },
 ] as const;
 
 const primaryPaths = ["/", "/bestellungen", "/content", "/fans", "/einstellungen"] as const;
@@ -104,7 +104,7 @@ export function DashLayout({ title, subtitle, children }: { title: string; subti
           </div>
         </div>
         <nav className="flex flex-col gap-1 px-3 pb-3">
-          {nav.map((item) => {
+          {primaryNav.map((item) => {
             const active = pathname === item.to;
             return (
               <Link
@@ -121,6 +121,31 @@ export function DashLayout({ title, subtitle, children }: { title: string; subti
               </Link>
             );
           })}
+          <details className="mt-2 group">
+            <summary className="flex min-h-11 cursor-pointer list-none items-center gap-2 rounded-lg px-3 py-2 text-sm text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground">
+              <MoreHorizontal className="size-4" />
+              <span>Mehr</span>
+            </summary>
+            <div className="mt-1 max-h-[48vh] space-y-1 overflow-y-auto pl-2">
+              {secondaryNav.map((item) => {
+                const active = pathname === item.to;
+                return (
+                  <Link
+                    key={item.to}
+                    to={item.to}
+                    className={`flex min-h-10 items-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors ${
+                      active
+                        ? "bg-sidebar-accent text-sidebar-accent-foreground"
+                        : "text-muted-foreground hover:bg-sidebar-accent/60 hover:text-sidebar-accent-foreground"
+                    }`}
+                  >
+                    <item.icon className="size-4" />
+                    {item.label}
+                  </Link>
+                );
+              })}
+            </div>
+          </details>
         </nav>
         <div className="mt-auto px-3 pb-5">
           <Button variant="ghost" className="w-full justify-start gap-2 text-muted-foreground" onClick={signOut}>
@@ -143,7 +168,7 @@ export function DashLayout({ title, subtitle, children }: { title: string; subti
         </Button>
       </header>
 
-      <main className="flex-1 px-4 py-6 pb-28 sm:px-8 lg:pb-6">
+      <main className="flex-1 px-4 py-6 pb-28 sm:px-8 lg:pb-6"><div className="mx-auto w-full max-w-7xl">
         <div className="mb-6">
           <h1 className="text-2xl font-bold sm:text-3xl">{title}</h1>
           {subtitle ? <p className="mt-1 text-sm text-muted-foreground">{subtitle}</p> : null}
@@ -172,6 +197,7 @@ export function DashLayout({ title, subtitle, children }: { title: string; subti
         ) : (
           <div className="panel p-6 text-sm text-muted-foreground">Zugriff konnte nicht bestätigt werden.</div>
         )}
+        </div>
       </main>
 
       {/* Mobile Bottom-Navigation */}
