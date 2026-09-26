@@ -52,7 +52,7 @@ Deno.serve(async(req)=>{try{
       const r=await fetch("https://api.openai.com/v1/responses",{
         method:"POST",
         headers:{"Authorization":`Bearer ${key}`,"Content-Type":"application/json"},
-        body:JSON.stringify({model:"gpt-5.6-luna",input:"Antworte nur mit dem Wort OK.",max_output_tokens:10})
+        body:JSON.stringify({model:"gpt-5.6-luna",input:"Antworte nur mit dem Wort OK.",max_output_tokens:64})
       });
       const j=await r.json().catch(()=>null);
       const output=(j?.output||[]).flatMap((x:any)=>x?.content||[]).find((x:any)=>x?.type==="output_text")?.text||"";
