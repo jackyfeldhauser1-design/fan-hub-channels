@@ -44,6 +44,21 @@ Deno.serve(async(req)=>{try{
       }
     }catch(e){chats.push({key,configured:true,ok:false,detail:e instanceof Error?e.message:String(e)});}
   }
+  let promoProbe:any=null;
+  if(body?.promoProbe===true){
+    const key=String(Deno.env.get("OPENAI_API_KEY")||"").trim();
+    if(!key){promoProbe={configured:false,ok:false,error:"OPENAI_API_KEY missing"};}
+    else{
+      const r=await fetch("https://api.openai.com/v1/responses",{
+        method:"POST",
+        headers:{"Authorization":`Bearer ${key}`,"Content-Type":"application/json"},
+        body:JSON.stringify({model:"gpt-5.6-luna",input:"Antworte nur mit dem Wort OK.",max_output_tokens:10})
+      });
+      const j=await r.json().catch(()=>null);
+      const output=(j?.output||[]).flatMap((x:any)=>x?.content||[]).find((x:any)=>x?.type==="output_text")?.text||"";
+      promoProbe={configured:true,ok:r.ok&&String(output).trim().toUpperCase()==="OK",status:r.status};
+    }
+  }
   let purchaseTest:any=null;
   if(body?.purchaseTest===true&&String(settings?.control_chat_id||"").trim()){
     const {data:testProduct,error:testProductError}=await db.from("products").select("id,title,description,price_stars,active").eq("title","System-Test · 1 Star").maybeSingle();
@@ -80,12 +95,13 @@ Deno.serve(async(req)=>{try{
   const lastError=String(webhook?.last_error_message||"");
   const url=String(webhook?.url||"");
   return json({
-    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true)&&(webhookProbe?webhookProbe.ok:true)&&(purchaseTest?purchaseTest.sent:true),
+    ok:url===expected&&!lastError&&chats.filter(x=>x.configured).every(x=>x.ok)&&(outboundTest?outboundTest.sent:true)&&(webhookProbe?webhookProbe.ok:true)&&(purchaseTest?purchaseTest.sent:true)&&(promoProbe?promoProbe.ok:true),
     bot:{username:String(me?.username||cred?.bot_username||""),id:me?.id??null},
     webhook:{url,expected,match:url===expected,pending:Number(webhook?.pending_update_count||0),lastError,lastErrorAt:webhook?.last_error_date?new Date(webhook.last_error_date*1000).toISOString():null},
     chats,
     outboundTest,
     webhookProbe,
-    purchaseTest
+    purchaseTest,
+    promoProbe
   });
 }catch(e){console.error(e);return json({ok:false,error:e instanceof Error?e.message:String(e)},500);}});
