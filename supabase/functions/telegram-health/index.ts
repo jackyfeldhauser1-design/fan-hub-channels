@@ -56,7 +56,7 @@ Deno.serve(async(req)=>{try{
       });
       const j=await r.json().catch(()=>null);
       const output=(j?.output||[]).flatMap((x:any)=>x?.content||[]).find((x:any)=>x?.type==="output_text")?.text||"";
-      promoProbe={configured:true,ok:r.ok&&String(output).trim().toUpperCase()==="OK",status:r.status};
+      promoProbe={configured:true,ok:r.ok&&String(output).trim().toUpperCase()==="OK",status:r.status,error:r.ok?null:String(j?.error?.message||j?.error?.code||"OpenAI request failed").slice(0,240)};
     }
   }
   let purchaseTest:any=null;
