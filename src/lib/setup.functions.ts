@@ -183,7 +183,8 @@ export const rotateBotToken = createServerFn({ method: "POST" })
     let webhookUrl = "";
     let webhookError = "";
     if (base) {
-      webhookUrl = `${base}/api/public/telegram/webhook`;
+      const { resolveTelegramWebhookUrl } = await import("@/lib/base-url");
+      webhookUrl = resolveTelegramWebhookUrl({ app_base_url: base });
       try {
         await tgApi("setWebhook", {
           url: webhookUrl,
