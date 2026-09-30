@@ -80,7 +80,7 @@ function Overview() {
       label: "Produkte angelegt",
       done: (s.products ?? 0) > 0,
       hint: `${s.products ?? 0} aktive Produkte`,
-      to: "/produkte",
+      to: "/content",
     },
     {
       label: "Medien hochgeladen",
@@ -187,11 +187,10 @@ function Overview() {
 
           <h2 className="mt-6 text-lg font-semibold">Schnellzugriff</h2>
           <div className="mt-3 flex flex-wrap gap-2">
-            <Link to="/verbinden" className="rounded-lg px-4 py-2 text-sm font-medium gold-surface">Verbinden</Link>
-            <Link to="/stars" className="rounded-lg border border-border px-4 py-2 text-sm">Stars & Preise</Link>
-            <Link to="/produkte" className="rounded-lg border border-border px-4 py-2 text-sm">Produkte</Link>
-            <Link to="/medien" className="rounded-lg border border-border px-4 py-2 text-sm">Medien</Link>
-            <Link to="/status" className="rounded-lg border border-border px-4 py-2 text-sm">Livegang prüfen</Link>
+            <Link to="/content" className="rounded-lg px-4 py-2 text-sm font-medium gold-surface">Content verkaufen</Link>
+            <Link to="/medien" className="rounded-lg border border-border px-4 py-2 text-sm">Medien hochladen</Link>
+            <Link to="/verkaeufe" className="rounded-lg border border-border px-4 py-2 text-sm">Verkäufe prüfen</Link>
+            <Link to="/status" className="rounded-lg border border-border px-4 py-2 text-sm">Live-Status</Link>
           </div>
         </div>
       </div>
