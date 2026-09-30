@@ -62,7 +62,7 @@ Deno.serve(async(req)=>{try{
   }
   let purchaseTest:any=null;
   if(body?.purchaseTest===true&&String(settings?.control_chat_id||"").trim()){
-    const {data:testProduct,error:testProductError}=await db.from("products").select("id,title,description,price_stars,active").eq("title","System-Test · 1 Star").maybeSingle();
+    const {data:testProduct,error:testProductError}=await db.from("products").select("id,title,description,price_stars,active").eq("title","System-Test Â· 1 Star").maybeSingle();
     if(testProductError)throw testProductError;
     if(!testProduct?.active)throw new Error("1-Star-Testprodukt ist nicht aktiv.");
     const sent=await tg(token,"sendInvoice",{
@@ -87,7 +87,7 @@ Deno.serve(async(req)=>{try{
   let outboundTest:any=null;
   if(body?.deliveryTest===true&&String(settings?.control_chat_id||"").trim()){
     const chatId=String(settings.control_chat_id).trim();
-    const sent=await tg(token,"sendMessage",{chat_id:chatId,text:"✅ Telegram Live-Test: Senden funktioniert.",disable_notification:true});
+    const sent=await tg(token,"sendMessage",{chat_id:chatId,text:"âœ… Telegram Live-Test: Senden funktioniert.",disable_notification:true});
     outboundTest={sent:Boolean(sent?.message_id),deleted:false};
     if(sent?.message_id){
       try{await tg(token,"deleteMessage",{chat_id:chatId,message_id:sent.message_id});outboundTest.deleted=true;}catch{}
