@@ -8,10 +8,16 @@ export function resolvePublicBaseUrl(settings?: { app_base_url?: string | null }
 
 /**
  * Kanonisches Telegram-Webhook-Ziel.
- * Telegram zeigt in Produktion auf die stabile Vercel-App-Route.
- * Supabase bleibt Datenbank/Storage/Edge-Runtime, ist aber nicht das Webhook-Ziel.
+ * In Produktion zeigt Telegram direkt auf die Supabase Edge Function.
+ * Die App-Route bleibt nur als lokaler/Legacy-Fallback erhalten.
  */
 export function resolveTelegramWebhookUrl(settings?: { app_base_url?: string | null } | null) {
+  const supabaseUrl = String(
+    process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "",
+  ).trim().replace(/\/$/, "");
+
+  if (supabaseUrl) return `${supabaseUrl}/functions/v1/telegram-webhook`;
+
   const base = resolvePublicBaseUrl(settings);
   return base ? `${base}/api/public/telegram/webhook` : "";
 }
