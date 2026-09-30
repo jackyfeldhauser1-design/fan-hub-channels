@@ -62,6 +62,5 @@ export async function requireCallerRole(min: TeamRole) {
   const caller = await resolveCaller();
   if (!caller.authenticated) throw new Error("Unauthorized");
   if (!caller.role || ROLE_RANK[caller.role] < ROLE_RANK[min]) throw new Error("Forbidden");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return { db: supabaseAdmin as never, role: caller.role, userId: caller.userId, supabase: caller.supabase };
+  return { db: caller.supabase as never, role: caller.role, userId: caller.userId, supabase: caller.supabase };
 }
