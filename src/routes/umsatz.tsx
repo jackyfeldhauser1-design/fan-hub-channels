@@ -143,6 +143,86 @@ function SalesPage() {
       </section>
 
       <section className="mt-6 rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold">A/B-Teaser</h2>
+        <div className="grid gap-3 md:grid-cols-2">
+          {(data?.abTests ?? []).map((v: any) => (
+            <div key={v.variant} className="rounded-lg border border-border p-4">
+              <div className="text-sm font-medium">Variante {v.variant}</div>
+              <div className="mt-2 text-2xl font-semibold">{v.rate}%</div>
+              <div className="text-xs text-muted-foreground">{v.clicks} Klicks · {v.conversions} Käufe</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold">Kundenbindung & Kaufwahrscheinlichkeit</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.avgPurchaseProbability ?? 0}%</div><div className="text-xs text-muted-foreground">Ø Kaufwahrscheinlichkeit</div></div>
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.avgSaturation ?? 0}%</div><div className="text-xs text-muted-foreground">Ø Content-Sättigung</div></div>
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.highIntent?.length ?? 0}</div><div className="text-xs text-muted-foreground">High-Intent-Kunden</div></div>
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.churnCustomers?.length ?? 0}</div><div className="text-xs text-muted-foreground">Churn beobachten</div></div>
+        </div>
+
+        <div className="mt-4 grid gap-4 lg:grid-cols-2">
+          <div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">High Intent</div>
+            <ul className="divide-y divide-border">
+              {(data?.highIntent ?? []).slice(0, 10).map((fan: any) => (
+                <li key={fan.tg_user_id} className="flex justify-between gap-3 py-2 text-sm">
+                  <span>{fan.username ? `@${fan.username}` : (fan.first_name ?? "Fan")} · {fan.loyalty_level}</span>
+                  <span>{fan.purchase_probability}% · {fan.unowned_sets} offen</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+          <div>
+            <div className="mb-2 text-xs font-medium text-muted-foreground">Churn-Risiko</div>
+            <ul className="divide-y divide-border">
+              {(data?.churnCustomers ?? []).slice(0, 10).map((fan: any) => (
+                <li key={fan.tg_user_id} className="flex justify-between gap-3 py-2 text-sm">
+                  <span>{fan.username ? `@${fan.username}` : (fan.first_name ?? "Fan")} · {fan.loyalty_level}</span>
+                  <span>{fan.churn_risk} · {fan.saturation_percent}% besitzt</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        </div>
+
+        <div className="mt-4 flex flex-wrap gap-2">
+          {Object.entries(data?.loyaltyCounts ?? {}).map(([level, count]) => (
+            <span key={level} className="rounded-full border border-border px-3 py-1 text-xs">{level}: {String(count)}</span>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold">Produkt- & Bundle-Performance · 30 Tage</h2>
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-sm">
+            <thead className="text-xs text-muted-foreground">
+              <tr><th className="py-2 pr-3">Produkt</th><th className="py-2 pr-3">Views</th><th className="py-2 pr-3">Checkout</th><th className="py-2 pr-3">Käufe</th><th className="py-2 pr-3">Stars</th><th className="py-2">TON</th></tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {(data?.productPerformance ?? []).slice(0, 12).map((p: any) => (
+                <tr key={p.product_id}>
+                  <td className="py-2 pr-3">{p.kind === "bundle" ? "🔥 " : ""}{p.title}</td>
+                  <td className="py-2 pr-3">{p.offer_views}</td>
+                  <td className="py-2 pr-3">{p.checkout_starts}</td>
+                  <td className="py-2 pr-3">{p.paid_purchases}</td>
+                  <td className="py-2 pr-3">⭐ {p.revenue_stars}</td>
+                  <td className="py-2">💎 {p.revenue_ton}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-3 text-xs text-muted-foreground">
+          Abbrüche: Stars {data?.abandonmentReasons?.stars ?? 0} · TON {data?.abandonmentReasons?.ton ?? 0}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold">Neuer Rabattcode</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           <div>
