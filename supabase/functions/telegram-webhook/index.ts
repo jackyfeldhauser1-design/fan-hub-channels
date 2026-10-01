@@ -32,8 +32,12 @@ Deno.serve(async(req)=>{try{
       const file=items[0]?.media_files; if(!file?.storage_path)continue;
       try{
         const {data:signed,error}=await db.storage.from("media-vault").createSignedUrl(file.storage_path,600,{transform:{width:24,height:24,resize:"cover",quality:20}}); if(error||!signed?.signedUrl)throw error||new Error("Teaser URL failed");
-        const caption=`🔒 <b>${esc(set.title)}</b>\n\nNeues geschütztes Set – Originale erst nach bestätigter Zahlung.\n\n<b>⭐ ${Math.max(1,Number(product.price_stars||1))}</b>`;
-        const sent=await tg(token,"sendPhoto",{chat_id:community,photo:signed.signedUrl,caption,parse_mode:"HTML",protect_content:true,reply_markup:{inline_keyboard:[[{text:"🔓 Set im Bot freischalten",url:`https://t.me/${username}?start=c_${set.id}_free`}]]}});
+        const variant=[...String(set.id)].reduce((a,ch)=>a+ch.charCodeAt(0),0)%2===0?"A":"B";
+        const caption=variant==="A"
+          ? `🔒 <b>${esc(set.title)}</b>\n\nNeues geschütztes Set – Originale erst nach bestätigter Zahlung.\n\n<b>⭐ ${Math.max(1,Number(product.price_stars||1))}</b>`
+          : `✨ <b>Neu im geschützten Bereich: ${esc(set.title)}</b>\n\nIm Free-Feed siehst du nur den Teaser – das vollständige Set wird nach Zahlung freigeschaltet.\n\n<b>⭐ ${Math.max(1,Number(product.price_stars||1))}</b>`;
+        const sent=await tg(token,"sendPhoto",{chat_id:community,photo:signed.signedUrl,caption,parse_mode:"HTML",protect_content:true,reply_markup:{inline_keyboard:[[{text:variant==="A"?"🔓 Set im Bot freischalten":"✨ Vollständiges Set ansehen",url:`https://t.me/${username}?start=c_${set.id}_free_${variant}`}]]}});
+        await db.from("teaser_experiments").upsert({content_set_id:set.id,variant,message_id:Number(sent?.message_id||0)||null,published_at:new Date().toISOString()},{onConflict:"content_set_id"});
         await db.from("content_publications").insert({content_set_id:set.id,target:"community",telegram_chat_id:community,telegram_message_id:Number(sent?.message_id||0)||null,status:"published",published_at:new Date().toISOString()});
       }catch(e){await db.from("content_publications").insert({content_set_id:set.id,target:"community",telegram_chat_id:community,status:"failed",error:e instanceof Error?e.message:String(e)});}
     }
