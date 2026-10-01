@@ -159,7 +159,9 @@ alter table public.bot_settings
   add column if not exists revenue_alert_stars integer not null default 500,
   add column if not exists abandonment_alert_count integer not null default 3,
   add column if not exists cross_sell_after_open_hours integer not null default 24,
-  add column if not exists saturation_percent integer not null default 80;
+  add column if not exists saturation_percent integer not null default 80,
+  add column if not exists promo_frequency_cap_7d integer not null default 3,
+  add column if not exists promo_min_hours_between integer not null default 12;
 
 create or replace view public.customer_growth_scores
 with (security_invoker=true) as
