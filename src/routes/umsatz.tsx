@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
 import { useState } from "react";
 import { toast } from "sonner";
-import { TrendingUp, Ticket, Repeat, ShoppingCart } from "lucide-react";
+import { TrendingUp, Ticket, Repeat, ShoppingCart, Users, MousePointerClick, Gift, RefreshCw } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { useAdmin } from "@/lib/useAdmin";
 import {
@@ -77,15 +77,17 @@ function SalesPage() {
   }
 
   const kpis = [
-    { icon: TrendingUp, label: "Umsatz 30 Tage", value: `⭐ ${data?.revenue30 ?? 0}` },
+    { icon: TrendingUp, label: "Umsatz 30 Tage", value: `⭐ ${data?.revenue30 ?? 0} · 💎 ${data?.revenueTon30 ?? 0}` },
     { icon: ShoppingCart, label: "Verkäufe 30 Tage", value: data?.sales30 ?? 0 },
+    { icon: Users, label: "Käufer 30 Tage", value: data?.uniqueBuyers30 ?? 0 },
     { icon: Repeat, label: "Aktive Abos", value: data?.activeSubs ?? 0 },
     { icon: Ticket, label: "Offene Rechnungen", value: data?.openInvoices?.length ?? 0 },
+    { icon: MousePointerClick, label: "Teaser → Kauf", value: `${data?.growth?.teaserToPurchasePercent ?? 0}%` },
   ];
 
   return (
     <DashLayout title="Umsatz & Abos">
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
         {kpis.map((k) => (
           <div key={k.label} className="rounded-xl border border-border bg-card p-4">
             <k.icon className="mb-2 h-4 w-4 text-muted-foreground" />
@@ -94,6 +96,51 @@ function SalesPage() {
           </div>
         ))}
       </div>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold">Growth-Funnel · letzte 30 Tage</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {[
+            ["Free-Teaser-Klicks", data?.growth?.teaserClicks ?? 0, MousePointerClick],
+            ["Checkout gestartet", data?.growth?.checkoutStarts ?? 0, ShoppingCart],
+            ["Upsells gezeigt", data?.growth?.upsellImpressions ?? 0, TrendingUp],
+            ["Recovery-Klicks", data?.growth?.recoveryClicks ?? 0, RefreshCw],
+            ["Reaktivierungen", data?.growth?.reactivations ?? 0, Repeat],
+            ["Referral-Anmeldungen", data?.growth?.referralJoins ?? 0, Users],
+            ["Referral-Boni", data?.growth?.referralRewards ?? 0, Gift],
+            ["Kauf-Events", data?.growth?.paidEvents ?? 0, Ticket],
+          ].map(([label, value, Icon]: any) => (
+            <div key={label} className="rounded-lg border border-border p-3">
+              <Icon className="mb-2 h-4 w-4 text-muted-foreground" />
+              <div className="text-lg font-semibold">{value}</div>
+              <div className="text-xs text-muted-foreground">{label}</div>
+            </div>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
+        <h2 className="mb-3 text-sm font-semibold">Kundensegmente</h2>
+        <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.segmentCounts?.prospect ?? 0}</div><div className="text-xs text-muted-foreground">Noch kein Kauf</div></div>
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.segmentCounts?.buyer ?? 0}</div><div className="text-xs text-muted-foreground">1 Kauf</div></div>
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.segmentCounts?.repeat ?? 0}</div><div className="text-xs text-muted-foreground">Wiederkäufer</div></div>
+          <div className="rounded-lg border border-border p-3"><div className="text-xl font-semibold">{data?.segmentCounts?.vip ?? 0}</div><div className="text-xs text-muted-foreground">VIP</div></div>
+        </div>
+        {!!data?.topCustomers?.length && (
+          <div className="mt-4">
+            <div className="mb-2 text-xs font-medium text-muted-foreground">Stärkste Käufer nach Stars</div>
+            <ul className="divide-y divide-border">
+              {data.topCustomers.map((fan: any) => (
+                <li key={fan.tg_user_id} className="flex items-center justify-between gap-3 py-2 text-sm">
+                  <span>{fan.username ? `@${fan.username}` : (fan.first_name ?? "Fan")} · {fan.segment}</span>
+                  <span>⭐ {fan.paid_stars} · {fan.paid_orders} Käufe</span>
+                </li>
+              ))}
+            </ul>
+          </div>
+        )}
+      </section>
 
       <section className="mt-6 rounded-xl border border-border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold">Neuer Rabattcode</h2>
