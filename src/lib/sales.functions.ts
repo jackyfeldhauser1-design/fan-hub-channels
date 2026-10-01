@@ -28,6 +28,8 @@ export const getSalesOverview = createServerFn({ method: "POST" })
       { data: growthEvents },
       { data: segments },
       { data: referralRewards },
+      { data: scores },
+      { data: productPerformance },
     ] = await Promise.all([
       db
         .from("subscriptions")
@@ -61,6 +63,15 @@ export const getSalesOverview = createServerFn({ method: "POST" })
         .select("id, status, created_at")
         .gte("created_at", since)
         .limit(1000),
+      db
+        .from("customer_growth_scores")
+        .select("tg_user_id, username, first_name, paid_orders, paid_stars, last_purchase_at, is_vip, segment, owned_sets, unowned_sets, saturation_percent, loyalty_level, purchase_probability, churn_risk")
+        .limit(1000),
+      db
+        .from("product_performance_30d")
+        .select("product_id, title, kind, price_stars, price_ton, offer_views, checkout_starts, tracked_purchases, paid_purchases, revenue_stars, revenue_ton")
+        .order("revenue_stars", { ascending: false })
+        .limit(100),
     ]);
 
     const paid = purchases ?? [];
@@ -86,6 +97,33 @@ export const getSalesOverview = createServerFn({ method: "POST" })
     const teaserClicks = countEvent("teaser_click");
     const paidEvents = countEvent("purchase_paid");
     const uniqueBuyers = new Set(paid.map((p: any) => p.tg_user_id).filter(Boolean)).size;
+    const scoreRows = scores ?? [];
+    const variantStats = ["A", "B"].map((variant) => {
+      const source = `free:${variant}`;
+      const clicks = events.filter((e: any) => e.event_type === "teaser_click" && e.source === source).length;
+      const conversions = events.filter((e: any) => e.event_type === "teaser_conversion" && e.source === source).length;
+      return { variant, clicks, conversions, rate: clicks > 0 ? Math.round((conversions / clicks) * 1000) / 10 : 0 };
+    });
+    const loyaltyCounts = scoreRows.reduce((acc: Record<string, number>, row: any) => {
+      const key = String(row.loyalty_level ?? "Unbekannt");
+      acc[key] = (acc[key] ?? 0) + 1;
+      return acc;
+    }, {});
+    const churnCustomers = scoreRows
+      .filter((s: any) => ["watch", "medium", "high"].includes(String(s.churn_risk)))
+      .sort((a: any, b: any) => {
+        const rank: Record<string, number> = { high: 3, medium: 2, watch: 1 };
+        return (rank[String(b.churn_risk)] ?? 0) - (rank[String(a.churn_risk)] ?? 0);
+      })
+      .slice(0, 30);
+    const highIntent = scoreRows
+      .filter((s: any) => Number(s.purchase_probability ?? 0) >= 40 && Number(s.unowned_sets ?? 0) > 0)
+      .sort((a: any, b: any) => Number(b.purchase_probability ?? 0) - Number(a.purchase_probability ?? 0))
+      .slice(0, 30);
+    const abandonmentReasons = {
+      stars: events.filter((e: any) => e.event_type === "checkout_abandoned" && e.source === "stars").length,
+      ton: events.filter((e: any) => e.event_type === "checkout_abandoned" && e.source === "ton").length,
+    };
 
     return {
       role,
@@ -109,10 +147,28 @@ export const getSalesOverview = createServerFn({ method: "POST" })
         reactivations: countEvent("reactivation_sent"),
         referralJoins: countEvent("referral_join"),
         referralRewards: (referralRewards ?? []).length,
-        teaserToPurchasePercent: teaserClicks > 0 ? Math.round((paidEvents / teaserClicks) * 1000) / 10 : 0,
+        teaserConversions: countEvent("teaser_conversion"),
+        newDropMessages: countEvent("new_drop_sent"),
+        vipUpgrades: countEvent("vip_upgrade_sent"),
+        crossSells: countEvent("cross_sell_sent"),
+        winbacks: countEvent("winback_sent"),
+        loyaltyBonuses: countEvent("loyalty_bonus"),
+        teaserToPurchasePercent: teaserClicks > 0 ? Math.round((countEvent("teaser_conversion") / teaserClicks) * 1000) / 10 : 0,
       },
+      abTests: variantStats,
+      abandonmentReasons,
+      loyaltyCounts,
+      churnCustomers,
+      highIntent,
+      avgPurchaseProbability: scoreRows.length
+        ? Math.round(scoreRows.reduce((a: number, s: any) => a + Number(s.purchase_probability ?? 0), 0) / scoreRows.length)
+        : 0,
+      avgSaturation: scoreRows.length
+        ? Math.round(scoreRows.reduce((a: number, s: any) => a + Number(s.saturation_percent ?? 0), 0) / scoreRows.length)
+        : 0,
+      productPerformance: productPerformance ?? [],
       segmentCounts,
-      topCustomers: segmentRows
+      topCustomers: scoreRows
         .filter((s: any) => Number(s.paid_orders ?? 0) > 0)
         .sort((a: any, b: any) => Number(b.paid_stars ?? 0) - Number(a.paid_stars ?? 0))
         .slice(0, 12),
