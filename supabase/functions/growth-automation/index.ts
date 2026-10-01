@@ -17,6 +17,7 @@ Deno.serve(async(req)=>{try{
   async function tg(method:string,body:Record<string,unknown>){const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const x=await r.json();if(!r.ok||!x?.ok)throw new Error(x?.description||method);return x.result;}
   async function sent(userId:string|null,key:string,subject="",stage=""){let q=db.from("automation_deliveries").select("id").eq("automation_key",key).eq("subject_key",subject).eq("stage",stage).limit(1);q=userId?q.eq("tg_user_id",userId):q.is("tg_user_id",null);return Boolean((await q.maybeSingle()).data);}
   async function mark(userId:string|null,key:string,subject="",stage="",payload:any={}){await db.from("automation_deliveries").insert({tg_user_id:userId,automation_key:key,subject_key:subject,stage,payload});}
+  async function canPromo(userId:string){const cap=Math.max(1,Number(settings?.promo_frequency_cap_7d||3));const minHours=Math.max(6,Number(settings?.promo_min_hours_between||12));const keys=["vip_upgrade","winback","new_drop","cross_sell"];const since7=new Date(Date.now()-7*86400000).toISOString();const {count}=await db.from("automation_deliveries").select("id",{count:"exact",head:true}).eq("tg_user_id",userId).in("automation_key",keys).gte("delivered_at",since7);if(Number(count||0)>=cap)return false;const {data:last}=await db.from("automation_deliveries").select("delivered_at").eq("tg_user_id",userId).in("automation_key",keys).order("delivered_at",{ascending:false}).limit(1).maybeSingle();if(last?.delivered_at&&Date.now()-new Date(last.delivered_at).getTime()<minHours*3600000)return false;return true;}
   async function event(userId:string|null,type:string,opts:any={}){await db.from("growth_events").insert({tg_user_id:userId,event_type:type,product_id:opts.productId||null,content_set_id:opts.setId||null,source:String(opts.source||"automation"),meta:opts.meta||{}});}
   async function ownedSetIds(userId:string){const {data}=await db.from("content_access").select("content_set_id").eq("tg_user_id",userId).eq("status","active");return new Set((data||[]).map((x:any)=>x.content_set_id));}
   const {data:sets}=await db.from("content_sets").select("id,title,product_id,created_at,products(id,title,price_stars,price_ton,active,kind,delivery_payload)").eq("status","active").order("created_at",{ascending:false});
@@ -37,7 +38,7 @@ Deno.serve(async(req)=>{try{
     const rec=await recommend(s.tg_user_id);
     const saturation=Number(s.saturation_percent||0);
 
-    if(!s.is_vip&&Number(s.paid_orders||0)>=Number(settings?.vip_upgrade_after_purchases||2)){
+    if(!s.is_vip&&Number(s.paid_orders||0)>=Number(settings?.vip_upgrade_after_purchases||2)&&await canPromo(s.tg_user_id)){
       if(!await sent(s.tg_user_id,"vip_upgrade",monthKey,"monthly")){
         await tg("sendMessage",{chat_id:chat,text:`👑 <b>Du gehörst inzwischen zu meinen Stammkunden.</b>\n\nMit Paid bekommst du den direkten Zugang zu exklusiven Drops und neuen Inhalten.`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"👑 Paid ansehen",callback_data:"vip_info"}]]}});
         await mark(s.tg_user_id,"vip_upgrade",monthKey,"monthly",{paid_orders:s.paid_orders,saturation});await event(s.tg_user_id,"vip_upgrade_sent");stats.vipUpgrade++;
@@ -60,7 +61,7 @@ Deno.serve(async(req)=>{try{
     if(Number(s.paid_orders||0)>0&&s.last_purchase_at){
       const days=Math.floor((now-new Date(s.last_purchase_at).getTime())/86400000);
       const stage=[...winDays].reverse().find((d:number)=>days>=d);
-      if(stage&&rec&&!await sent(s.tg_user_id,"winback","",String(stage))){
+      if(stage&&rec&&!await sent(s.tg_user_id,"winback","",String(stage))&&await canPromo(s.tg_user_id)){
         const p:any=rec.products;
         await tg("sendMessage",{chat_id:chat,text:`✨ <b>Neu für dich</b>\n\nSeit deinem letzten Kauf ist etwas dazugekommen: „${esc(rec.title)}“ · ⭐ ${Number(p?.price_stars||0)}${Number(p?.price_ton||0)>0?` · 💎 ${Number(p.price_ton)} TON`:""}`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"Ansehen",callback_data:`offer_${rec.id}`}],[{text:"🛍 Shop",callback_data:"shop"}]]}});
         await mark(s.tg_user_id,"winback","",String(stage),{set_id:rec.id,days});await event(s.tg_user_id,"winback_sent",{setId:rec.id,meta:{stage}});stats.winback++;
@@ -71,7 +72,7 @@ Deno.serve(async(req)=>{try{
       const fresh=activeSets.find((x:any)=>now-new Date(x.created_at).getTime()<36*3600000);
       if(fresh){
         const owned=await ownedSetIds(s.tg_user_id);
-        if(!owned.has(fresh.id)&&!await sent(s.tg_user_id,"new_drop",fresh.id,"")){
+        if(!owned.has(fresh.id)&&!await sent(s.tg_user_id,"new_drop",fresh.id,"")&&await canPromo(s.tg_user_id)){
           await tg("sendMessage",{chat_id:chat,text:`🆕 <b>Neuer Drop</b>\n\n„${esc(fresh.title)}“ ist neu im Shop und noch nicht in deinen Inhalten.`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"Neu für mich",callback_data:`offer_${fresh.id}`}]]}});
           await mark(s.tg_user_id,"new_drop",fresh.id,"");await event(s.tg_user_id,"new_drop_sent",{setId:fresh.id});stats.newDrop++;
         }
@@ -80,7 +81,7 @@ Deno.serve(async(req)=>{try{
 
     const hours=Math.max(6,Number(settings?.cross_sell_after_open_hours||24));
     const {data:opened}=await db.from("content_access").select("content_set_id,last_opened_at").eq("tg_user_id",s.tg_user_id).eq("status","active").not("last_opened_at","is",null).gte("last_opened_at",new Date(now-hours*3600000).toISOString()).order("last_opened_at",{ascending:false}).limit(1).maybeSingle();
-    if(opened&&rec&&!await sent(s.tg_user_id,"cross_sell",String(opened.content_set_id),"")){
+    if(opened&&rec&&!await sent(s.tg_user_id,"cross_sell",String(opened.content_set_id),"")&&await canPromo(s.tg_user_id)){
       if(saturation>=Number(settings?.saturation_percent||80)&&!s.is_vip){
         // VIP message already handled above; do not recycle old sets.
       }else{
