@@ -10,8 +10,7 @@ async function requireRole(context: any, min: TeamRole) {
   const roles = (data ?? []).map((r: any) => r.role).filter((r: string) => r in RANK) as TeamRole[];
   const role = roles.sort((a, b) => RANK[b] - RANK[a])[0] ?? null;
   if (!role || RANK[role] < RANK[min]) throw new Error("Forbidden");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return { db: supabaseAdmin as any, role };
+  return { db: context.supabase as any, role };
 }
 
 /** Übersicht: Abos, Rabattcodes, offene Rechnungen und Umsatz der letzten 30 Tage. */

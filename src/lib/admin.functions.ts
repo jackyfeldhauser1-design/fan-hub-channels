@@ -22,8 +22,7 @@ async function isAdminUser(context: any): Promise<boolean> {
 
 async function requireAdmin(context: any) {
   if (!(await isAdminUser(context))) throw new Error("Forbidden");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return supabaseAdmin as any;
+  return context.supabase as any;
 }
 
 export type TeamRole = "admin" | "operator" | "viewer";
@@ -41,8 +40,7 @@ async function roleOf(context: any): Promise<TeamRole | null> {
 async function requireRole(context: any, min: TeamRole) {
   const role = await roleOf(context);
   if (!role || RANK[role] < RANK[min]) throw new Error("Forbidden");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return { db: supabaseAdmin as any, role };
+  return { db: context.supabase as any, role };
 }
 
 /**

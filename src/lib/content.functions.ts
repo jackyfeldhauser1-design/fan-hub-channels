@@ -41,8 +41,7 @@ async function teamDb(context: any) {
     .in("role", ["admin", "operator"]);
   if (!data?.length) throw new Error("Forbidden");
   const isAdmin = data.some((r: any) => r.role === "admin");
-  const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-  return { db: supabaseAdmin as any, isAdmin };
+  return { db: context.supabase as any, isAdmin };
 }
 
 export const getContentStudio = createServerFn({ method: "POST" })

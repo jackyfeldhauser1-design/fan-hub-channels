@@ -51,30 +51,14 @@ async function healthResponse(): Promise<Response> {
     database: "unknown",
     telegram: "unknown",
   };
-  let healthy = true;
-
-  try {
-    const { supabaseAdmin } = await import("./integrations/supabase/client.server");
-    const { error } = await (supabaseAdmin as any).from("bot_settings").select("id").eq("id", true).maybeSingle();
-    checks.database = error ? "error" : "ok";
-    if (error) healthy = false;
-  } catch {
-    checks.database = "error";
-    healthy = false;
-  }
-
-  try {
-    const { getBotToken } = await import("./lib/telegram.server");
-    const { token } = await getBotToken();
-    checks.telegram = token || process.env["TELEGRAM_BOT_TOKEN"] ? "configured" : "missing";
-    if (checks.telegram === "missing") healthy = false;
-  } catch {
-    checks.telegram = "error";
-    healthy = false;
-  }
+  const supabaseUrl = process.env["SUPABASE_URL"] || process.env["VITE_SUPABASE_URL"] || "";
+  const publishableKey =
+    process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || "";
+  checks.database = supabaseUrl && publishableKey ? "configured" : "missing";
+  checks.telegram = "supabase-edge";
 
   return Response.json(checks, {
-    status: healthy ? 200 : 503,
+    status: checks.database === "configured" ? 200 : 503,
     headers: { "Cache-Control": "no-store" },
   });
 }
