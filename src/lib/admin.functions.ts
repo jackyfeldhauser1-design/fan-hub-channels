@@ -594,15 +594,12 @@ export const deleteLead = createServerFn({ method: "POST" })
 export const getAdminStatus = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .handler(async ({ context }) => {
-    const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
-    const adb = supabaseAdmin as any;
-
     let db: any;
     try {
       db = await requireAdmin(context);
     } catch {
-      const { data: user } = await adb.auth.admin.getUserById(context.userId);
-      const { count } = await adb.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
+      const { data: user } = await context.supabase.auth.getUser();
+      const { count } = await context.supabase.from("user_roles").select("id", { count: "exact", head: true }).eq("role", "admin");
       return {
         account: { email: user?.user?.email ?? "", userId: context.userId },
         admin: { isAdmin: false, adminExists: (count ?? 0) > 0, since: null as string | null },
@@ -613,7 +610,7 @@ export const getAdminStatus = createServerFn({ method: "POST" })
     }
 
     const [{ data: user }, { data: role }, settingsRes, products, purchases, fans, leads] = await Promise.all([
-      adb.auth.admin.getUserById(context.userId),
+      context.supabase.auth.getUser(),
       db.from("user_roles").select("role, created_at").eq("user_id", context.userId).eq("role", "admin").maybeSingle(),
       db.from("bot_settings").select("*").eq("id", true).maybeSingle(),
       db.from("products").select("id", { count: "exact", head: true }),
