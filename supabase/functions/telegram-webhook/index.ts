@@ -25,6 +25,10 @@ Deno.serve(async(req)=>{try{
     const community=String(settings.community_chat_id||"").trim(); const username=String(cred?.bot_username||"").replace(/^@/,"");
     if(!community||!username)return;
     const {data:sets}=await db.from("content_sets").select("id,title,description,product_id,products(title,price_stars,active),content_set_items(sort_order,item_role,media_files(storage_path,mime_type))").eq("status","active");
+    const since=new Date(Date.now()-30*86400000).toISOString();
+    const {data:abEvents}=await db.from("growth_events").select("event_type,source").in("event_type",["teaser_click","teaser_conversion"]).gte("created_at",since);
+    const stat=(variant:string)=>{const source=`free:${variant}`;const clicks=(abEvents||[]).filter((e:any)=>e.event_type==="teaser_click"&&e.source===source).length;const conversions=(abEvents||[]).filter((e:any)=>e.event_type==="teaser_conversion"&&e.source===source).length;return{clicks,rate:clicks>0?conversions/clicks:0};};
+    const a=stat("A"),b=stat("B");const winningVariant=a.clicks>=5&&b.clicks>=5?(a.rate>=b.rate?"A":"B"):null;
     for(const set of sets||[]){
       const product:any=set.products; if(!product?.active)continue;
       const {data:existing}=await db.from("content_publications").select("id").eq("content_set_id",set.id).eq("target","community").eq("status","published").maybeSingle(); if(existing)continue;
@@ -32,7 +36,7 @@ Deno.serve(async(req)=>{try{
       const file=items[0]?.media_files; if(!file?.storage_path)continue;
       try{
         const {data:signed,error}=await db.storage.from("media-vault").createSignedUrl(file.storage_path,600,{transform:{width:24,height:24,resize:"cover",quality:20}}); if(error||!signed?.signedUrl)throw error||new Error("Teaser URL failed");
-        const variant=[...String(set.id)].reduce((a,ch)=>a+ch.charCodeAt(0),0)%2===0?"A":"B";
+        const variant=winningVariant||([...String(set.id)].reduce((a,ch)=>a+ch.charCodeAt(0),0)%2===0?"A":"B");
         const caption=variant==="A"
           ? `🔒 <b>${esc(set.title)}</b>\n\nNeues geschütztes Set – Originale erst nach bestätigter Zahlung.\n\n<b>⭐ ${Math.max(1,Number(product.price_stars||1))}</b>`
           : `✨ <b>Neu im geschützten Bereich: ${esc(set.title)}</b>\n\nIm Free-Feed siehst du nur den Teaser – das vollständige Set wird nach Zahlung freigeschaltet.\n\n<b>⭐ ${Math.max(1,Number(product.price_stars||1))}</b>`;
