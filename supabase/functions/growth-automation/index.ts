@@ -67,7 +67,7 @@ Deno.serve(async(req)=>{try{
       }
     }
 
-    if(settings?.new_drop_notify!==false){
+    if(settings?.new_drop_notify!==false&&Number(s.paid_orders||0)>0){
       const fresh=activeSets.find((x:any)=>now-new Date(x.created_at).getTime()<36*3600000);
       if(fresh){
         const owned=await ownedSetIds(s.tg_user_id);
