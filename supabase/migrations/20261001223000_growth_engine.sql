@@ -254,3 +254,28 @@ join public.products p on p.id in (
   'da7a3ade-f833-4913-8e82-b47d3fe08edf'
 )
 on conflict do nothing;
+
+
+do $$
+begin
+  if exists(select 1 from cron.job where jobname='fan-hub-growth-automation') then
+    perform cron.unschedule('fan-hub-growth-automation');
+  end if;
+  if exists(select 1 from vault.decrypted_secrets where name='fan_hub_cart_recovery_token') then
+    perform cron.schedule(
+      'fan-hub-growth-automation',
+      '0 * * * *',
+      $job$
+      select net.http_post(
+        url:='https://biqvodzbbgfkzwrapftz.supabase.co/functions/v1/growth-automation',
+        headers:=jsonb_build_object(
+          'Content-Type','application/json',
+          'X-Cron-Token',(select decrypted_secret from vault.decrypted_secrets where name='fan_hub_cart_recovery_token')
+        ),
+        body:=jsonb_build_object('scheduled_at',now()),
+        timeout_milliseconds:=30000
+      );
+      $job$
+    );
+  end if;
+end $$;
