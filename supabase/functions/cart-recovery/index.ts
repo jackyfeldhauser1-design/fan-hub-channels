@@ -30,6 +30,7 @@ Deno.serve(async(req)=>{try{
     const {data:paid}=await db.from("purchases").select("id").eq("tg_user_id",row.tg_user_id).eq("product_id",productId).eq("status","paid").limit(1).maybeSingle();
     if(paid){await db.from("invoice_intents").update({paid:true}).eq("id",row.id);skippedPaid++;continue;}
     const count=Math.max(0,Number(row.recovery_count||0));
+    if(count===0)await db.from("growth_events").insert({tg_user_id:row.tg_user_id,event_type:"checkout_abandoned",product_id:productId||null,source:"stars",meta:{reason:"invoice_unpaid",intent_id:row.id}});
     await tg(token,"sendMessage",{chat_id:row.chat_id,text:recoveryText(String(row.title||"Set"),count,"stars"),reply_markup:{inline_keyboard:[[{text:count===0?"🔓 Set erneut öffnen":"🛍 Kauf fortsetzen",url:`https://t.me/${username}?start=p_${productId}_recover`}],[{text:"🏠 Zum Menü",url:`https://t.me/${username}?start=menu`}]]}});
     const now=new Date().toISOString();
     await db.from("invoice_intents").update({reminded_at:now,last_recovery_at:now,recovery_count:count+1}).eq("id",row.id);sent++;
@@ -41,6 +42,7 @@ Deno.serve(async(req)=>{try{
     const chatId=Number((row.tg_users as any)?.telegram_id||0);if(!chatId)continue;
     const {data:set}=await db.from("content_sets").select("id").eq("product_id",row.product_id).eq("status","active").maybeSingle();if(!set)continue;
     const count=Math.max(0,Number(row.recovery_count||0));
+    if(count===0)await db.from("growth_events").insert({tg_user_id:row.tg_user_id,event_type:"checkout_abandoned",product_id:row.product_id||null,source:"ton",meta:{reason:"chain_payment_unconfirmed",purchase_id:row.id}});
     await tg(token,"sendMessage",{chat_id:chatId,text:recoveryText(String(row.title_snapshot||"Set"),count,"ton"),reply_markup:{inline_keyboard:[[{text:"✅ Zahlung prüfen",callback_data:`checkton_${row.id}`}],[{text:"💎 Zahlung erneut öffnen",callback_data:`offer_${set.id}`}],[{text:"🏠 Menü",callback_data:"main_menu"}]]}});
     const now=new Date().toISOString();
     await db.from("purchases").update({reminded_at:now,last_recovery_at:now,recovery_count:count+1}).eq("id",row.id);sent++;
