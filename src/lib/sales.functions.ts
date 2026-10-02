@@ -124,6 +124,15 @@ export const getSalesOverview = createServerFn({ method: "POST" })
       stars: events.filter((e: any) => e.event_type === "checkout_abandoned" && e.source === "stars").length,
       ton: events.filter((e: any) => e.event_type === "checkout_abandoned" && e.source === "ton").length,
     };
+    const checkoutStarts = countEvent("checkout_started");
+    const offerViews = countEvent("offer_view") + countEvent("for_you_impression");
+    const abandonedTotal = abandonmentReasons.stars + abandonmentReasons.ton;
+    const checkoutConversionPercent = checkoutStarts > 0 ? Math.round((paidEvents / checkoutStarts) * 1000) / 10 : 0;
+    const offerToCheckoutPercent = offerViews > 0 ? Math.round((checkoutStarts / offerViews) * 1000) / 10 : 0;
+    const abandonmentPercent = checkoutStarts > 0 ? Math.round((abandonedTotal / checkoutStarts) * 1000) / 10 : 0;
+    const funnelHealth = paidEvents > 0
+      ? (checkoutConversionPercent >= 35 && abandonmentPercent <= 35 ? "stabil" : "beobachten")
+      : (offerViews >= 5 || checkoutStarts >= 2 ? "optimieren" : "zu wenig Daten");
 
     return {
       role,
@@ -140,7 +149,8 @@ export const getSalesOverview = createServerFn({ method: "POST" })
         .map(([day, stars]) => ({ day, stars })),
       growth: {
         teaserClicks,
-        checkoutStarts: countEvent("checkout_started"),
+        offerViews,
+        checkoutStarts,
         paidEvents,
         upsellImpressions: countEvent("upsell_impression"),
         recoveryClicks: countEvent("recovery_click"),
@@ -154,6 +164,10 @@ export const getSalesOverview = createServerFn({ method: "POST" })
         winbacks: countEvent("winback_sent"),
         loyaltyBonuses: countEvent("loyalty_bonus"),
         teaserToPurchasePercent: teaserClicks > 0 ? Math.round((countEvent("teaser_conversion") / teaserClicks) * 1000) / 10 : 0,
+        checkoutConversionPercent,
+        offerToCheckoutPercent,
+        abandonmentPercent,
+        funnelHealth,
       },
       abTests: variantStats,
       abandonmentReasons,
