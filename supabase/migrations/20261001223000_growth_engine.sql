@@ -161,7 +161,10 @@ alter table public.bot_settings
   add column if not exists cross_sell_after_open_hours integer not null default 24,
   add column if not exists saturation_percent integer not null default 80,
   add column if not exists promo_frequency_cap_7d integer not null default 3,
-  add column if not exists promo_min_hours_between integer not null default 12;
+  add column if not exists promo_min_hours_between integer not null default 12,
+  add column if not exists vip_benefits text not null default 'Exklusive Drops|Paid-Bereich mit geschützten Inhalten|Früher Zugang zu neuen Sets',
+  add column if not exists vip_cta_text text not null default '👑 Paid freischalten',
+  add column if not exists no_sale_alert_clicks integer not null default 5;
 
 create or replace view public.customer_growth_scores
 with (security_invoker=true) as
