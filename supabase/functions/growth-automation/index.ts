@@ -113,6 +113,13 @@ Deno.serve(async(req)=>{try{
       }
     }
     const {count:abandoned}=await db.from("growth_events").select("id",{count:"exact",head:true}).eq("event_type","checkout_abandoned").gte("created_at",new Date(now-3600000).toISOString());
+    const hourAgo=new Date(now-3600000).toISOString();
+    const {count:interest}=await db.from("growth_events").select("id",{count:"exact",head:true}).in("event_type",["teaser_click","offer_view","for_you_impression"]).gte("created_at",hourAgo);
+    const {count:hourSales}=await db.from("growth_events").select("id",{count:"exact",head:true}).eq("event_type","purchase_paid").gte("created_at",hourAgo);
+    if(Number(interest||0)>=Number(settings?.no_sale_alert_clicks||5)&&Number(hourSales||0)===0&&!await sent(null,"interest_no_sale",lp.date,String(lp.hour))){
+      await tg("sendMessage",{chat_id:control,text:`👀 <b>Interesse ohne Kauf</b>\n\nLetzte Stunde: ${Number(interest||0)} Interessenssignale, aber kein Kauf.\nPrüfe Preis, CTA oder Zahlungsweg.`,parse_mode:"HTML"});
+      await mark(null,"interest_no_sale",lp.date,String(lp.hour),{interest:Number(interest||0)});stats.alerts++;
+    }
     if(Number(abandoned||0)>=Number(settings?.abandonment_alert_count||3)&&!await sent(null,"abandonment_alert",lp.date,String(lp.hour))){
       await tg("sendMessage",{chat_id:control,text:`⚠️ <b>Checkout-Abbrüche</b>\nIn der letzten Stunde wurden ${Number(abandoned||0)} Abbrüche erkannt. Prüfe Stars-/TON-Funnel und Angebot.`,parse_mode:"HTML"});await mark(null,"abandonment_alert",lp.date,String(lp.hour));stats.alerts++;
     }
