@@ -98,6 +98,36 @@ function SalesPage() {
       </div>
 
       <section className="mt-6 rounded-xl border border-border bg-card p-4">
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="text-sm font-semibold">Funnel Health · letzte 30 Tage</h2>
+          <span className="rounded-full border border-border px-3 py-1 text-xs">
+            Status: {data?.growth?.funnelHealth ?? "zu wenig Daten"}
+          </span>
+        </div>
+        <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xl font-semibold">{data?.growth?.offerToCheckoutPercent ?? 0}%</div>
+            <div className="text-xs text-muted-foreground">Angebot → Checkout</div>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xl font-semibold">{data?.growth?.checkoutConversionPercent ?? 0}%</div>
+            <div className="text-xs text-muted-foreground">Checkout → Kauf</div>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xl font-semibold">{data?.growth?.abandonmentPercent ?? 0}%</div>
+            <div className="text-xs text-muted-foreground">Checkout-Abbruchquote</div>
+          </div>
+          <div className="rounded-lg border border-border p-3">
+            <div className="text-xl font-semibold">{data?.growth?.offerViews ?? 0}</div>
+            <div className="text-xs text-muted-foreground">Angebotsinteraktionen</div>
+          </div>
+        </div>
+        <p className="mt-3 text-xs text-muted-foreground">
+          Ziel: Erst genug echte Daten sammeln, dann Preise, CTA oder Zahlungsweg gezielt an der schwächsten Stufe optimieren.
+        </p>
+      </section>
+
+      <section className="mt-6 rounded-xl border border-border bg-card p-4">
         <h2 className="mb-3 text-sm font-semibold">Growth-Funnel · letzte 30 Tage</h2>
         <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
           {[
