@@ -1001,13 +1001,9 @@ export const autoConnectTelegram = createServerFn({ method: "POST" })
     z.object({ baseUrl: z.string().url().optional(), sendTest: z.boolean().default(true) }).parse(d ?? {}),
   )
   .handler(async ({ context }) => {
-    const invoke = async (action: string) => {
-      const { data, error } = await context.supabase.functions.invoke("telegram-admin", { body: { action } });
-      if (error) throw new Error(error.message);
-      if (data?.error) throw new Error(String(data.error));
-      return data as any;
-    };
-    const [verify, progress] = await Promise.all([invoke("verify"), invoke("progress")]);
+    const { db } = await requireRole(context, "admin");
+    const { verifySetup, readSetupProgress } = await import("@/lib/setup.server");
+    const [verify, progress] = await Promise.all([verifySetup(db), readSetupProgress(db)]);
     const steps = [
       ...(verify.checks ?? []),
       {
