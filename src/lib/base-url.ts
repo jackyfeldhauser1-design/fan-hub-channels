@@ -8,16 +8,9 @@ export function resolvePublicBaseUrl(settings?: { app_base_url?: string | null }
 
 /**
  * Kanonisches Telegram-Webhook-Ziel.
- * In Produktion zeigt Telegram direkt auf die Supabase Edge Function.
- * Die App-Route bleibt nur als lokaler/Legacy-Fallback erhalten.
+ * Produktion nutzt ausschließlich die Vercel-App-Route.
  */
 export function resolveTelegramWebhookUrl(settings?: { app_base_url?: string | null } | null) {
-  const supabaseUrl = String(
-    process.env["SUPABASE_URL"] ?? process.env["VITE_SUPABASE_URL"] ?? "",
-  ).trim().replace(/\/$/, "");
-
-  if (supabaseUrl) return `${supabaseUrl}/functions/v1/telegram-webhook`;
-
-  const base = resolvePublicBaseUrl(settings);
+  const base = resolvePublicBaseUrl(settings) || "https://fan-hub-vercel2.vercel.app";
   return base ? `${base}/api/public/telegram/webhook` : "";
 }
