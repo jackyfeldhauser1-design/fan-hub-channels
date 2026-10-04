@@ -55,7 +55,7 @@ async function healthResponse(): Promise<Response> {
   const publishableKey =
     process.env["SUPABASE_PUBLISHABLE_KEY"] || process.env["VITE_SUPABASE_PUBLISHABLE_KEY"] || "";
   checks.database = supabaseUrl && publishableKey ? "configured" : "missing";
-  checks.telegram = "supabase-edge";
+  checks.telegram = "vercel";
 
   return Response.json(checks, {
     status: checks.database === "configured" ? 200 : 503,
