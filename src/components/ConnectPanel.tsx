@@ -63,7 +63,7 @@ export function ConnectPanel({
         <h2 className="text-lg font-semibold">Telegram-Verbindung</h2>
       </div>
       <p className="text-sm text-muted-foreground">
-        Live-Status von Bot, Webhook und Community/Shop/Kontrollraum. Die Prüfung läuft über die Supabase-Telegram-Edge-Function.
+        Live-Status von Bot, Webhook und Community/Shop/Kontrollraum. Die Prüfung läuft direkt über die aktuelle Vercel-Serverlogik.
       </p>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
