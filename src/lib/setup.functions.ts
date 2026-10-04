@@ -55,7 +55,12 @@ export const saveBotToken = createServerFn({ method: "POST" })
 export const startGuidedSetup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
   .inputValidator((d: unknown) => z.object({ targets: z.array(z.enum(["community","shop","control"])).min(1).default(["community","shop","control"]) }).parse(d ?? {}))
-  .handler(async ({ context, data }) => telegramAdmin(context, "start_setup", data));
+  .handler(async ({ context, data }) => {
+    const { requireCallerRole } = await import("@/lib/auth-context.server");
+    const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
+    const { createSetupCodes } = await import("@/lib/setup.server");
+    return createSetupCodes(db, data.targets, context.userId);
+  });
 
 export const getSetupProgress = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
