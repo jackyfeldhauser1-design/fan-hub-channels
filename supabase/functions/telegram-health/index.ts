@@ -8,7 +8,7 @@ async function tg(token:string,method:string,body:Record<string,unknown>={}){con
 Deno.serve(async(req)=>{try{
   if(req.method!=="POST")return json({ok:false,error:"method_not_allowed"},405);
   const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
-  const {data:settings,error:settingsError}=await db.from("bot_settings").select("community_chat_id,shop_chat_id,control_chat_id,cart_recovery_token_hash").eq("id",true).maybeSingle();
+  const {data:settings,error:settingsError}=await db.from("bot_settings").select("community_chat_id,shop_chat_id,control_chat_id,cart_recovery_token_hash,app_base_url").eq("id",true).maybeSingle();
   if(settingsError)throw settingsError;
   const provided=req.headers.get("x-cron-token")||"";
   if(!provided||await sha256Hex(provided)!==String(settings?.cart_recovery_token_hash||""))return json({ok:false,error:"unauthorized"},401);
@@ -20,7 +20,7 @@ Deno.serve(async(req)=>{try{
 
   const me=await tg(token,"getMe");
   const body=await req.json().catch(()=>({}));
-  const expected=`${Deno.env.get("SUPABASE_URL")}/functions/v1/telegram-webhook`;
+  const expected=`${String(settings?.app_base_url||Deno.env.get("PUBLIC_APP_URL")||"https://fan-hub-vercel2.vercel.app").replace(/\/$/,"")}/api/public/telegram/webhook`;
   let webhook=await tg(token,"getWebhookInfo");
   if(body?.repair===true&&String(webhook?.url||"")!==expected){
     const bytes=new TextEncoder().encode(`telegram-webhook:${token}`);
