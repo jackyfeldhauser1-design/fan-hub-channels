@@ -59,7 +59,7 @@ const nav = [
   { to: "/einstellungen", label: "Einstellungen", icon: Settings2 },
 ] as const;
 
-const primaryPaths = ["/", "/bestellungen", "/content", "/fans", "/einstellungen"] as const;
+const primaryPaths = ["/", "/content", "/drops", "/verkaeufe", "/fans"] as const;
 const primaryNav = primaryPaths.map((p) => nav.find((n) => n.to === p)!);
 const secondaryNav = nav.filter((n) => !primaryPaths.includes(n.to as (typeof primaryPaths)[number]));
 
