@@ -11,10 +11,6 @@ const FAN_BOT_COMMANDS = [
   { command: "menu", description: "Schnellmenü öffnen" },
   { command: "shop", description: "Shop öffnen" },
   { command: "drops", description: "Neue Drops ansehen" },
-  { command: "meineinhalte", description: "Freigeschaltete Inhalte" },
-  { command: "konto", description: "Meine Käufe" },
-  { command: "warteliste", description: "Early Access" },
-  { command: "werbung", description: "Werbepost buchen" },
 ];
 
 async function configureFanBotCommands() {
