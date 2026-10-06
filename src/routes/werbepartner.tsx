@@ -8,9 +8,12 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { resolvePublicBaseUrl } from "@/lib/base-url";
 
 export const Route = createFileRoute("/werbepartner")({
-  head: () => ({
+  head: () => {
+    const base = resolvePublicBaseUrl();
+    return ({
     meta: [
       { title: "Sponsored Post in der Community buchen" },
       {
@@ -21,9 +24,9 @@ export const Route = createFileRoute("/werbepartner")({
       { property: "og:description", content: "Erreiche eine engagierte Telegram-Community mit einem bezahlten Post." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:url", content: "https://fan-hub-channels.netlify.app/werbepartner" },
+      ...(base ? [{ property: "og:url", content: `${base}/werbepartner` }] : []),
     ],
-    links: [{ rel: "canonical", href: "https://fan-hub-channels.netlify.app/werbepartner" }],
+    links: base ? [{ rel: "canonical", href: `${base}/werbepartner` }] : [],
     scripts: [
       {
         type: "application/ld+json",
@@ -31,13 +34,14 @@ export const Route = createFileRoute("/werbepartner")({
           "@context": "https://schema.org",
           "@type": "BreadcrumbList",
           itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Start", item: "https://fan-hub-channels.netlify.app" },
-            { "@type": "ListItem", position: 2, name: "Werbepartner", item: "https://fan-hub-channels.netlify.app/werbepartner" },
+            { "@type": "ListItem", position: 1, name: "Start", item: base || "/" },
+            { "@type": "ListItem", position: 2, name: "Werbepartner", item: base ? `${base}/werbepartner` : "/werbepartner" },
           ],
         }),
       },
     ],
-  }),
+    });
+  },
   component: SponsorForm,
 });
 
