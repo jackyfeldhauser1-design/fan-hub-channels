@@ -5,9 +5,12 @@ import { useServerFn } from "@tanstack/react-start";
 import { Star, Gem, Users, Handshake, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { getOverview } from "@/lib/admin.functions";
+import { resolvePublicBaseUrl } from "@/lib/base-url";
 
 export const Route = createFileRoute("/")({
-  head: () => ({
+  head: () => {
+    const base = resolvePublicBaseUrl();
+    return ({
     meta: [
       { title: "Übersicht – Telegram Fan Funnel Studio" },
       {
@@ -18,9 +21,9 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Alle Kennzahlen deines Telegram-Verkaufsfunnels in einem Dashboard." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      { property: "og:url", content: "https://fan-hub-channels.netlify.app/" },
+      ...(base ? [{ property: "og:url", content: `${base}/` }] : []),
     ],
-    links: [{ rel: "canonical", href: "https://fan-hub-channels.netlify.app/" }],
+    links: base ? [{ rel: "canonical", href: `${base}/` }] : [],
     scripts: [
       {
         type: "application/ld+json",
@@ -28,11 +31,12 @@ export const Route = createFileRoute("/")({
           "@context": "https://schema.org",
           "@type": "WebSite",
           name: "Telegram Fan Funnel Studio",
-          url: "https://fan-hub-channels.netlify.app",
+          url: base || "/",
         }),
       },
     ],
-  }),
+    });
+  },
   component: Overview,
 });
 
