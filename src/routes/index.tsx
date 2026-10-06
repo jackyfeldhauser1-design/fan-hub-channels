@@ -103,7 +103,36 @@ function Overview() {
 
   return (
     <DashLayout title="Übersicht" subtitle="Deine Telegram-Kette: Community → Shop → Kontrollraum.">
-      <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="hero-panel p-5 sm:p-6">
+        <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
+          <div className="max-w-2xl">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-primary">Command Center</p>
+            <h2 className="mt-2 text-2xl font-bold sm:text-3xl">Heute Umsatz bewegen</h2>
+            <p className="mt-2 max-w-xl text-sm leading-6 text-muted-foreground">
+              Drops, Verkäufe und Wachstum sind direkt erreichbar – optimiert für schnelle Bedienung am Handy.
+            </p>
+          </div>
+          <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap">
+            <Link to="/content" className="rounded-xl px-4 py-3 text-center text-sm font-semibold gold-surface">Neuen Content verkaufen</Link>
+            <Link to="/drops" className="rounded-xl border border-border bg-background/30 px-4 py-3 text-center text-sm font-semibold">Drop starten</Link>
+            <Link to="/verkaeufe" className="rounded-xl border border-border bg-background/30 px-4 py-3 text-center text-sm font-semibold">Verkäufe prüfen</Link>
+            <Link to="/umsatz" className="rounded-xl border border-border bg-background/30 px-4 py-3 text-center text-sm font-semibold">Umsatz öffnen</Link>
+          </div>
+        </div>
+      </section>
+
+      <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <Stat
+          icon={Star}
+          label="Heute (Stars)"
+          value={`⭐ ${data?.todayStars ?? 0}`}
+          hint={`${data?.todaySales ?? 0} Verkäufe heute`}
+        />
+        <Stat icon={Star} label="Umsatz gesamt (Stars)" value={`⭐ ${data?.stars ?? 0}`} hint={`${data?.weekStars ?? 0} in 7 Tagen`} />
+        <Stat icon={Gem} label="Krypto-Umsatz" value={`${(data?.ton ?? 0).toFixed(2)} TON`} hint={`${(data?.trx ?? 0).toFixed(2)} TRX · ${data?.pendingCrypto ?? 0} offen`} />
+        <Stat icon={Users} label="Fans im Bot" value={`${data?.fans ?? 0}`} hint={`⭐ ${data?.commissions ?? 0} Provisionen`} />
+      </div>
+
         <Stat
           icon={Star}
           label="Heute (Stars)"
