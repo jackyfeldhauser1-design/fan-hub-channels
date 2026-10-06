@@ -11,6 +11,6 @@ export function resolvePublicBaseUrl(settings?: { app_base_url?: string | null }
  * Produktion nutzt ausschließlich die Vercel-App-Route.
  */
 export function resolveTelegramWebhookUrl(settings?: { app_base_url?: string | null } | null) {
-  const base = resolvePublicBaseUrl(settings) || "https://fan-hub-vercel2.vercel.app";
+  const base = resolvePublicBaseUrl(settings);
   return base ? `${base}/api/public/telegram/webhook` : "";
 }
