@@ -19,21 +19,13 @@ function code() {
 
 type Btn = { text: string; callback_data?: string; url?: string; pay?: boolean };
 
-const mainMenu = (free: string, vip: string): Btn[][] => {
-  const rows: Btn[][] = [];
-  rows.push([{ text: "🎁 Gratis-Gruppe beitreten", callback_data: "join_free" }]);
-  rows.push([{ text: "🛍 Shop", callback_data: "shop" }, { text: "🔓 Pay-per-View", callback_data: "ppv" }]);
-  rows.push([{ text: "⭐ VIP-Zugang", callback_data: "vip" }, { text: "💛 Trinkgeld", callback_data: "tips" }]);
-  rows.push([{ text: "🤝 Empfehlen & verdienen", callback_data: "ref" }]);
-  rows.push([
-    { text: "🚀 Early Access", callback_data: "ea" },
-    { text: "📣 Werbung buchen", callback_data: "ads" },
-  ]);
-  rows.push([{ text: "🔓 Meine Inhalte", callback_data: "my_content" }, { text: "🧾 Meine Käufe", callback_data: "mine" }]);
-  void free;
-  void vip;
-  return rows;
-};
+const mainMenu = (_free: string, _vip: string): Btn[][] => [
+  [{ text: "🎁 Free", callback_data: "join_free" }, { text: "🛍 Shop", callback_data: "shop" }],
+  [{ text: "🔥 Neue Drops", callback_data: "drops" }, { text: "🔓 Meine Inhalte", callback_data: "my_content" }],
+  [{ text: "⭐ VIP", callback_data: "vip" }, { text: "🔓 Pay-per-View", callback_data: "ppv" }],
+  [{ text: "🧾 Meine Käufe", callback_data: "mine" }, { text: "🤝 Empfehlen", callback_data: "ref" }],
+  [{ text: "🚀 Early Access", callback_data: "ea" }, { text: "📣 Werbung buchen", callback_data: "ads" }],
+];
 
 
 export const Route = createFileRoute("/api/public/telegram/webhook")({
@@ -195,6 +187,30 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           });
         }
 
+        async function listNewDrops(chatId: number) {
+          const { data: products } = await db
+            .from("products")
+            .select("*")
+            .eq("active", true)
+            .in("kind", ["single", "bundle", "ppv"])
+            .order("created_at", { ascending: false })
+            .limit(8);
+          if (!products?.length) {
+            await tg("sendMessage", { chat_id: chatId, text: "🔥 Noch keine neuen Drops verfügbar. Schau bald wieder vorbei!" });
+            return;
+          }
+          await tg("sendMessage", {
+            chat_id: chatId,
+            text: "🔥 <b>Neue Drops</b>\n\nDie neuesten Inhalte zuerst:",
+            parse_mode: "HTML",
+            reply_markup: {
+              inline_keyboard: products.map((p: any) => [
+                { text: `${String(p.title).slice(0, 42)} — ⭐ ${p.price_stars}`, callback_data: `buy_${p.id}` },
+              ]),
+            },
+          });
+        }
+
         async function listProducts(chatId: number, kinds: string[], title: string) {
           const { data: products } = await db
             .from("products")
@@ -325,6 +341,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               await tg("sendMessage", { chat_id: chatId, text: "Die Gratis-Gruppe wird gerade eingerichtet." });
             }
           } else if (d === "shop") await listProducts(chatId, ["single", "bundle", "ppv"], "🛍 Shop & Content");
+          else if (d === "drops") await listNewDrops(chatId);
           else if (d === "ppv") await listProducts(chatId, ["ppv"], "🔓 Pay-per-View");
           else if (d === "vip") {
             const { hasVipAccess, grantVipAccess } = await import("@/lib/vip.server");
@@ -782,7 +799,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
         // ---- commands ----
         const text: string = msg.text ?? "";
-        if (text.startsWith("/start")) {
+        if (text.startsWith("/menu")) {
+          const user = await ensureUser(msg.from);
+          await sendMenu(chatId, "Wähle schnell, was du öffnen möchtest:");
+        } else if (text.startsWith("/start")) {
           const payload = text.split(" ")[1];
           const user = await ensureUser(msg.from, payload);
           // Content-Angebot aus Shop-/Community-Post: /start c_<content-set-id>
@@ -876,6 +896,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         } else if (text.startsWith("/shop")) {
           await ensureUser(msg.from);
           await listProducts(chatId, ["single", "bundle", "ppv"], "🛍 Shop & Content");
+        } else if (text.startsWith("/drops")) {
+          await ensureUser(msg.from);
+          await listNewDrops(chatId);
         } else if (text.startsWith("/code")) {
           const user = await ensureUser(msg.from);
           const entered = text.slice(5).trim();
