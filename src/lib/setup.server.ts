@@ -6,6 +6,28 @@ import { tgApi, tgSafe } from "@/lib/telegram.server";
 
 export type SetupTarget = "community" | "shop" | "control";
 
+const FAN_BOT_COMMANDS = [
+  { command: "start", description: "Hauptmenü öffnen" },
+  { command: "menu", description: "Schnellmenü öffnen" },
+  { command: "shop", description: "Shop öffnen" },
+  { command: "drops", description: "Neue Drops ansehen" },
+  { command: "meineinhalte", description: "Freigeschaltete Inhalte" },
+  { command: "konto", description: "Meine Käufe" },
+  { command: "warteliste", description: "Early Access" },
+  { command: "werbung", description: "Werbepost buchen" },
+];
+
+async function configureFanBotCommands() {
+  await tgApi("setMyCommands", {
+    commands: FAN_BOT_COMMANDS,
+    scope: { type: "all_private_chats" },
+    language_code: "de",
+  });
+  await tgApi("setChatMenuButton", {
+    menu_button: { type: "commands" },
+  });
+}
+
 export const TARGETS: { key: SetupTarget; label: string; column: string; hint: string; suggestedName: string }[] = [
   {
     key: "community",
@@ -263,6 +285,7 @@ export async function verifySetup(db: any) {
 
   if (botOk) {
     try {
+      await configureFanBotCommands();
       let info = await tgApi("getWebhookInfo", {});
       let url = String(info.result?.url ?? "");
       let pending = Number(info.result?.pending_update_count ?? 0);
@@ -426,6 +449,7 @@ export async function repairWebhook(db: any) {
       secret_token: await currentWebhookSecret(),
       allowed_updates: ["message", "edited_message", "callback_query", "pre_checkout_query", "my_chat_member", "channel_post"],
     });
+    await configureFanBotCommands();
     await db.from("admin_audit").insert({
       action: "webhook_repaired",
       status: "ok",
