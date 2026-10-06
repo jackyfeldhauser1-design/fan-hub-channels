@@ -133,16 +133,7 @@ function Overview() {
         <Stat icon={Users} label="Fans im Bot" value={`${data?.fans ?? 0}`} hint={`⭐ ${data?.commissions ?? 0} Provisionen`} />
       </div>
 
-        <Stat
-          icon={Star}
-          label="Heute (Stars)"
-          value={`⭐ ${data?.todayStars ?? 0}`}
-          hint={`${data?.todaySales ?? 0} Verkäufe heute`}
-        />
-        <Stat icon={Star} label="Umsatz gesamt (Stars)" value={`⭐ ${data?.stars ?? 0}`} hint={`${data?.weekStars ?? 0} in 7 Tagen`} />
-        <Stat icon={Gem} label="Krypto-Umsatz" value={`${(data?.ton ?? 0).toFixed(2)} TON`} hint={`${(data?.trx ?? 0).toFixed(2)} TRX · ${data?.pendingCrypto ?? 0} offen`} />
-        <Stat icon={Users} label="Fans im Bot" value={`${data?.fans ?? 0}`} hint={`⭐ ${data?.commissions ?? 0} Provisionen`} />
-      </div>
+
 
       <div className="panel mt-6 p-6">
         <div className="flex items-center justify-between">
