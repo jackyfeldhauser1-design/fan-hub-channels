@@ -101,6 +101,15 @@
   box-shadow: var(--shadow-panel);
 }
 
+@utility hero-panel {
+  background-image:
+    radial-gradient(700px 260px at 100% 0%, oklch(0.82 0.16 84 / 0.14), transparent 60%),
+    var(--gradient-surface);
+  border: 1px solid oklch(0.82 0.16 84 / 0.22);
+  border-radius: calc(var(--radius-xl) + 2px);
+  box-shadow: var(--shadow-panel), var(--glow-gold);
+}
+
 @utility gold-text {
   background-image: var(--gradient-gold);
   -webkit-background-clip: text;
