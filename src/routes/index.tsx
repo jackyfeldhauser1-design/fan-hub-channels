@@ -149,8 +149,8 @@ function Overview() {
         <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
           {[
             { show: (data?.todaySales ?? 0) === 0, title: "Ersten Drop pushen", text: "Noch kein Verkauf heute – veröffentliche einen bestehenden Drop oder aktiviere eine Aktion.", to: "/drops", cta: "Drop öffnen" },
-            { show: (data?.pendingCrypto ?? 0) > 0, title: "Offene Zahlungen prüfen", text: \`${data?.pendingCrypto ?? 0} Krypto-Zahlung(en) warten auf Verarbeitung.\`, to: "/verkaeufe", cta: "Zahlungen prüfen" },
-            { show: (s.failedDeliveries ?? 0) > 0, title: "Zustellungen reparieren", text: \`${s.failedDeliveries} Zustellung(en) benötigen Aufmerksamkeit.\`, to: "/benachrichtigungen", cta: "Fehler öffnen" },
+            { show: (data?.pendingCrypto ?? 0) > 0, title: "Offene Zahlungen prüfen", text: `${data?.pendingCrypto ?? 0} Krypto-Zahlung(en) warten auf Verarbeitung.`, to: "/verkaeufe", cta: "Zahlungen prüfen" },
+            { show: (s.failedDeliveries ?? 0) > 0, title: "Zustellungen reparieren", text: `${s.failedDeliveries} Zustellung(en) benötigen Aufmerksamkeit.`, to: "/benachrichtigungen", cta: "Fehler öffnen" },
             { show: (data?.todaySales ?? 0) > 0 && (data?.todayStars ?? 0) > 0, title: "Wiederverkauf vorbereiten", text: "Nach einem Kauf ist jetzt der beste Zeitpunkt für Bundle, Upsell oder nächsten Drop.", to: "/content", cta: "Angebote öffnen" },
           ].filter((x) => x.show).map((a) => (
             <div key={a.title} className="rounded-xl border border-border p-4">
