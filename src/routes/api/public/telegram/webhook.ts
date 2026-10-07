@@ -20,11 +20,11 @@ function code() {
 type Btn = { text: string; callback_data?: string; url?: string; pay?: boolean };
 
 const mainMenu = (_free: string, _vip: string): Btn[][] => [
-  [{ text: "🎁 Free", callback_data: "join_free" }, { text: "🛍 Shop", callback_data: "shop" }],
-  [{ text: "🔥 Neue Drops", callback_data: "drops" }, { text: "🔓 Meine Inhalte", callback_data: "my_content" }],
-  [{ text: "⭐ VIP", callback_data: "vip" }, { text: "🔓 Pay-per-View", callback_data: "ppv" }],
-  [{ text: "🧾 Meine Käufe", callback_data: "mine" }, { text: "🤝 Empfehlen", callback_data: "ref" }],
-  [{ text: "🚀 Early Access", callback_data: "ea" }, { text: "📣 Werbung buchen", callback_data: "ads" }],
+  [{ text: "🎁 Free", callback_data: "join_free" }, { text: "🔥 Neue Drops", callback_data: "drops" }],
+  [{ text: "🛍 Shop", callback_data: "shop" }, { text: "⭐ VIP", callback_data: "vip" }],
+  [{ text: "🔓 Pay-per-View", callback_data: "ppv" }, { text: "🔓 Meine Inhalte", callback_data: "my_content" }],
+  [{ text: "🧾 Meine Käufe", callback_data: "mine" }, { text: "🎁 Support", callback_data: "tips" }],
+  [{ text: "🤝 Empfehlen", callback_data: "ref" }, { text: "🚀 Early Access", callback_data: "ea" }],
 ];
 
 
@@ -301,6 +301,30 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const user = await ensureUser(cq.from);
           await tg("answerCallbackQuery", { callback_query_id: cq.id });
           const d: string = cq.data ?? "";
+
+          // Growth-Tracking: relevante Bot-Schritte messbar machen, ohne Zahlungsdaten zu verändern.
+          const trackGrowth = async (eventType: string, source: string, meta: Record<string, unknown> = {}) => {
+            try {
+              if (!user?.id) return;
+              await db.from("growth_events").insert({
+                tg_user_id: user.id,
+                event_type: eventType,
+                source,
+                meta,
+              });
+            } catch (error) {
+              console.error("growth tracking", error);
+            }
+          };
+
+          if (d === "join_free") await trackGrowth("teaser_click", "telegram:free");
+          else if (d === "shop") await trackGrowth("offer_view", "telegram:shop");
+          else if (d === "drops") await trackGrowth("offer_view", "telegram:drops");
+          else if (d === "vip") await trackGrowth("offer_view", "telegram:vip");
+          else if (d === "ppv") await trackGrowth("offer_view", "telegram:ppv");
+          else if (d === "tips") await trackGrowth("offer_view", "telegram:tips");
+          else if (d === "ref") await trackGrowth("referral_share", "telegram");
+          else if (d.startsWith("buy_") || d.startsWith("buyc_")) await trackGrowth("checkout_started", "telegram", { callback: d.slice(0, 5) });
 
           if (user?.blocked) {
             await tg("sendMessage", {
@@ -889,9 +913,10 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               return Response.json({ ok: true });
             }
           }
+          await trackGrowth("bot_start", "telegram", { payload: payload ?? "" });
           await sendMenu(
             chatId,
-            `${settings.welcome_message ?? "Willkommen!"}\n\nHallo ${user.first_name ?? ""}! 👋`,
+            `${settings.welcome_message ?? "Willkommen!"}\n\nHallo ${user.first_name ?? ""}! 👋\n\n🎁 Starte kostenlos mit der Free-Gruppe oder schau dir die neuesten Drops an. Wenn dir ein Inhalt gefällt, kannst du direkt im Bot freischalten.`,
           );
         } else if (text.startsWith("/shop")) {
           await ensureUser(msg.from);
