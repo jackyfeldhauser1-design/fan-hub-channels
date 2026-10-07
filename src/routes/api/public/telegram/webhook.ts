@@ -913,7 +913,6 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               return Response.json({ ok: true });
             }
           }
-          await trackGrowth("bot_start", "telegram", { payload: payload ?? "" });
           await sendMenu(
             chatId,
             `${settings.welcome_message ?? "Willkommen!"}\n\nHallo ${user.first_name ?? ""}! 👋\n\n🎁 Starte kostenlos mit der Free-Gruppe oder schau dir die neuesten Drops an. Wenn dir ein Inhalt gefällt, kannst du direkt im Bot freischalten.`,
