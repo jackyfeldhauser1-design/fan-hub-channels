@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useAdmin } from "@/lib/useAdmin";
 import { useQuery } from "@tanstack/react-query";
 import { useServerFn } from "@tanstack/react-start";
-import { Star, Gem, Users, Handshake, CheckCircle2, Circle, AlertTriangle } from "lucide-react";
+import { Star, Gem, Users, CheckCircle2, Circle, AlertTriangle, Zap, PackagePlus, Megaphone, RotateCcw, Gift, BarChart3, BellRing, Bot, ShoppingBag } from "lucide-react";
 import { DashLayout } from "@/components/DashLayout";
 import { getOverview } from "@/lib/admin.functions";
 import { resolvePublicBaseUrl } from "@/lib/base-url";
@@ -121,6 +121,48 @@ function Overview() {
         </div>
       </section>
 
+
+      <section className="mt-4 panel p-4 sm:p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Mobile Control</p><h2 className="mt-1 text-lg font-semibold">Schnellaktionen</h2></div>
+          <Zap className="size-5 text-primary" />
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4 lg:grid-cols-8">
+          {[
+            ["/content", "🎁 Neuer Drop", PackagePlus], ["/drops", "🔥 Aktion", Megaphone],
+            ["/kampagnen", "📣 Kampagne", Bot], ["/umsatz", "💰 Umsatz", BarChart3],
+            ["/benachrichtigungen", "🔔 Alarme", BellRing], ["/content", "📦 Bundle", ShoppingBag],
+            ["/kampagnen", "♻️ Recovery", RotateCcw], ["/umsatz", "🎁 Referral", Gift],
+          ].map(([to, label, Icon]: any) => (
+            <Link key={label} to={to} className="flex min-h-12 items-center justify-center gap-2 rounded-xl border border-border bg-background/40 px-3 py-2 text-center text-xs font-semibold transition hover:bg-muted sm:text-sm">
+              <Icon className="hidden size-4 sm:block" /> {label}
+            </Link>
+          ))}
+        </div>
+      </section>
+
+      <section className="mt-4 panel p-4 sm:p-5">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div><p className="text-xs font-semibold uppercase tracking-[0.16em] text-primary">Heute tun</p><h2 className="mt-1 text-lg font-semibold">Die nächsten umsatzrelevanten Schritte</h2></div>
+          <Link to="/umsatz" className="text-xs font-medium text-primary hover:underline">Alle Kennzahlen →</Link>
+        </div>
+        <div className="mt-4 grid gap-3 md:grid-cols-2 lg:grid-cols-4">
+          {[
+            { show: (data?.todaySales ?? 0) === 0, title: "Ersten Drop pushen", text: "Noch kein Verkauf heute – veröffentliche einen bestehenden Drop oder aktiviere eine Aktion.", to: "/drops", cta: "Drop öffnen" },
+            { show: (data?.pendingCrypto ?? 0) > 0, title: "Offene Zahlungen prüfen", text: \`${data?.pendingCrypto ?? 0} Krypto-Zahlung(en) warten auf Verarbeitung.\`, to: "/verkaeufe", cta: "Zahlungen prüfen" },
+            { show: (s.failedDeliveries ?? 0) > 0, title: "Zustellungen reparieren", text: \`${s.failedDeliveries} Zustellung(en) benötigen Aufmerksamkeit.\`, to: "/benachrichtigungen", cta: "Fehler öffnen" },
+            { show: (data?.todaySales ?? 0) > 0 && (data?.todayStars ?? 0) > 0, title: "Wiederverkauf vorbereiten", text: "Nach einem Kauf ist jetzt der beste Zeitpunkt für Bundle, Upsell oder nächsten Drop.", to: "/content", cta: "Angebote öffnen" },
+          ].filter((x) => x.show).map((a) => (
+            <div key={a.title} className="rounded-xl border border-border p-4">
+              <p className="font-semibold">{a.title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{a.text}</p>
+              <Link to={a.to} className="mt-3 inline-flex text-xs font-semibold text-primary hover:underline">{a.cta} →</Link>
+            </div>
+          ))}
+          {(data?.todaySales ?? 0) === 0 && (data?.pendingCrypto ?? 0) === 0 && (s.failedDeliveries ?? 0) === 0 ? (
+            <div className="rounded-xl border border-primary/20 bg-primary/5 p-4 md:col-span-2 lg:col-span-4"><p className="font-semibold">System ist bereit.</p><p className="mt-1 text-xs text-muted-foreground">Nutze Drop, Kampagnen, Recovery, Bundles und Referral direkt über die Schnellaktionen.</p></div>
+          ) : null}
+        </div>
+      </section>
       <div className="mt-4 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Stat
           icon={Star}
@@ -134,6 +176,28 @@ function Overview() {
       </div>
 
 
+
+
+      <section className="mt-6 panel p-5">
+        <div className="flex items-center justify-between gap-3">
+          <div><h2 className="text-lg font-semibold">Umsatz-Maschine</h2><p className="text-xs text-muted-foreground">Alle vorhandenen Wachstumsbausteine an einem Ort.</p></div>
+          <Link to="/umsatz" className="text-xs font-medium text-primary hover:underline">Cockpit →</Link>
+        </div>
+        <div className="mt-4 grid gap-2 sm:grid-cols-2 lg:grid-cols-3">
+          {[
+            ["🎁", "Drop-Assistent", "Content auswählen → Preis/Aktion → Shop & Community veröffentlichen", "/drops"],
+            ["📸", "Teaser & Promo", "Preview-Medien und Promo aus dem Content Studio nutzen", "/content"],
+            ["♻️", "Smart Follow-up", "Recovery, Reaktivierung sowie Ablauf- und Willkommenssequenzen", "/kampagnen"],
+            ["📦", "Bundles & Upsells", "Bestehende Sets bündeln und nächste Angebote vorbereiten", "/content"],
+            ["🤝", "Referral & Loyalty", "Empfehlungen und Kundenbindung auswerten", "/umsatz"],
+            ["📊", "Performance", "Funnel, A/B-Teaser, High-Intent und Churn überwachen", "/umsatz"],
+          ].map(([emoji, title, text, to]) => (
+            <Link key={title} to={to} className="rounded-xl border border-border p-4 transition hover:bg-muted/40">
+              <div className="text-lg">{emoji}</div><p className="mt-2 text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{text}</p>
+            </Link>
+          ))}
+        </div>
+      </section>
 
       <div className="panel mt-6 p-6">
         <div className="flex items-center justify-between">
