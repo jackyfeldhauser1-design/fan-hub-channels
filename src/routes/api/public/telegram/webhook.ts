@@ -24,7 +24,8 @@ const mainMenu = (_free: string, _vip: string): Btn[][] => [
   [{ text: "🛍 Shop", callback_data: "shop" }, { text: "⭐ VIP", callback_data: "vip" }],
   [{ text: "🔓 Pay-per-View", callback_data: "ppv" }, { text: "🔓 Meine Inhalte", callback_data: "my_content" }],
   [{ text: "🧾 Meine Käufe", callback_data: "mine" }, { text: "🎁 Support", callback_data: "tips" }],
-  [{ text: "🤝 Empfehlen", callback_data: "ref" }, { text: "🚀 Early Access", callback_data: "ea" }],
+  [{ text: "💬 Frage an Felize", callback_data: "question" }, { text: "🤝 Empfehlen", callback_data: "ref" }],
+  [{ text: "🚀 Early Access", callback_data: "ea" }],
 ];
 
 
@@ -133,6 +134,75 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         const settings =
           (await db.from("bot_settings").select("*").eq("id", true).maybeSingle()).data ?? {};
 
+        async function getOnboardingState(userId: string) {
+          const { data } = await db
+            .from("action_log")
+            .select("meta,created_at")
+            .eq("tg_user_id", userId)
+            .eq("action", "telegram_onboarding")
+            .order("created_at", { ascending: false })
+            .limit(1)
+            .maybeSingle();
+          try {
+            const raw = JSON.parse(String(data?.meta ?? "{}"));
+            return {
+              ageVerified: Boolean(raw.ageVerified),
+              consent: Boolean(raw.consent),
+              optedOut: Boolean(raw.optedOut),
+              questionPending: Boolean(raw.questionPending),
+            };
+          } catch {
+            return { ageVerified: false, consent: false, optedOut: false, questionPending: false };
+          }
+        }
+
+        async function setOnboardingState(userId: string, patch: Record<string, boolean>) {
+          const current = await getOnboardingState(userId);
+          const next = { ...current, ...patch };
+          await db.from("action_log").insert({
+            tg_user_id: userId,
+            action: "telegram_onboarding",
+            meta: JSON.stringify(next),
+          });
+          return next;
+        }
+
+        async function sendAgeGate(chatId: number) {
+          await tg("sendMessage", {
+            chat_id: chatId,
+            text: "Hey, schön, dass du da bist. 🖤 Ich bin der automatische Assistent von Felize. Dieser Bereich ist ausschließlich für Erwachsene ab 18.",
+            reply_markup: { inline_keyboard: [[
+              { text: "Ja, ich bin 18+", callback_data: "age_yes" },
+              { text: "Nein", callback_data: "age_no" },
+            ]] },
+          });
+        }
+
+        async function sendConsentGate(chatId: number) {
+          const privacy = String(settings.app_base_url || "").replace(/\/$/, "");
+          await tg("sendMessage", {
+            chat_id: chatId,
+            text: "Kurz zum Ablauf: Ich kann dir automatisierte Nachrichten zu Free, Drops und Angeboten schicken. Du kannst dich jederzeit mit /stopp abmelden und mit /loeschen deine Telegram-Funnel-Daten löschen." +
+              (privacy ? " Anlaufstelle für Datenschutz: " + privacy + "/datenschutz" : "") +
+              "\n\nIst das für dich in Ordnung?",
+            reply_markup: { inline_keyboard: [[
+              { text: "Einverstanden", callback_data: "consent_yes" },
+              { text: "Nein danke", callback_data: "consent_no" },
+            ]] },
+          });
+        }
+
+        async function ensureOnboarding(user: any, chatId: number) {
+          const state = await getOnboardingState(user.id);
+          if (!state.ageVerified) { await sendAgeGate(chatId); return false; }
+          if (!state.consent) { await sendConsentGate(chatId); return false; }
+          if (state.optedOut) {
+            await tg("sendMessage", { chat_id: chatId, text: "Du bist aktuell abgemeldet. Wenn du wieder starten möchtest, nutze /start." });
+            return false;
+          }
+          return true;
+        }
+
         async function ensureUser(from: any, startPayload?: string) {
           const existing = (
             await db.from("tg_users").select("*").eq("telegram_id", from.id).maybeSingle()
@@ -168,12 +238,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
               .select("*")
               .single()
           ).data;
-          // Willkommens-Sequenz für neue Fans starten
-          if (inserted && settings.sequence_enabled !== false) {
-            await db
-              .from("fan_sequences")
-              .insert({ tg_user_id: inserted.id, kind: "welcome", step: 0, next_at: new Date().toISOString() });
-          }
+          // Die Willkommens-Sequenz startet erst nach bestätigter 18+/Einwilligung.
           return inserted;
 
         }
@@ -301,6 +366,40 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           const user = await ensureUser(cq.from);
           await tg("answerCallbackQuery", { callback_query_id: cq.id });
           const d: string = cq.data ?? "";
+          if (!chatId || !user) return Response.json({ ok: true });
+
+          if (d === "age_yes") {
+            await setOnboardingState(user.id, { ageVerified: true, optedOut: false });
+            await sendConsentGate(chatId);
+            return Response.json({ ok: true });
+          }
+          if (d === "age_no") {
+            await setOnboardingState(user.id, { ageVerified: false, consent: false, optedOut: true, questionPending: false });
+            await tg("sendMessage", { chat_id: chatId, text: "Dann ist dieser Bereich leider nichts für dich. Pass auf dich auf." });
+            return Response.json({ ok: true });
+          }
+          if (d === "consent_yes") {
+            await setOnboardingState(user.id, { ageVerified: true, consent: true, optedOut: false, questionPending: false });
+            if (settings.sequence_enabled !== false) {
+              const { data: existingSequence } = await db
+                .from("fan_sequences")
+                .select("id")
+                .eq("tg_user_id", user.id)
+                .eq("kind", "welcome")
+                .maybeSingle();
+              if (!existingSequence) await db.from("fan_sequences").insert({
+                tg_user_id: user.id, kind: "welcome", step: 0, next_at: new Date().toISOString()
+              });
+            }
+            await sendMenu(chatId, "Danke dir! 🖤 Was führt dich her?");
+            return Response.json({ ok: true });
+          }
+          if (d === "consent_no") {
+            await setOnboardingState(user.id, { consent: false, optedOut: true, questionPending: false });
+            await tg("sendMessage", { chat_id: chatId, text: "Alles klar, kein Problem. Wenn du es dir anders überlegst, starte mit /start." });
+            return Response.json({ ok: true });
+          }
+          if (!(await ensureOnboarding(user, chatId))) return Response.json({ ok: true });
 
           // Growth-Tracking: relevante Bot-Schritte messbar machen, ohne Zahlungsdaten zu verändern.
           const trackGrowth = async (eventType: string, source: string, meta: Record<string, unknown> = {}) => {
@@ -348,7 +447,13 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             }
           }
 
-          if (d === "join_free") {
+          if (d === "question") {
+            await setOnboardingState(user.id, { questionPending: true });
+            await tg("sendMessage", {
+              chat_id: chatId,
+              text: "💬 Schreib deine Frage in einer Nachricht. Ich leite sie direkt an Felize weiter.",
+            });
+          } else if (d === "join_free") {
             const { personalInvite } = await import("@/lib/vip.server");
             const label = cq.from.username ? `@${cq.from.username}` : (cq.from.first_name ?? "Fan");
             const invite = await personalInvite(settings, "community", `Fan ${label}`);
@@ -823,12 +928,30 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
         // ---- commands ----
         const text: string = msg.text ?? "";
-        if (text.startsWith("/menu")) {
+        if (text.startsWith("/stopp")) {
           const user = await ensureUser(msg.from);
-          await sendMenu(chatId, "Wähle schnell, was du öffnen möchtest:");
+          await setOnboardingState(user.id, { optedOut: true, questionPending: false });
+          await tg("sendMessage", { chat_id: chatId, text: "Alles klar, ich melde mich nicht mehr. Wenn du wieder starten möchtest, nutze /start." });
+        } else if (text.startsWith("/loeschen")) {
+          const user = await ensureUser(msg.from);
+          await db.from("tg_users").delete().eq("id", user.id);
+          await tg("sendMessage", { chat_id: chatId, text: "Erledigt: Deine Funnel-Daten wurden gelöscht. Pass auf dich auf. 🖤" });
+        } else if (text.startsWith("/menu")) {
+          const user = await ensureUser(msg.from);
+          if (await ensureOnboarding(user, chatId)) await sendMenu(chatId, "Wähle schnell, was du öffnen möchtest:");
         } else if (text.startsWith("/start")) {
           const payload = text.split(" ")[1];
           const user = await ensureUser(msg.from, payload);
+          const state = await getOnboardingState(user.id);
+          if (state.optedOut && !payload) {
+            await setOnboardingState(user.id, { optedOut: false, ageVerified: false, consent: false, questionPending: false });
+            await sendAgeGate(chatId);
+            return Response.json({ ok: true });
+          }
+          if (!state.ageVerified || !state.consent) {
+            await ensureOnboarding(user, chatId);
+            return Response.json({ ok: true });
+          }
           // Content-Angebot aus Shop-/Community-Post: /start c_<content-set-id>
           if (payload?.startsWith("c_")) {
             const { offerContentSet } = await import("@/lib/content.server");
@@ -1004,8 +1127,27 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
 
           await tg("sendMessage", { chat_id: chatId, text: `Chat-ID: <code>${chatId}</code>`, parse_mode: "HTML" });
         } else if (text) {
-          await ensureUser(msg.from);
-          await sendMenu(chatId, "Wähle aus, was du sehen möchtest:");
+          const user = await ensureUser(msg.from);
+          if (await ensureOnboarding(user, chatId)) {
+            const state = await getOnboardingState(user.id);
+            if (state.questionPending) {
+              const control = String(settings.control_chat_id ?? "").trim();
+              if (control) {
+                const label = user.username ? "@" + user.username : (user.first_name ?? "Fan");
+                await tg("sendMessage", {
+                  chat_id: Number(control),
+                  text: "💬 <b>Frage an Felize</b>\nFan: " + label + "\nTelegram-ID: <code>" + user.telegram_id + "</code>\n\n" + text.slice(0, 3500) + "\n\nAntwort: /antwort " + user.telegram_id + " Dein Text",
+                  parse_mode: "HTML",
+                });
+                await setOnboardingState(user.id, { questionPending: false });
+                await tg("sendMessage", { chat_id: chatId, text: "Danke 🖤 Deine Nachricht wurde an Felize weitergeleitet." });
+              } else {
+                await tg("sendMessage", { chat_id: chatId, text: "Der persönliche Support ist gerade nicht konfiguriert. Bitte versuche es später erneut." });
+              }
+            } else {
+              await sendMenu(chatId, "Wähle aus, was du sehen möchtest:");
+            }
+          }
         }
 
         return Response.json({ ok: true });
