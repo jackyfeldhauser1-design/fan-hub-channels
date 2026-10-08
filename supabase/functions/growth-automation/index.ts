@@ -17,7 +17,7 @@ Deno.serve(async(req)=>{try{
   async function tg(method:string,body:Record<string,unknown>){const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const x=await r.json();if(!r.ok||!x?.ok)throw new Error(x?.description||method);return x.result;}
   async function sent(userId:string|null,key:string,subject="",stage=""){let q=db.from("automation_deliveries").select("id").eq("automation_key",key).eq("subject_key",subject).eq("stage",stage).limit(1);q=userId?q.eq("tg_user_id",userId):q.is("tg_user_id",null);return Boolean((await q.maybeSingle()).data);}
   async function mark(userId:string|null,key:string,subject="",stage="",payload:any={}){await db.from("automation_deliveries").insert({tg_user_id:userId,automation_key:key,subject_key:subject,stage,payload});}
-  async function canPromo(userId:string){const cap=Math.max(1,Number(settings?.promo_frequency_cap_7d||3));const minHours=Math.max(6,Number(settings?.promo_min_hours_between||12));const keys=["vip_upgrade","winback","new_drop","cross_sell"];const since7=new Date(Date.now()-7*86400000).toISOString();const {count}=await db.from("automation_deliveries").select("id",{count:"exact",head:true}).eq("tg_user_id",userId).in("automation_key",keys).gte("delivered_at",since7);if(Number(count||0)>=cap)return false;const {data:last}=await db.from("automation_deliveries").select("delivered_at").eq("tg_user_id",userId).in("automation_key",keys).order("delivered_at",{ascending:false}).limit(1).maybeSingle();if(last?.delivered_at&&Date.now()-new Date(last.delivered_at).getTime()<minHours*3600000)return false;return true;}
+  async function canPromo(userId:string){if(!contactable(userId)||!promoWindowOpen())return false;const cap=Math.max(1,Number(settings?.promo_frequency_cap_7d||3));const minHours=Math.max(6,Number(settings?.promo_min_hours_between||12));const keys=["vip_upgrade","winback","new_drop","cross_sell"];const since7=new Date(Date.now()-7*86400000).toISOString();const {count}=await db.from("automation_deliveries").select("id",{count:"exact",head:true}).eq("tg_user_id",userId).in("automation_key",keys).gte("delivered_at",since7);if(Number(count||0)>=cap)return false;const {data:last}=await db.from("automation_deliveries").select("delivered_at").eq("tg_user_id",userId).in("automation_key",keys).order("delivered_at",{ascending:false}).limit(1).maybeSingle();if(last?.delivered_at&&Date.now()-new Date(last.delivered_at).getTime()<minHours*3600000)return false;return true;}
   async function event(userId:string|null,type:string,opts:any={}){await db.from("growth_events").insert({tg_user_id:userId,event_type:type,product_id:opts.productId||null,content_set_id:opts.setId||null,source:String(opts.source||"automation"),meta:opts.meta||{}});}
   async function ownedSetIds(userId:string){const {data}=await db.from("content_access").select("content_set_id").eq("tg_user_id",userId).eq("status","active");return new Set((data||[]).map((x:any)=>x.content_set_id));}
   const {data:sets}=await db.from("content_sets").select("id,title,product_id,created_at,products(id,title,price_stars,price_ton,active,kind,delivery_payload)").eq("status","active").order("created_at",{ascending:false});
@@ -28,12 +28,33 @@ Deno.serve(async(req)=>{try{
   const {data:scores}=await db.from("customer_growth_scores").select("*").limit(2000);
   const {data:users}=await db.from("tg_users").select("id,telegram_id,first_name,referral_code").limit(2000);
   const userMap=new Map((users||[]).map((u:any)=>[u.id,u]));
+  // Nur Fans mit bestätigter 18+/Einwilligung dürfen proaktiv kontaktiert werden.
+  // Der Webhook speichert den jeweils aktuellen Zustand als letzte action_log-Zeile.
+  const {data:onboardingLogs}=await db.from("action_log")
+    .select("tg_user_id,meta,created_at")
+    .eq("action","telegram_onboarding")
+    .order("created_at",{ascending:false})
+    .limit(10000);
+  const onboardingMap=new Map<string,any>();
+  for(const row of onboardingLogs||[]){
+    if(onboardingMap.has(row.tg_user_id))continue;
+    try{onboardingMap.set(row.tg_user_id,JSON.parse(String(row.meta||"{}")));}catch{onboardingMap.set(row.tg_user_id,{});}
+  }
+  function contactable(userId:string){
+    const state=onboardingMap.get(userId);
+    return Boolean(state?.ageVerified&&state?.consent&&!state?.optedOut);
+  }
+  function promoWindowOpen(){
+    const hour=new Date().toLocaleString("en-US",{timeZone:"Europe/Berlin",hour:"2-digit",hour12:false});
+    const h=Number(hour);
+    return h>=8&&h<22;
+  }
   const stats:any={vipUpgrade:0,winback:0,newDrop:0,crossSell:0,referralTier:0,vipRetention:0,reports:0,alerts:0};
 
   const now=Date.now(),monthKey=new Date().toISOString().slice(0,7);
   const winDays=String(settings?.winback_days||"14,30,60").split(",").map((x:string)=>Number(x.trim())).filter((x:number)=>x>0).sort((a:number,b:number)=>a-b);
   for(const s of scores||[]){
-    const u:any=userMap.get(s.tg_user_id);if(!u?.telegram_id)continue;
+    const u:any=userMap.get(s.tg_user_id);if(!u?.telegram_id||!contactable(s.tg_user_id))continue;
     const chat=Number(u.telegram_id);
     const rec=await recommend(s.tg_user_id);
     const saturation=Number(s.saturation_percent||0);
@@ -92,13 +113,13 @@ Deno.serve(async(req)=>{try{
   }
 
   const {data:subs}=await db.from("subscriptions").select("id,tg_user_id,expires_at,last_reminder_at").eq("plan","vip").eq("status","active").not("expires_at","is",null).gte("expires_at",new Date().toISOString()).lte("expires_at",new Date(now+Math.max(1,Number(settings?.vip_reminder_days||3))*86400000).toISOString()).limit(100);
-  for(const sub of subs||[]){const u:any=userMap.get(sub.tg_user_id);if(!u?.telegram_id)continue;if(sub.last_reminder_at&&now-new Date(sub.last_reminder_at).getTime()<24*3600000)continue;await tg("sendMessage",{chat_id:Number(u.telegram_id),text:"👑 Dein Paid-Zugang läuft bald aus. Du kannst ihn direkt verlängern.",reply_markup:{inline_keyboard:[[{text:"👑 Verlängern",callback_data:"vip_info"}]]}});await db.from("subscriptions").update({last_reminder_at:new Date().toISOString()}).eq("id",sub.id);await event(sub.tg_user_id,"vip_retention_sent");stats.vipRetention++;}
+  for(const sub of subs||[]){const u:any=userMap.get(sub.tg_user_id);if(!u?.telegram_id||!contactable(sub.tg_user_id)||!promoWindowOpen())continue;if(sub.last_reminder_at&&now-new Date(sub.last_reminder_at).getTime()<24*3600000)continue;await tg("sendMessage",{chat_id:Number(u.telegram_id),text:"👑 Dein Paid-Zugang läuft bald aus. Du kannst ihn direkt verlängern.",reply_markup:{inline_keyboard:[[{text:"👑 Verlängern",callback_data:"vip_info"}]]}});await db.from("subscriptions").update({last_reminder_at:new Date().toISOString()}).eq("id",sub.id);await event(sub.tg_user_id,"vip_retention_sent");stats.vipRetention++;}
 
   const threshold=Math.max(2,Number(settings?.referral_tier_threshold||3));
   const tiers=[threshold,threshold*2];
   const {data:refs}=await db.from("referral_rewards").select("referrer_id,status").in("status",["granted","delivered"]);
   const counts=new Map<string,number>();for(const r of refs||[])counts.set(r.referrer_id,(counts.get(r.referrer_id)||0)+1);
-  for(const [uid,count] of counts){const u:any=userMap.get(uid);if(!u?.telegram_id)continue;for(const tier of tiers){if(count>=tier&&!await sent(uid,"referral_tier","",String(tier))){const b=await bonusSet(uid);if(!b)continue;await grantBonus(uid,b,`referral_tier_${tier}`);await tg("sendMessage",{chat_id:Number(u.telegram_id),text:`🏆 <b>Referral-Level erreicht: ${tier}</b>\n\nAls Treuebonus wurde „${esc(b.title)}“ kostenlos freigeschaltet.`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"🔓 Meine Inhalte",callback_data:"my_content"}]]}});await mark(uid,"referral_tier","",String(tier),{set_id:b.id});await event(uid,"referral_tier_reward",{setId:b.id,meta:{tier}});stats.referralTier++;}}}
+  for(const [uid,count] of counts){const u:any=userMap.get(uid);if(!u?.telegram_id||!contactable(uid)||!promoWindowOpen())continue;for(const tier of tiers){if(count>=tier&&!await sent(uid,"referral_tier","",String(tier))){const b=await bonusSet(uid);if(!b)continue;await grantBonus(uid,b,`referral_tier_${tier}`);await tg("sendMessage",{chat_id:Number(u.telegram_id),text:`🏆 <b>Referral-Level erreicht: ${tier}</b>\n\nAls Treuebonus wurde „${esc(b.title)}“ kostenlos freigeschaltet.`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"🔓 Meine Inhalte",callback_data:"my_content"}]]}});await mark(uid,"referral_tier","",String(tier),{set_id:b.id});await event(uid,"referral_tier_reward",{setId:b.id,meta:{tier}});stats.referralTier++;}}}
 
   const control=String(settings?.control_chat_id||"").trim();
   const lp=localParts();
