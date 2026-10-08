@@ -1,6 +1,7 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { timingSafeEqual } from "crypto";
 import { tgSafe } from "@/lib/telegram.server";
+import { parseTelegramStartPayload } from "@/lib/telegram-funnel.server";
 
 function safeEqual(a: string, b: string) {
   const left = Buffer.from(a);
@@ -851,6 +852,17 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           }
 
           await logOrderEvent(db, purchase.id, user.id, "paid", `stars:${sp.total_amount}`);
+          try {
+            await db.from("growth_events").insert({
+              tg_user_id: user.id,
+              event_type: "purchase_paid",
+              product_id: product?.id ?? null,
+              source: "telegram:stars",
+              meta: { purchase_id: purchase?.id ?? null, amount_stars: sp.total_amount, payload },
+            });
+          } catch (error) {
+            console.error("telegram purchase growth event", error);
+          }
           await flagRepeatPayment(db, user, product?.id ?? null);
           await billing.closeInvoiceIntents(db, user.id, payload);
 
@@ -941,7 +953,18 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           if (await ensureOnboarding(user, chatId)) await sendMenu(chatId, "Wähle schnell, was du öffnen möchtest:");
         } else if (text.startsWith("/start")) {
           const payload = text.split(" ")[1];
+          const attribution = parseTelegramStartPayload(payload);
           const user = await ensureUser(msg.from, payload);
+          try {
+            await db.from("growth_events").insert({
+              tg_user_id: user.id,
+              event_type: "bot_start",
+              source: attribution.source,
+              meta: { payload: attribution.payload, campaign: attribution.campaign, variant: attribution.variant },
+            });
+          } catch (error) {
+            console.error("telegram start attribution", error);
+          }
           const state = await getOnboardingState(user.id);
           if (state.optedOut && !payload) {
             await setOnboardingState(user.id, { optedOut: false, ageVerified: false, consent: false, questionPending: false });
@@ -954,6 +977,17 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           }
           // Content-Angebot aus Shop-/Community-Post: /start c_<content-set-id>
           if (payload?.startsWith("c_")) {
+            try {
+              await db.from("growth_events").insert({
+                tg_user_id: user.id,
+                event_type: "teaser_click",
+                content_set_id: payload.slice(2),
+                source: attribution.source,
+                meta: { payload: attribution.payload, campaign: attribution.campaign, variant: attribution.variant },
+              });
+            } catch (error) {
+              console.error("telegram content attribution", error);
+            }
             const { offerContentSet } = await import("@/lib/content.server");
             await offerContentSet(db, tg, chatId, user, payload.slice(2));
             return Response.json({ ok: true });
@@ -962,6 +996,17 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           if (payload?.startsWith("p_")) {
             const { data: p } = await db.from("products").select("*").eq("id", payload.slice(2)).maybeSingle();
             if (p?.active) {
+              try {
+                await db.from("growth_events").insert({
+                  tg_user_id: user.id,
+                  event_type: "checkout_started",
+                  product_id: p.id,
+                  source: attribution.source,
+                  meta: { payload: attribution.payload, campaign: attribution.campaign, variant: attribution.variant, entry: "start_link" },
+                });
+              } catch (error) {
+                console.error("telegram product attribution", error);
+              }
               await tg("sendInvoice", {
                 chat_id: chatId,
                 title: String(p.title).slice(0, 32),
