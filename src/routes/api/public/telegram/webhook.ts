@@ -27,6 +27,7 @@ const mainMenu = (_free: string, _vip: string): Btn[][] => [
   [{ text: "🧾 Meine Käufe", callback_data: "mine" }, { text: "🎁 Support", callback_data: "tips" }],
   [{ text: "💬 Frage an Felize", callback_data: "question" }, { text: "🤝 Empfehlen", callback_data: "ref" }],
   [{ text: "🚀 Early Access", callback_data: "ea" }],
+  [{ text: "✨ Für dich", callback_data: "for_you" }],
 ];
 
 
@@ -303,6 +304,33 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           await deliverProduct(db, tg, chatId, product, purchase, settings);
         }
 
+        async function sendPersonalRecommendation(chatId: number, user: any) {
+          const [{ data: purchases }, { data: vip }] = await Promise.all([
+            db.from("purchases").select("product_id").eq("tg_user_id", user.id).eq("status", "paid").limit(100),
+            db.from("subscriptions").select("id").eq("tg_user_id", user.id).eq("plan", "vip").eq("status", "active").or("expires_at.is.null,expires_at.gt." + new Date().toISOString()).limit(1),
+          ]);
+          if (vip?.length) {
+            await trackPersonalRecommendation("vip_active");
+            await tg("sendMessage", { chat_id: chatId, text: "✨ <b>Für dich</b>\n\nDu hast bereits VIP. Schau stattdessen bei <b>🔥 Neue Drops</b> vorbei.", parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "🔥 Neue Drops", callback_data: "drops" }]] } });
+            return;
+          }
+          const bought = new Set((purchases ?? []).map((p: any) => p.product_id).filter(Boolean));
+          if (bought.size >= 2) {
+            await trackPersonalRecommendation("vip_upgrade");
+            await tg("sendMessage", { chat_id: chatId, text: "✨ <b>Für dich</b>\n\nDu hast bereits mehrere Inhalte freigeschaltet. Für dich ist jetzt <b>VIP</b> der sinnvollste nächste Schritt.", parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "⭐ VIP ansehen", callback_data: "vip" }, { text: "🔥 Neue Drops", callback_data: "drops" }]] } });
+            return;
+          }
+          const { data: products } = await db.from("products").select("id,title,price_stars,active,sort_order").eq("active", true).in("kind", ["single", "bundle", "ppv"]).order("sort_order", { ascending: true }).limit(30);
+          const candidate = (products ?? []).find((p: any) => !bought.has(p.id));
+          if (!candidate) {
+            await trackPersonalRecommendation("catalog_exhausted");
+            await tg("sendMessage", { chat_id: chatId, text: "✨ <b>Für dich</b>\n\nDu hast bereits alle aktuell empfohlenen Angebote. Schau bei den neuen Drops vorbei.", parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "🔥 Neue Drops", callback_data: "drops" }]] } });
+            return;
+          }
+          await trackPersonalRecommendation("product_recommendation", { product_id: candidate.id });
+          await tg("sendMessage", { chat_id: chatId, text: "✨ <b>Für dich</b>\n\nIch würde dir als nächsten Schritt <b>" + escapeHtml(String(candidate.title)) + "</b> empfehlen.\n\nPreis: <b>⭐ " + candidate.price_stars + "</b>", parse_mode: "HTML", reply_markup: { inline_keyboard: [[{ text: "🔓 Angebot ansehen", callback_data: "buy_" + candidate.id }], [{ text: "🛍 Alle Angebote", callback_data: "shop" }]] } });
+        }
+
         async function sendMyContent(chatId: number, userId: string) {
           const { listFanContent } = await import("@/lib/content.server");
           const rows = await listFanContent(db, userId);
@@ -415,6 +443,9 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
             } catch (error) {
               console.error("growth tracking", error);
             }
+          };
+          const trackPersonalRecommendation = async (kind: string, meta: Record<string, unknown> = {}) => {
+            await trackGrowth("personal_recommendation", "telegram", { kind, ...meta });
           };
 
           if (d === "join_free") await trackGrowth("teaser_click", "telegram:free");
@@ -555,6 +586,8 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
                 : "Du hast noch nichts gekauft.",
               parse_mode: "HTML",
             });
+          } else if (d === "for_you") {
+            await sendPersonalRecommendation(chatId, user);
           } else if (d === "ea") {
 
             const price = Math.max(1, Number(settings.early_access_price_stars ?? 250));
