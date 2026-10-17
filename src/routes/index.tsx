@@ -192,7 +192,7 @@ function Overview() {
             ["🤝", "Referral & Loyalty", "Empfehlungen und Kundenbindung auswerten", "/umsatz"],
             ["📊", "Performance", "Funnel, A/B-Teaser, High-Intent und Churn überwachen", "/umsatz"],
           ].map(([emoji, title, text, to]) => (
-            <Link key={title} to={to} className="rounded-xl border border-border p-4 transition hover:bg-muted/40">
+            <Link key={title} to={to as never} className="rounded-xl border border-border p-4 transition hover:bg-muted/40">
               <div className="text-lg">{emoji}</div><p className="mt-2 text-sm font-semibold">{title}</p><p className="mt-1 text-xs leading-5 text-muted-foreground">{text}</p>
             </Link>
           ))}

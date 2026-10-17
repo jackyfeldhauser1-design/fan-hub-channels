@@ -305,6 +305,24 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
         }
 
         async function sendPersonalRecommendation(chatId: number, user: any) {
+          async function trackPersonalRecommendation(kind: string, details: Record<string, unknown> = {}) {
+            await db.from("action_log").insert({
+              tg_user_id: user.id,
+              action: "personal_recommendation",
+              meta: JSON.stringify({ kind, ...details }),
+            });
+          }
+
+          function escapeHtml(value: string) {
+            return value.replace(/[&<>"']/g, (char) => ({
+              "&": "&amp;",
+              "<": "&lt;",
+              ">": "&gt;",
+              '"': "&quot;",
+              "'": "&#39;",
+            })[char] ?? char);
+          }
+
           const [{ data: purchases }, { data: vip }] = await Promise.all([
             db.from("purchases").select("product_id").eq("tg_user_id", user.id).eq("status", "paid").limit(100),
             db.from("subscriptions").select("id").eq("tg_user_id", user.id).eq("plan", "vip").eq("status", "active").or("expires_at.is.null,expires_at.gt." + new Date().toISOString()).limit(1),
