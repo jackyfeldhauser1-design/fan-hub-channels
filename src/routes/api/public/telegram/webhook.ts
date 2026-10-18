@@ -51,6 +51,11 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           return new Response("bad request", { status: 400 });
         }
 
+        // Health checks use a signed, explicit probe marker and must not touch Telegram update state.
+        if (update && typeof update === "object" && update._health_probe === true) {
+          return Response.json({ ok: true, probe: true });
+        }
+
         const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
         const {
           guardAction,
