@@ -79,7 +79,7 @@ Deno.serve(async(req)=>{try{
     const bytes=new TextEncoder().encode(`telegram-webhook:${token}`);
     const digest=await crypto.subtle.digest("SHA-256",bytes);
     const secret=btoa(String.fromCharCode(...new Uint8Array(digest))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/g,"");
-    const r=await fetch(expected,{method:"POST",headers:{"Content-Type":"application/json","x-telegram-bot-api-secret-token":secret},body:"{}"});
+    const r=await fetch(expected,{method:"POST",headers:{"Content-Type":"application/json","x-telegram-bot-api-secret-token":secret},body:JSON.stringify({_health_probe:true})});
     const payload=await r.json().catch(()=>null);
     webhookProbe={status:r.status,ok:r.ok&&payload?.ok===true};
   }
