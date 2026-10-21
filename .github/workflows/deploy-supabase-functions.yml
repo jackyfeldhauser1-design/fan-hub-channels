@@ -30,5 +30,11 @@ jobs:
       - uses: supabase/setup-cli@v1
         with:
           version: latest
+      - name: Validate Supabase deployment credential
+        run: |
+          if ! supabase projects list >/dev/null 2>&1; then
+            echo "::error::SUPABASE_ACCESS_TOKEN is invalid or expired. Replace the GitHub Actions secret with a fresh Supabase Personal Access Token; no Edge Function was deployed."
+            exit 1
+          fi
       - name: Deploy growth automation
         run: supabase functions deploy growth-automation --project-ref "$PROJECT_ID" --use-api
