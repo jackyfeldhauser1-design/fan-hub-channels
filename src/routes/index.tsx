@@ -21,6 +21,7 @@ export const Route = createFileRoute("/")({
       { property: "og:description", content: "Alle Kennzahlen deines Telegram-Verkaufsfunnels in einem Dashboard." },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
+      { name: "robots", content: "noindex, nofollow, noarchive" },
       ...(base ? [{ property: "og:url", content: `${base}/` }] : []),
     ],
     links: base ? [{ rel: "canonical", href: `${base}/` }] : [],
