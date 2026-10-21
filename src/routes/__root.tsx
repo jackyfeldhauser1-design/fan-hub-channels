@@ -85,16 +85,16 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
       { name: "mobile-web-app-capable", content: "yes" },
       { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
       { name: "apple-mobile-web-app-title", content: "Funnel" },
-      { title: "Telegram Fan Funnel Studio" },
-      { name: "google-site-verification", content: "r2h_SE_Lq0OsUtjwYxIdDU4I-SIBDbVRCUpwFVBuuKQ" },
+      { title: "Fan Funnel Studio – Interner Zugang" },
+      { name: "robots", content: "noindex, nofollow, noarchive" },
       {
         name: "description",
-        content: "Steuere deine Telegram-Bot-Kette: Gratis-Gruppe, VIP-Verkauf mit Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
+        content: "Interner Verwaltungsbereich für Telegram-Bot, Inhalte und Verkäufe. Der Zugang ist ausschließlich für berechtigte Teammitglieder vorgesehen.",
       },
-      { property: "og:title", content: "Telegram Fan Funnel Studio" },
+      { property: "og:title", content: "Fan Funnel Studio – Interner Zugang" },
       {
         property: "og:description",
-        content: "Gratis-Gruppe, VIP-Zugang, Stars- und TON-Zahlungen sowie Empfehlungsprovisionen in einem Dashboard.",
+        content: "Interner Verwaltungsbereich. Kunden nutzen ausschließlich Telegram-Bots, Gruppen und Channels.",
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
@@ -117,9 +117,9 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         children: JSON.stringify({
           "@context": "https://schema.org",
           "@type": "Organization",
-          name: "Telegram Fan Funnel Studio",
-          url: "https://fan-hub-channels.netlify.app",
-          logo: "https://fan-hub-channels.netlify.app/app-icon-512.png",
+          name: "ItsFelize Fan Funnel Studio",
+          url: "https://itsfelize.store",
+          logo: "https://itsfelize.store/app-icon-512.png",
           description:
             "Telegram-Bot-Kette mit Gratis-Gruppe, VIP-Verkauf über Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
         }),
@@ -137,7 +137,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
 
 function RootShell({ children }: { children: ReactNode }) {
   return (
-    <html lang="en">
+    <html lang="de">
       <head>
         <HeadContent />
       </head>
