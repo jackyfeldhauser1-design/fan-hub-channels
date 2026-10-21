@@ -76,56 +76,49 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 }
 
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
-  head: () => ({
-    meta: [
-      { charSet: "utf-8" },
-      { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
-      { name: "theme-color", content: "#0b0b0d" },
-      { name: "apple-mobile-web-app-capable", content: "yes" },
-      { name: "mobile-web-app-capable", content: "yes" },
-      { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
-      { name: "apple-mobile-web-app-title", content: "Funnel" },
-      { title: "Fan Funnel Studio – Interner Zugang" },
-      { name: "robots", content: "noindex, nofollow, noarchive" },
-      {
-        name: "description",
-        content: "Interner Verwaltungsbereich für Telegram-Bot, Inhalte und Verkäufe. Der Zugang ist ausschließlich für berechtigte Teammitglieder vorgesehen.",
-      },
-      { property: "og:title", content: "Fan Funnel Studio – Interner Zugang" },
-      {
-        property: "og:description",
-        content: "Interner Verwaltungsbereich. Kunden nutzen ausschließlich Telegram-Bots, Gruppen und Channels.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-    ],
-    links: [
-      { rel: "stylesheet", href: appCss },
-      { rel: "preconnect", href: "https://fonts.googleapis.com" },
-      { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
-      {
-        rel: "stylesheet",
-        href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap",
-      },
-      { rel: "icon", href: "/favicon.png", type: "image/png" },
-      { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
-      { rel: "manifest", href: "/manifest.webmanifest" },
-    ],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "Organization",
-          name: "ItsFelize Fan Funnel Studio",
-          url: "https://itsfelize.store",
-          logo: "https://itsfelize.store/app-icon-512.png",
-          description:
-            "Telegram-Bot-Kette mit Gratis-Gruppe, VIP-Verkauf über Stars und TON, Bundles, Trinkgeld und Affiliate-Provisionen.",
-        }),
-      },
-    ],
-  }),
+  head: ({ matches }) => {
+    const currentRouteId = matches[matches.length - 1]?.routeId;
+    const isPublicLanding = currentRouteId === "/warteliste" || currentRouteId === "/werbepartner";
+    return {
+      meta: [
+        { charSet: "utf-8" },
+        { name: "viewport", content: "width=device-width, initial-scale=1, viewport-fit=cover" },
+        { name: "theme-color", content: "#0b0b0d" },
+        { name: "apple-mobile-web-app-capable", content: "yes" },
+        { name: "mobile-web-app-capable", content: "yes" },
+        { name: "apple-mobile-web-app-status-bar-style", content: "black-translucent" },
+        { name: "apple-mobile-web-app-title", content: "Funnel" },
+        ...(!isPublicLanding
+          ? [
+              { title: "Fan Funnel Studio – Interner Zugang" },
+              { name: "robots", content: "noindex, nofollow, noarchive" },
+              {
+                name: "description",
+                content:
+                  "Interner Verwaltungsbereich für Telegram-Bot, Inhalte und Verkäufe. Der Zugang ist ausschließlich für berechtigte Teammitglieder vorgesehen.",
+              },
+              { property: "og:title", content: "Fan Funnel Studio – Interner Zugang" },
+              {
+                property: "og:description",
+                content: "Interner Verwaltungsbereich. Kunden nutzen ausschließlich Telegram-Bots, Gruppen und Channels.",
+              },
+            ]
+          : []),
+      ],
+      links: [
+        { rel: "stylesheet", href: appCss },
+        { rel: "preconnect", href: "https://fonts.googleapis.com" },
+        { rel: "preconnect", href: "https://fonts.gstatic.com", crossOrigin: "anonymous" },
+        {
+          rel: "stylesheet",
+          href: "https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;700&family=DM+Sans:wght@400;500;700&display=swap",
+        },
+        { rel: "icon", href: "/favicon.png", type: "image/png" },
+        { rel: "apple-touch-icon", href: "/apple-touch-icon.png", sizes: "180x180" },
+        { rel: "manifest", href: "/manifest.webmanifest" },
+      ],
+    };
+  },,
 
 
 
