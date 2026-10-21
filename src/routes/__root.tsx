@@ -118,9 +118,7 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
         { rel: "manifest", href: "/manifest.webmanifest" },
       ],
     };
-  },,
-
-
+  },
 
   shellComponent: RootShell,
   component: RootComponent,
