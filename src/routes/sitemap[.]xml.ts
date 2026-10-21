@@ -1,9 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const BASE_URL = "https://fan-hub-channels.netlify.app";
+const BASE_URL = "https://itsfelize.store";
 
 const entries = [
-  { path: "/", changefreq: "weekly", priority: "1.0" },
   { path: "/warteliste", changefreq: "weekly", priority: "0.8" },
   { path: "/werbepartner", changefreq: "weekly", priority: "0.8" },
 ];
