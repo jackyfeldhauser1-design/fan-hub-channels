@@ -14,41 +14,41 @@ import { resolvePublicBaseUrl } from "@/lib/base-url";
 export const Route = createFileRoute("/warteliste")({
   head: () => {
     const base = resolvePublicBaseUrl();
-    return ({
-    meta: [
-      { title: "Warteliste & Early Access sichern" },
-      {
-        name: "description",
-        content: "Trag dich für kommende Drops ein und sichere dir optional einen bezahlten Early-Access-Slot mit Vorabzugang und Bonusinhalten.",
-      },
-      { property: "og:title", content: "Warteliste & Early Access sichern" },
-      {
-        property: "og:description",
-        content: "Sei als Erste:r dabei: Warteliste kostenlos, Early-Access-Slot mit Telegram Stars.",
-      },
-      { property: "og:type", content: "website" },
-      { name: "twitter:card", content: "summary_large_image" },
-      ...(base ? [{ property: "og:url", content: `${base}/warteliste` }] : []),
-    ],
-    links: base ? [{ rel: "canonical", href: `${base}/warteliste` }] : [],
-    scripts: [
-      {
-        type: "application/ld+json",
-        children: JSON.stringify({
-          "@context": "https://schema.org",
-          "@type": "BreadcrumbList",
-          itemListElement: [
-            { "@type": "ListItem", position: 1, name: "Start", item: "/" },
-            { "@type": "ListItem", position: 2, name: "Warteliste", item: "/warteliste" },
-          ],
-        }),
-      },
-    ],
-    });
+    return {
+      meta: [
+        { title: "Warteliste & Early Access sichern" },
+        {
+          name: "description",
+          content:
+            "Trag dich für kommende Drops ein und sichere dir optional einen bezahlten Early-Access-Slot mit Vorabzugang und Bonusinhalten.",
+        },
+        { property: "og:title", content: "Warteliste & Early Access sichern" },
+        {
+          property: "og:description",
+          content: "Sei als Erste:r dabei: Warteliste kostenlos, Early-Access-Slot mit Telegram Stars.",
+        },
+        { property: "og:type", content: "website" },
+        { name: "twitter:card", content: "summary_large_image" },
+        ...(base ? [{ property: "og:url", content: `${base}/warteliste` }] : []),
+      ],
+      links: base ? [{ rel: "canonical", href: `${base}/warteliste` }] : [],
+      scripts: [
+        {
+          type: "application/ld+json",
+          children: JSON.stringify({
+            "@context": "https://schema.org",
+            "@type": "BreadcrumbList",
+            itemListElement: [
+              { "@type": "ListItem", position: 1, name: "Start", item: "/" },
+              { "@type": "ListItem", position: 2, name: "Warteliste", item: "/warteliste" },
+            ],
+          }),
+        },
+      ],
+    };
   },
   component: WaitlistPage,
 });
-
 function WaitlistPage() {
   const submit = useServerFn(submitLead);
   const [form, setForm] = useState({ name: "", email: "", telegram_handle: "", interest: "", early_access: false });
