@@ -9,9 +9,12 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Checkbox } from "@/components/ui/checkbox";
+import { resolvePublicBaseUrl } from "@/lib/base-url";
 
 export const Route = createFileRoute("/warteliste")({
-  head: () => ({
+  head: () => {
+    const base = resolvePublicBaseUrl();
+    return ({
     meta: [
       { title: "Warteliste & Early Access sichern" },
       {
@@ -25,9 +28,9 @@ export const Route = createFileRoute("/warteliste")({
       },
       { property: "og:type", content: "website" },
       { name: "twitter:card", content: "summary_large_image" },
-      
+      ...(base ? [{ property: "og:url", content: `${base}/warteliste` }] : []),
     ],
-    links: [],
+    links: base ? [{ rel: "canonical", href: `${base}/warteliste` }] : [],
     scripts: [
       {
         type: "application/ld+json",
@@ -41,7 +44,8 @@ export const Route = createFileRoute("/warteliste")({
         }),
       },
     ],
-  }),
+    });
+  },
   component: WaitlistPage,
 });
 
