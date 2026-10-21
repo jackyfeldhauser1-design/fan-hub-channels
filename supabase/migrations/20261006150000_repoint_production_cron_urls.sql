@@ -15,7 +15,7 @@ begin
       '*/5 * * * *',
       $job$
       select net.http_post(
-        url:='https://zmrwnxbutczcfneymdoy.supabase.co/functions/v1/cart-recovery',
+        url:='https://biqvodzbbgfkzwrapftz.supabase.co/functions/v1/cart-recovery',
         headers:=jsonb_build_object(
           'Content-Type','application/json',
           'X-Cron-Token',(select decrypted_secret from vault.decrypted_secrets where name='fan_hub_cart_recovery_token')
@@ -31,7 +31,7 @@ begin
       '0 * * * *',
       $job$
       select net.http_post(
-        url:='https://zmrwnxbutczcfneymdoy.supabase.co/functions/v1/growth-automation',
+        url:='https://biqvodzbbgfkzwrapftz.supabase.co/functions/v1/growth-automation',
         headers:=jsonb_build_object(
           'Content-Type','application/json',
           'X-Cron-Token',(select decrypted_secret from vault.decrypted_secrets where name='fan_hub_cart_recovery_token')
