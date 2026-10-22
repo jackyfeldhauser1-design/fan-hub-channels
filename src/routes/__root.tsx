@@ -78,7 +78,7 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: ({ matches }) => {
     const currentRouteId = String(matches[matches.length - 1]?.routeId ?? "");
-    const isPublicLanding = currentRouteId === "/warteliste" || currentRouteId === "/werbepartner";
+    const isPublicLanding = currentRouteId === "/warteliste" || currentRouteId === "/werbepartner" || currentRouteId === "/datenschutz";
     return {
       meta: [
         { charSet: "utf-8" },
