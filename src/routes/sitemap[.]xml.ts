@@ -5,6 +5,7 @@ const BASE_URL = "https://itsfelize.store";
 const entries = [
   { path: "/warteliste", changefreq: "weekly", priority: "0.8" },
   { path: "/werbepartner", changefreq: "weekly", priority: "0.8" },
+  { path: "/datenschutz", changefreq: "yearly", priority: "0.2" },
 ];
 
 export const Route = createFileRoute("/sitemap.xml")({
