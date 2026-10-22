@@ -10,6 +10,7 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as DatenschutzRouteImport } from './routes/datenschutz'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenachrichtigungenRouteImport } from './routes/benachrichtigungen'
 import { Route as BestellungenRouteImport } from './routes/bestellungen'
@@ -46,6 +47,11 @@ import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/publi
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatenschutzRoute = DatenschutzRouteImport.update({
+  id: '/datenschutz',
+  path: '/datenschutz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -214,6 +220,7 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
@@ -285,6 +293,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
@@ -322,6 +331,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/datenschutz'
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
@@ -357,6 +367,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/datenschutz'
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/datenschutz'
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
@@ -428,6 +440,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  DatenschutzRoute: typeof DatenschutzRoute
   AuthRoute: typeof AuthRoute
   BenachrichtigungenRoute: typeof BenachrichtigungenRoute
   BestellungenRoute: typeof BestellungenRoute
@@ -469,6 +482,13 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datenschutz': {
+      id: '/datenschutz'
+      path: '/datenschutz'
+      fullPath: '/datenschutz'
+      preLoaderRoute: typeof DatenschutzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -700,6 +720,7 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  DatenschutzRoute: DatenschutzRoute,
   AuthRoute: AuthRoute,
   BenachrichtigungenRoute: BenachrichtigungenRoute,
   BestellungenRoute: BestellungenRoute,
