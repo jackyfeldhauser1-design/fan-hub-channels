@@ -54,13 +54,22 @@ Deno.serve(async(req)=>{try{
     const inactiveBefore=new Date(Date.now()-reactivateDays*86400000).toISOString();
     const cooldownAfter=new Date(Date.now()-30*86400000).toISOString();
     const {data:segments}=await db.from("customer_growth_segments").select("tg_user_id,telegram_id,first_name,last_purchase_at,segment").in("segment",["buyer","repeat"]).lt("last_purchase_at",inactiveBefore).order("last_purchase_at",{ascending:true}).limit(50);
+    const segmentUserIds=[...new Set((segments||[]).map((r:any)=>String(r.tg_user_id||"")).filter(Boolean))];
+    const ownedSetsByUser=new Map<string,Set<string>>();
+    for(let i=0;i<segmentUserIds.length;i+=200){
+      const batch=segmentUserIds.slice(i,i+200);
+      const {data:accessRows,error:accessError}=await db.from("content_access").select("tg_user_id,content_set_id").eq("status","active").in("tg_user_id",batch);
+      if(accessError)throw accessError;
+      for(const access of accessRows||[]){const id=String(access.tg_user_id);if(!ownedSetsByUser.has(id))ownedSetsByUser.set(id,new Set<string>());ownedSetsByUser.get(id)!.add(String(access.content_set_id));}
+    }
+    // Load the active catalogue once per run, not once per inactive customer.
+    const {data:reactivationSets}=await db.from("content_sets").select("id,title,created_at,product_id,products(price_stars,price_ton,active)").eq("status","active").order("created_at",{ascending:false}).limit(20);
     for(const row of segments||[]){
       if(reactivated>=10)break;
       const chatId=Number(row.telegram_id||0);if(!chatId)continue;
       const {data:recent}=await db.from("growth_events").select("id").eq("tg_user_id",row.tg_user_id).eq("event_type","reactivation_sent").gte("created_at",cooldownAfter).limit(1).maybeSingle();if(recent)continue;
-      const {data:sets}=await db.from("content_sets").select("id,title,created_at,product_id,products(price_stars,price_ton,active)").eq("status","active").order("created_at",{ascending:false}).limit(20);
       let pick:any=null;
-      for(const s of sets||[]){if(!(s.products as any)?.active)continue;const {data:owned}=await db.from("content_access").select("id").eq("tg_user_id",row.tg_user_id).eq("content_set_id",s.id).eq("status","active").limit(1).maybeSingle();if(!owned){pick=s;break;}}
+      for(const s of reactivationSets||[]){if(!(s.products as any)?.active)continue;const ownedSetIds=ownedSetsByUser.get(String(row.tg_user_id))||new Set<string>();if(!ownedSetIds.has(String(s.id))){pick=s;break;}}
       if(!pick)continue;
       const p:any=pick.products;
       await tg(token,"sendMessage",{chat_id:chatId,text:`✨ ${row.first_name?row.first_name+", ":""}es gibt wieder etwas Neues im Shop.\n\n„${pick.title}“ · ⭐ ${Number(p?.price_stars||0)}${Number(p?.price_ton||0)>0?` · 💎 ${Number(p.price_ton)} TON`:""}`,reply_markup:{inline_keyboard:[[{text:"Set ansehen",callback_data:`offer_${pick.id}`}],[{text:"🛍 Shop öffnen",callback_data:"shop"}]]}});
