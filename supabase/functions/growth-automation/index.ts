@@ -19,7 +19,9 @@ Deno.serve(async(req)=>{try{
   async function mark(userId:string|null,key:string,subject="",stage="",payload:any={}){await db.from("automation_deliveries").insert({tg_user_id:userId,automation_key:key,subject_key:subject,stage,payload});}
   async function canPromo(userId:string){if(!contactable(userId)||!promoWindowOpen())return false;const cap=Math.max(1,Number(settings?.promo_frequency_cap_7d||3));const minHours=Math.max(6,Number(settings?.promo_min_hours_between||12));const keys=["vip_upgrade","winback","new_drop","cross_sell"];const since7=new Date(Date.now()-7*86400000).toISOString();const {count}=await db.from("automation_deliveries").select("id",{count:"exact",head:true}).eq("tg_user_id",userId).in("automation_key",keys).gte("delivered_at",since7);if(Number(count||0)>=cap)return false;const {data:last}=await db.from("automation_deliveries").select("delivered_at").eq("tg_user_id",userId).in("automation_key",keys).order("delivered_at",{ascending:false}).limit(1).maybeSingle();if(last?.delivered_at&&Date.now()-new Date(last.delivered_at).getTime()<minHours*3600000)return false;return true;}
   async function event(userId:string|null,type:string,opts:any={}){await db.from("growth_events").insert({tg_user_id:userId,event_type:type,product_id:opts.productId||null,content_set_id:opts.setId||null,source:String(opts.source||"automation"),meta:opts.meta||{}});}
-  async function ownedSetIds(userId:string){const {data}=await db.from("content_access").select("content_set_id").eq("tg_user_id",userId).eq("status","active");return new Set((data||[]).map((x:any)=>x.content_set_id));}
+  // Cache active entitlements once per run to avoid one REST request per scored user.
+  const ownedSetsByUser=new Map<string,Set<string>>();
+  async function ownedSetIds(userId:string){return ownedSetsByUser.get(userId)||new Set<string>();}
   const {data:sets}=await db.from("content_sets").select("id,title,product_id,created_at,products(id,title,price_stars,price_ton,active,kind,delivery_payload)").eq("status","active").order("created_at",{ascending:false});
   const activeSets=(sets||[]).filter((s:any)=>s.products?.active);
   async function recommend(userId:string){const owned=await ownedSetIds(userId);return activeSets.find((s:any)=>!owned.has(s.id))||null;}
@@ -28,6 +30,18 @@ Deno.serve(async(req)=>{try{
   const {data:scores}=await db.from("customer_growth_scores").select("*").limit(2000);
   const {data:users}=await db.from("tg_users").select("id,telegram_id,first_name,referral_code").limit(2000);
   const userMap=new Map((users||[]).map((u:any)=>[u.id,u]));
+  const scoredUserIds=[...new Set((scores||[]).map((s:any)=>String(s.tg_user_id||"")).filter(Boolean))];
+  // Fetch current active entitlements in bounded batches; do not change or grant access here.
+  for(let i=0;i<scoredUserIds.length;i+=200){
+    const batch=scoredUserIds.slice(i,i+200);
+    const {data:accessRows,error:accessError}=await db.from("content_access").select("tg_user_id,content_set_id").eq("status","active").in("tg_user_id",batch);
+    if(accessError)throw accessError;
+    for(const row of accessRows||[]){
+      const id=String(row.tg_user_id);
+      if(!ownedSetsByUser.has(id))ownedSetsByUser.set(id,new Set<string>());
+      ownedSetsByUser.get(id)!.add(String(row.content_set_id));
+    }
+  }
   // Nur Fans mit bestätigter 18+/Einwilligung dürfen proaktiv kontaktiert werden.
   // Der Webhook speichert den jeweils aktuellen Zustand als letzte action_log-Zeile.
   const {data:onboardingLogs}=await db.from("action_log")
