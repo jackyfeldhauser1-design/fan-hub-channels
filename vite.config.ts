@@ -2,7 +2,7 @@ import { defineConfig } from "vite";
 import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
-import { nitro } from "nitro/vite";
+import { cloudflare } from "@cloudflare/vite-plugin";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 const publicSupabaseUrl =
@@ -18,10 +18,10 @@ export default defineConfig({
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabaseKey),
   },
   plugins: [
+    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart({
       server: { entry: "server" },
     }),
-    nitro(),
     viteReact(),
     tailwindcss(),
     tsConfigPaths(),
