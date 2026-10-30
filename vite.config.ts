@@ -3,6 +3,7 @@ import { tanstackStart } from "@tanstack/react-start/plugin/vite";
 import viteReact from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { cloudflare } from "@cloudflare/vite-plugin";
+import { nitro } from "nitro/vite";
 import tsConfigPaths from "vite-tsconfig-paths";
 
 const publicSupabaseUrl =
@@ -12,18 +13,20 @@ const publicSupabaseKey =
   process.env["SUPABASE_PUBLISHABLE_KEY"] ||
   "";
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   define: {
     "import.meta.env.VITE_SUPABASE_URL": JSON.stringify(publicSupabaseUrl),
     "import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY": JSON.stringify(publicSupabaseKey),
   },
   plugins: [
-    cloudflare({ viteEnvironment: { name: "ssr" } }),
     tanstackStart({
       server: { entry: "server" },
     }),
+    ...(mode === "cloudflare-preview"
+      ? [cloudflare({ viteEnvironment: { name: "ssr" } })]
+      : [nitro()]),
     viteReact(),
     tailwindcss(),
     tsConfigPaths(),
   ],
-});
+}));
