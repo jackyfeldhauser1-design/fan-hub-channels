@@ -9,11 +9,11 @@ import {
   type ErrorComponentProps,
 } from "@tanstack/react-router";
 import { useEffect, type ReactNode } from "react";
+import { SpeedInsights } from "@vercel/speed-insights/react";
 
 import appCss from "../styles.css?url";
 import { reportAppError } from "../lib/error-reporting";
 import { Toaster } from "@/components/ui/sonner";
-
 
 function NotFoundComponent() {
   return (
@@ -78,7 +78,10 @@ function ErrorComponent({ error, reset }: ErrorComponentProps) {
 export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()({
   head: ({ matches }) => {
     const currentRouteId = String(matches[matches.length - 1]?.routeId ?? "");
-    const isPublicLanding = currentRouteId === "/warteliste" || currentRouteId === "/werbepartner" || currentRouteId === "/datenschutz";
+    const isPublicLanding =
+      currentRouteId === "/warteliste" ||
+      currentRouteId === "/werbepartner" ||
+      currentRouteId === "/datenschutz";
     return {
       meta: [
         { charSet: "utf-8" },
@@ -100,7 +103,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
               { property: "og:title", content: "Fan Funnel Studio – Interner Zugang" },
               {
                 property: "og:description",
-                content: "Interner Verwaltungsbereich. Kunden nutzen ausschließlich Telegram-Bots, Gruppen und Channels.",
+                content:
+                  "Interner Verwaltungsbereich. Kunden nutzen ausschließlich Telegram-Bots, Gruppen und Channels.",
               },
             ]
           : []),
@@ -135,6 +139,7 @@ function RootShell({ children }: { children: ReactNode }) {
       <body>
         {children}
         <Scripts />
+        <SpeedInsights />
       </body>
     </html>
   );
@@ -151,4 +156,3 @@ function RootComponent() {
     </QueryClientProvider>
   );
 }
-
