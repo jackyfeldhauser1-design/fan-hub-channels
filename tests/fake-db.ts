@@ -5,7 +5,7 @@
  */
 
 type Row = Record<string, any>;
-type Filter = { op: "eq" | "gte" | "lt" | "neq"; col: string; val: any };
+type Filter = { op: "eq" | "gte" | "lt" | "neq" | "in" | "is"; col: string; val: any };
 
 let seq = 0;
 const uid = () => `id_${++seq}`;
@@ -89,6 +89,16 @@ class Query implements PromiseLike<{ data: any; count: number | null; error: nul
     this.filters.push({ op: "neq", col, val });
     return this;
   }
+
+  in(col: string, val: any[]) {
+    this.filters.push({ op: "in", col, val });
+    return this;
+  }
+
+  is(col: string, val: null | boolean) {
+    this.filters.push({ op: "is", col, val });
+    return this;
+  }
   gte(col: string, val: any) {
     this.filters.push({ op: "gte", col, val });
     return this;
@@ -111,6 +121,8 @@ class Query implements PromiseLike<{ data: any; count: number | null; error: nul
       const v = row[f.col];
       if (f.op === "eq") return String(v ?? "") === String(f.val ?? "");
       if (f.op === "neq") return String(v ?? "") !== String(f.val ?? "");
+      if (f.op === "in") return f.val.includes(v);
+      if (f.op === "is") return (v ?? null) === f.val;
       if (f.op === "gte") return v != null && v >= f.val;
       return v != null && v < f.val;
     });
