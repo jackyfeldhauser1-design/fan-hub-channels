@@ -30,8 +30,8 @@ jobs:
           version: latest
       - name: Validate Supabase deployment credential
         run: |
-          if ! supabase projects list >/dev/null 2>&1; then
-            echo "::error::SUPABASE_ACCESS_TOKEN is invalid or expired. Replace the GitHub Actions secret with a fresh Supabase Personal Access Token; no Edge Function was deployed."
+          if ! supabase functions list --project-ref "$PROJECT_ID" >/dev/null 2>&1; then
+            echo "::error::SUPABASE_ACCESS_TOKEN cannot list Edge Functions in the target project. Verify that the token is current and has Edge Functions access; no Edge Function was deployed."
             exit 1
           fi
       - name: Deploy production Edge Functions
