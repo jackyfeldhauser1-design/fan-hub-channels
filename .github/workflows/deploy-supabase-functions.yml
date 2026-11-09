@@ -25,9 +25,9 @@ jobs:
             echo "::error::Missing GitHub Actions secret SUPABASE_ACCESS_TOKEN"
             exit 1
           fi
-      - uses: supabase/setup-cli@v1
+      - uses: supabase/setup-cli@1dedf2c611547ede7232d26866dd3c56ab903bbb # v1
         with:
-          version: latest
+          version: 2.108.0
       - name: Validate Supabase deployment credential
         run: |
           if ! supabase functions list --project-ref "$PROJECT_ID" >/dev/null 2>&1; then
