@@ -132,8 +132,9 @@ export async function acceptTelegramUpdate(
   const updateId = update?.update_id;
   if (typeof updateId !== "number") return { accept: false, reason: "missing update_id" };
 
+  // Callback queries have no timestamp of their own. The button message may be much older than the click.
   const eventDate: number | undefined =
-    update.message?.date ?? update.edited_message?.date ?? update.callback_query?.message?.date;
+    update.message?.date ?? update.edited_message?.date;
   if (typeof eventDate === "number") {
     const ageSec = Math.floor(Date.now() / 1000) - eventDate;
     if (ageSec > maxAgeSec) return { accept: false, reason: `stale update (${ageSec}s)` };
