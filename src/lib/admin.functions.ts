@@ -224,7 +224,7 @@ const starsSchema = z.object({
 
 export const saveStarsSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => starsSchema.parse(input))
+  .validator((input: unknown) => starsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     const { error } = await db.from("bot_settings").update(data).eq("id", true);
@@ -235,7 +235,7 @@ export const saveStarsSettings = createServerFn({ method: "POST" })
 
 export const saveSettings = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => settingsSchema.parse(input))
+  .validator((input: unknown) => settingsSchema.parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     const { error } = await db.from("bot_settings").update(data).eq("id", true);
@@ -268,7 +268,7 @@ const productSchema = z.object({
 
 export const saveProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => productSchema.parse(input))
+  .validator((input: unknown) => productSchema.parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     if (data.id) await db.from("products").update(data).eq("id", data.id);
@@ -278,7 +278,7 @@ export const saveProduct = createServerFn({ method: "POST" })
 
 export const deleteProduct = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     await db.from("products").delete().eq("id", data.id);
@@ -299,7 +299,7 @@ export const listPurchases = createServerFn({ method: "POST" })
 
 export const confirmCryptoPurchase = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     const { data: purchase } = await db
@@ -373,7 +373,7 @@ export const getBotStatus = createServerFn({ method: "POST" })
 
 export const setupWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ baseUrl: z.string().url() }).parse(input))
+  .validator((input: unknown) => z.object({ baseUrl: z.string().url() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     const baseUrl = data.baseUrl.replace(/\/$/, "");
@@ -417,7 +417,7 @@ export const listOrders = createServerFn({ method: "POST" })
 
 export const resendDelivery = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     const { deliverProduct } = await import("@/lib/fulfillment.server");
@@ -444,7 +444,7 @@ export const resendDelivery = createServerFn({ method: "POST" })
 
 export const revokeAccessToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     await db.from("access_tokens").update({ revoked: true }).eq("id", data.id);
@@ -471,7 +471,7 @@ export const getRiskCenter = createServerFn({ method: "POST" })
 
 export const setUserBlocked = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), blocked: z.boolean(), reason: z.string().max(200).default("") }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -499,7 +499,7 @@ export const listSponsoredPosts = createServerFn({ method: "POST" })
 
 export const updateSponsoredPost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         id: z.string().uuid(),
@@ -518,7 +518,7 @@ export const updateSponsoredPost = createServerFn({ method: "POST" })
 
 export const publishSponsoredPost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     const [{ data: post }, { data: settings }] = await Promise.all([
@@ -537,7 +537,7 @@ export const publishSponsoredPost = createServerFn({ method: "POST" })
 /** Wiederholung eines Werbepostens planen, pausieren oder beenden. */
 export const scheduleSponsoredPost = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         id: z.string().uuid(),
@@ -582,7 +582,7 @@ export const listLeads = createServerFn({ method: "POST" })
 
 export const deleteLead = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const db = await requireAdmin(context);
     await db.from("leads").delete().eq("id", data.id);
@@ -744,7 +744,7 @@ function csv(rows: (string | number)[][]) {
 
 export const exportAccessCsv = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ kind: z.enum(["tokens", "events"]) }).parse(input))
+  .validator((input: unknown) => z.object({ kind: z.enum(["tokens", "events"]) }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "viewer");
 
@@ -793,7 +793,7 @@ export const exportAccessCsv = createServerFn({ method: "POST" })
 /** Abgelaufenen oder aufgebrauchten Einmal-Zugang neu aktivieren. */
 export const reactivateAccessToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), hours: z.number().int().min(1).max(720).optional() }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -847,7 +847,7 @@ export const listTeam = createServerFn({ method: "POST" })
 
 export const setTeamRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ userId: z.string().uuid(), role: z.enum(["admin", "operator", "viewer"]) }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -859,7 +859,7 @@ export const setTeamRole = createServerFn({ method: "POST" })
 
 export const removeTeamRole = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ userId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
     if (data.userId === context.userId) throw new Error("Du kannst dich nicht selbst entfernen.");

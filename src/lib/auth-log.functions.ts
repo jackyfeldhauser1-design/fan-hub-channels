@@ -23,7 +23,7 @@ async function hashIp(ip: string) {
  * Schreibt nur ein Ereignis mit maskierter E-Mail – keine Passwörter, keine Tokens.
  */
 export const logLoginAttempt = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         email: z.string().max(160).optional().default(""),

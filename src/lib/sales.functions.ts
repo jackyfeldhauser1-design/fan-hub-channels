@@ -204,7 +204,7 @@ const codeSchema = z.object({
 /** Rabattcode anlegen oder aktualisieren. */
 export const saveDiscountCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => codeSchema.parse(input))
+  .validator((input: unknown) => codeSchema.parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
     const row = { ...data, code: data.code.trim().toUpperCase(), updated_at: new Date().toISOString() };
@@ -222,7 +222,7 @@ export const saveDiscountCode = createServerFn({ method: "POST" })
 /** Rabattcode löschen. */
 export const deleteDiscountCode = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
     const { error } = await db.from("discount_codes").delete().eq("id", data.id);
@@ -233,7 +233,7 @@ export const deleteDiscountCode = createServerFn({ method: "POST" })
 /** Abo manuell verlängern oder beenden. */
 export const updateSubscription = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ id: z.string().uuid(), action: z.enum(["extend", "cancel"]), days: z.number().int().min(1).max(365).default(30) }).parse(input),
   )
   .handler(async ({ data, context }) => {

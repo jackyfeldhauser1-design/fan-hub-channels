@@ -40,7 +40,7 @@ export const listMediaFolders = createServerFn({ method: "POST" })
 
 export const saveMediaFolder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         id: z.string().uuid().optional(),
@@ -64,7 +64,7 @@ export const saveMediaFolder = createServerFn({ method: "POST" })
 
 export const deleteMediaFolder = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db, isAdmin } = await adminDb(context);
     if (!isAdmin) throw new Error("Forbidden");
@@ -78,7 +78,7 @@ export const deleteMediaFolder = createServerFn({ method: "POST" })
 /** Kurzlebiger Upload-Link in den geschützten Speicher (Datei geht nie über die App-Server). */
 export const createMediaUploadUrl = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ folderId: z.string().uuid(), filename: z.string().min(1).max(200) }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -93,7 +93,7 @@ export const createMediaUploadUrl = createServerFn({ method: "POST" })
 
 export const registerMediaFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         folderId: z.string().uuid(),
@@ -119,7 +119,7 @@ export const registerMediaFile = createServerFn({ method: "POST" })
 
 export const deleteMediaFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db, isAdmin } = await adminDb(context);
     if (!isAdmin) throw new Error("Forbidden");
@@ -132,7 +132,7 @@ export const deleteMediaFile = createServerFn({ method: "POST" })
 /** Vorschau für das Team: 5-Minuten-Link, nur für Admins. */
 export const previewMediaFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await adminDb(context);
     const { data: file } = await db.from("media_files").select("storage_path").eq("id", data.id).maybeSingle();
@@ -145,7 +145,7 @@ export const previewMediaFile = createServerFn({ method: "POST" })
 /** Sortierung, Anzeigename oder Vorschau-Freigabe einer Datei ändern. */
 export const updateMediaFile = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         id: z.string().uuid(),
@@ -171,7 +171,7 @@ export const updateMediaFile = createServerFn({ method: "POST" })
 /** Vorschaubild eines Ordners festlegen (oder entfernen). */
 export const setFolderPreview = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ folderId: z.string().uuid(), fileId: z.string().uuid().nullable() }).parse(input),
   )
   .handler(async ({ data, context }) => {

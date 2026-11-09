@@ -5,7 +5,7 @@ const ticketSchema = z.object({ ticket: z.string().trim().min(20).max(300) });
 
 /** Kontoübersicht für einen Fan – nur mit gültigem, signiertem Ticket aus dem Bot. */
 export const getAccountOverview = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => ticketSchema.parse(d ?? {}))
+  .validator((d: unknown) => ticketSchema.parse(d ?? {}))
   .handler(async ({ data }) => {
     const { readAccountTicket, loadAccount } = await import("@/lib/account.server");
     const fanId = await readAccountTicket(data.ticket);
@@ -18,7 +18,7 @@ export const getAccountOverview = createServerFn({ method: "POST" })
 
 /** Abgelaufenen Zugang erneut anfordern. */
 export const reissueAccountAccess = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) => ticketSchema.extend({ accessId: z.string().uuid() }).parse(d ?? {}))
+  .validator((d: unknown) => ticketSchema.extend({ accessId: z.string().uuid() }).parse(d ?? {}))
   .handler(async ({ data }) => {
     const { readAccountTicket, reissueAccess } = await import("@/lib/account.server");
     const fanId = await readAccountTicket(data.ticket);

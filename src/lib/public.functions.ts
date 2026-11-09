@@ -43,7 +43,7 @@ async function botUsername() {
 }
 
 export const submitLead = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => leadSchema.parse(input))
+  .validator((input: unknown) => leadSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { randomToken, hashIp } = await import("@/lib/fulfillment.server");
@@ -86,7 +86,7 @@ export const submitLead = createServerFn({ method: "POST" })
   });
 
 export const submitSponsorRequest = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => sponsorSchema.parse(input))
+  .validator((input: unknown) => sponsorSchema.parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { hashIp } = await import("@/lib/fulfillment.server");
@@ -124,7 +124,7 @@ export const submitSponsorRequest = createServerFn({ method: "POST" })
   });
 
 export const openSecureContent = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) => z.object({ token: z.string().min(10).max(200) }).parse(input))
+  .validator((input: unknown) => z.object({ token: z.string().min(10).max(200) }).parse(input))
   .handler(async ({ data }) => {
     const { supabaseAdmin } = await import("@/integrations/supabase/client.server");
     const { hashIp, logOrderEvent } = await import("@/lib/fulfillment.server");
@@ -226,7 +226,7 @@ export const openSecureContent = createServerFn({ method: "POST" })
  * Jeder Versuch wird protokolliert.
  */
 export const requestMediaDownload = createServerFn({ method: "POST" })
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ token: z.string().min(10).max(200), fileId: z.string().uuid() }).parse(input),
   )
   .handler(async ({ data }) => {

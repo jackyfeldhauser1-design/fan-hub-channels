@@ -154,7 +154,7 @@ export const listCampaignConfig = createServerFn({ method: "POST" })
 
 export const saveTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         kind: kindEnum,
@@ -185,7 +185,7 @@ export const saveTemplate = createServerFn({ method: "POST" })
 
 export const previewTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ body: z.string().max(2000), tokenId: z.string().uuid().nullable().optional() }).parse(d))
+  .validator((d: unknown) => z.object({ body: z.string().max(2000), tokenId: z.string().uuid().nullable().optional() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "operator");
     const { buildVars, fillVars } = await import("@/lib/notify.server");
@@ -195,7 +195,7 @@ export const previewTemplate = createServerFn({ method: "POST" })
 
 export const saveCampaign = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         id: z.string().uuid().nullable().optional(),
@@ -230,7 +230,7 @@ export const saveCampaign = createServerFn({ method: "POST" })
 
 export const deleteCampaign = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
     await db.from("notification_campaigns").delete().eq("id", data.id);
@@ -239,7 +239,7 @@ export const deleteCampaign = createServerFn({ method: "POST" })
 
 export const runCampaignNow = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
     const { enforceRateLimit, auditLog } = await import("@/lib/security.server");
@@ -260,7 +260,7 @@ export const runCampaignNow = createServerFn({ method: "POST" })
 
 export const saveWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         id: z.string().uuid().nullable().optional(),
@@ -290,7 +290,7 @@ export const saveWebhook = createServerFn({ method: "POST" })
 
 export const deleteWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
     await db.from("notification_webhooks").delete().eq("id", data.id);
@@ -299,7 +299,7 @@ export const deleteWebhook = createServerFn({ method: "POST" })
 
 export const testWebhook = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
+  .validator((d: unknown) => z.object({ id: z.string().uuid() }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
     const { enforceRateLimit } = await import("@/lib/security.server");

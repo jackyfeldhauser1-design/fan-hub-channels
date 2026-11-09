@@ -18,7 +18,7 @@ export const getPlatformOverview = createServerFn({ method: "POST" })
 
 /** Slack-Kanal verbinden: Test senden und als Empfänger speichern. */
 export const connectSlack = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         url: z.string().url().startsWith("https://hooks.slack.com/"),
