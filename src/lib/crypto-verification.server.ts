@@ -13,23 +13,6 @@ type PendingPurchase = {
   tg_users?: { telegram_id?: number | string | null };
 };
 
-function textCandidates(value: unknown): string[] {
-  const out = new Set<string>();
-  const walk = (v: any) => {
-    if (v == null) return;
-    if (typeof v === "string") {
-      out.add(v);
-      try { out.add(Buffer.from(v, "base64").toString("utf8")); } catch {}
-      try { out.add(Buffer.from(v, "hex").toString("utf8")); } catch {}
-      return;
-    }
-    if (Array.isArray(v)) return v.forEach(walk);
-    if (typeof v === "object") Object.values(v).forEach(walk);
-  };
-  walk(value);
-  return [...out];
-}
-
 async function fetchJson(url: string, headers: Record<string, string> = {}) {
   const res = await fetch(url, { headers, signal: AbortSignal.timeout(10_000) });
   if (!res.ok) throw new Error(`Blockchain API HTTP ${res.status}`);
@@ -59,33 +42,36 @@ async function trxTransactions(wallet: string, minTimestamp = 0) {
   return Array.isArray(json?.data) ? json.data : [];
 }
 
-function findTonPayment(txs: any[], purchase: PendingPurchase) {
+export function findTonPayment(txs: any[], purchase: PendingPurchase) {
   const memo = String(purchase.ton_memo || "");
   const expected = Math.round(Number(purchase.amount_ton || 0) * 1e9);
   if (!memo || expected <= 0) return null;
   for (const tx of txs) {
     const incoming = tx?.in_msg || tx?.inMessage || {};
     const value = Number(incoming?.value ?? incoming?.amount ?? 0);
-    const texts = textCandidates(incoming);
-    if (value === expected && texts.some((t) => t.includes(memo))) {
+    const data = incoming.msg_data;
+    const encoded = data?.["@type"] === "msg.dataText" && typeof data.text === "string" ? data.text : "";
+    const decoded = Buffer.from(encoded, "base64").toString("utf8");
+    if (value === expected && (incoming.message === memo || decoded === memo)) {
       return String(tx?.transaction_id?.hash || tx?.hash || tx?.id || "");
     }
   }
   return null;
 }
 
-function findTrxPayment(txs: any[], purchase: PendingPurchase) {
+export function findTrxPayment(txs: any[], purchase: PendingPurchase) {
   const memo = String(purchase.trx_memo || "");
   const expected = Math.round(Number(purchase.amount_trx || 0) * 1_000_000);
   if (!memo || expected <= 0) return null;
   for (const tx of txs) {
-    if (tx?.ret?.[0]?.contractRet && tx.ret[0].contractRet !== "SUCCESS") continue;
-    const contracts = tx?.raw_data?.contract || [];
-    const amount = Number(contracts?.[0]?.parameter?.value?.amount ?? 0);
+    if (tx?.ret?.[0]?.contractRet !== "SUCCESS") continue;
+    const contract = tx?.raw_data?.contract?.[0];
+    if (contract?.type !== "TransferContract") continue;
+    const amount = Number(contract.parameter?.value?.amount ?? 0);
     const rawMemo = String(tx?.raw_data?.data || "");
     let decoded = rawMemo;
     try { decoded = Buffer.from(rawMemo, "hex").toString("utf8"); } catch {}
-    if (amount === expected && decoded.includes(memo)) return String(tx?.txID || tx?.id || "");
+    if (amount === expected && decoded === memo) return String(tx?.txID || tx?.id || "");
   }
   return null;
 }
@@ -118,7 +104,7 @@ async function settle(db: any, purchase: PendingPurchase, txId: string, settings
 }
 
 export async function verifyPendingCrypto(db: any, settings: any) {
-  const { data } = await db
+  const { data, error } = await db
     .from("purchases")
     .select("id,tg_user_id,product_id,currency,amount_ton,amount_trx,ton_memo,trx_memo,created_at,crypto_tx_id,tg_users!purchases_tg_user_id_fkey(telegram_id)")
     .eq("status", "pending")
@@ -126,6 +112,7 @@ export async function verifyPendingCrypto(db: any, settings: any) {
     .is("crypto_tx_id", null)
     .order("created_at", { ascending: true })
     .limit(200);
+  if (error) throw error;
   const rows = (data ?? []) as PendingPurchase[];
   let checked = 0, matched = 0, delivered = 0, failed = 0;
 
