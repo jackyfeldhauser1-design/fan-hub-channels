@@ -13,7 +13,7 @@ function escapeHtml(value: unknown) {
 
 export const quickPublishContent = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({
       title: z.string().min(1).max(140),
       description: z.string().max(3000).default(""),
@@ -113,7 +113,7 @@ export const getContentStudio = createServerFn({ method: "POST" })
 
 export const createContentSet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         title: z.string().min(1).max(140),
@@ -311,7 +311,7 @@ export const cleanupContentSmokeTest = createServerFn({ method: "POST" })
 
 export const updateContentSet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         id: z.string().uuid(),
@@ -362,7 +362,7 @@ export const updateContentSet = createServerFn({ method: "POST" })
 
 export const createContentSeries = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ title: z.string().min(1).max(140), description: z.string().max(2000).default("") }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -379,7 +379,7 @@ export const createContentSeries = createServerFn({ method: "POST" })
 
 export const createContentBundle = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         title: z.string().min(1).max(140),
@@ -433,7 +433,7 @@ export const createContentBundle = createServerFn({ method: "POST" })
 
 export const setContentUpsell = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ contentSetId: z.string().uuid(), upsellContentSetId: z.string().uuid().nullable() }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -455,7 +455,7 @@ export const setContentUpsell = createServerFn({ method: "POST" })
 
 export const publishContentSet = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid(), target: z.enum(["shop", "community"]).default("shop") }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid(), target: z.enum(["shop", "community"]).default("shop") }).parse(input))
   .handler(async ({ data, context }) => {
     const { db, isAdmin } = await teamDb(context);
     if (!isAdmin) throw new Error("Forbidden");

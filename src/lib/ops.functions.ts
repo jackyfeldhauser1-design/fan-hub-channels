@@ -281,7 +281,7 @@ const kindEnum = z.enum(["expiring", "expired", "unpaid", "blocked", "reactivate
 /** Bulk-Testversand: eine Testnachricht pro Empfänger, direkt im Zustellprotokoll. */
 export const sendBulkTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         kind: kindEnum,
@@ -385,7 +385,7 @@ export const sendBulkTest = createServerFn({ method: "POST" })
 /** Admin-Audit-Log: Prüfungen, Testposts und Mitgliedschaftsänderungen je Chat. */
 export const listAdminAudit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({ chatId: z.string().max(64).default(""), action: z.string().max(40).default(""), limit: z.number().int().min(1).max(200).default(100) })
       .parse(input ?? {}),
@@ -486,7 +486,7 @@ async function computeAttribution(db: any) {
 
 export const getAttribution = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ recompute: z.boolean().default(true) }).parse(input ?? {}))
+  .validator((input: unknown) => z.object({ recompute: z.boolean().default(true) }).parse(input ?? {}))
   .handler(async ({ data, context }) => {
     const { db, role } = await requireRole(context, "viewer");
     if (data.recompute && RANK[role as TeamRole] >= RANK.operator) {
@@ -652,7 +652,7 @@ function chatTargets(d: { community: string; shop: string; control: string }): C
 /** Schritt 1 des Assistenten: eingegebene Chat-IDs prüfen, ohne zu speichern. */
 export const validateChatIdsInput = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => chatInput.parse(d))
+  .validator((d: unknown) => chatInput.parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
     const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
@@ -687,7 +687,7 @@ export const validateChatIdsInput = createServerFn({ method: "POST" })
 /** Schritt 2: Chat-IDs speichern und sofort einen Testpost in jeden Chat senden. */
 export const saveChatIdsWithTest = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => chatInput.extend({ message: z.string().max(500).default("") }).parse(d))
+  .validator((d: unknown) => chatInput.extend({ message: z.string().max(500).default("") }).parse(d))
   .handler(async ({ context, data }) => {
     const { db } = await requireRole(context, "admin");
     const { enforceRateLimit, auditLog, auditMembershipChange } = await import("@/lib/security.server");
@@ -871,7 +871,7 @@ export const discoverTelegramChats = createServerFn({ method: "POST" })
  */
 export const verifyConfiguredChats = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z.object({ sendTest: z.boolean().default(false), message: z.string().max(500).default("") }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
@@ -997,7 +997,7 @@ export const verifyConfiguredChats = createServerFn({ method: "POST" })
  */
 export const autoConnectTelegram = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z.object({ baseUrl: z.string().url().optional(), sendTest: z.boolean().default(true) }).parse(d ?? {}),
   )
   .handler(async ({ context }) => {

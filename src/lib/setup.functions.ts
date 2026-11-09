@@ -12,7 +12,7 @@ async function telegramAdmin(context: any, action: string, payload: Record<strin
 
 export const saveBotToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ token: z.string().trim().min(20).max(200), baseUrl: z.string().url().optional() }).parse(d ?? {}))
+  .validator((d: unknown) => z.object({ token: z.string().trim().min(20).max(200), baseUrl: z.string().url().optional() }).parse(d ?? {}))
   .handler(async ({ context, data }) => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
     const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
@@ -54,7 +54,7 @@ export const saveBotToken = createServerFn({ method: "POST" })
 
 export const startGuidedSetup = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ targets: z.array(z.enum(["community","shop","control"])).min(1).default(["community","shop","control"]) }).parse(d ?? {}))
+  .validator((d: unknown) => z.object({ targets: z.array(z.enum(["community","shop","control"])).min(1).default(["community","shop","control"]) }).parse(d ?? {}))
   .handler(async ({ context, data }) => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
     const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
@@ -85,7 +85,7 @@ export const listChatTemplates = createServerFn({ method: "POST" })
 /** Vorlage speichern. */
 export const saveChatTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z.object({ target: TARGET, body: z.string().trim().max(3500), pin: z.boolean().default(true) }).parse(d ?? {}),
   )
   .handler(async ({ context, data }) => {
@@ -110,7 +110,7 @@ export const saveChatTemplate = createServerFn({ method: "POST" })
 /** Vorlage sofort in den zugeordneten Chat senden (optional anpinnen). */
 export const testChatTemplate = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) => z.object({ target: TARGET, body: z.string().trim().max(3500).optional() }).parse(d ?? {}))
+  .validator((d: unknown) => z.object({ target: TARGET, body: z.string().trim().max(3500).optional() }).parse(d ?? {}))
   .handler(async ({ context, data }) => {
     const { requireCallerRole } = await import("@/lib/auth-context.server");
     const { db } = (await requireCallerRole("admin")) as unknown as { db: any };
@@ -147,7 +147,7 @@ export const testChatTemplate = createServerFn({ method: "POST" })
 /** Bot-Token sicher wechseln: prüfen, speichern, Webhook neu setzen, Altschlüssel kurz gültig lassen. */
 export const rotateBotToken = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         token: z.string().trim().min(20).max(200).regex(/^\d+:[A-Za-z0-9_-]+$/, "Token-Format ungültig"),
@@ -235,7 +235,7 @@ export const verifySetupStatus = createServerFn({ method: "POST" })
 /** Admin-Audit der Telegram-Zuordnung und Posts als CSV oder JSON exportieren. */
 export const exportSetupAudit = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         format: z.enum(["csv", "json"]).default("csv"),

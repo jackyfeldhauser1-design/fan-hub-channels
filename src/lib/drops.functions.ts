@@ -14,7 +14,7 @@ export const listDrops = createServerFn({ method: "POST" })
 
 /** Aktionspreis, Aktionsende und Stückzahl-Limit speichern. */
 export const saveDropPricing = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         id: z.string().uuid(),
@@ -35,7 +35,7 @@ export const saveDropPricing = createServerFn({ method: "POST" })
 
 /** Drop in Ankündigungs- und/oder Trailer-Channel veröffentlichen. */
 export const publishDrop = createServerFn({ method: "POST" })
-  .inputValidator((d: unknown) =>
+  .validator((d: unknown) =>
     z
       .object({
         id: z.string().uuid(),

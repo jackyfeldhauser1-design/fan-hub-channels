@@ -75,7 +75,7 @@ export const listNotificationCenter = createServerFn({ method: "POST" })
 
 export const saveRecipient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({
         id: z.string().uuid().optional(),
@@ -114,7 +114,7 @@ export const saveRecipient = createServerFn({ method: "POST" })
 
 export const deleteRecipient = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
     const { error } = await db.from("notification_recipients").delete().eq("id", data.id);
@@ -124,7 +124,7 @@ export const deleteRecipient = createServerFn({ method: "POST" })
 
 export const setRecipientPref = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ recipientId: z.string().uuid(), kind: kindEnum, enabled: z.boolean() }).parse(input),
   )
   .handler(async ({ data, context }) => {
@@ -142,7 +142,7 @@ export const setRecipientPref = createServerFn({ method: "POST" })
 /** Vorschau der Nachricht für einen Empfänger inkl. Variablenzuordnung. */
 export const previewNotification = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z
       .object({ recipientId: z.string().uuid().nullable().default(null), kind: kindEnum, tokenId: z.string().uuid().nullable().default(null) })
       .parse(input),
@@ -193,7 +193,7 @@ export const previewNotification = createServerFn({ method: "POST" })
 
 export const sendTestNotification = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ recipientId: z.string().uuid(), kind: kindEnum }).parse(input))
+  .validator((input: unknown) => z.object({ recipientId: z.string().uuid(), kind: kindEnum }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "admin");
     const { buildVars, renderTemplate, deliverOnce } = await import("@/lib/notify.server");
@@ -231,7 +231,7 @@ export const sendTestNotification = createServerFn({ method: "POST" })
 /** Manuelle Wiederholung einer fehlgeschlagenen Zustellung. */
 export const retryDelivery = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ id: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "operator");
     const { deliverOnce } = await import("@/lib/notify.server");
@@ -278,7 +278,7 @@ export const exportDeliveriesCsv = createServerFn({ method: "POST" })
 /** Empfänger-Zuordnung für einen Zugangslink lesen und speichern. */
 export const getTokenRecipients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) => z.object({ tokenId: z.string().uuid() }).parse(input))
+  .validator((input: unknown) => z.object({ tokenId: z.string().uuid() }).parse(input))
   .handler(async ({ data, context }) => {
     const { db } = await requireRole(context, "viewer");
     const [{ data: all }, { data: linked }] = await Promise.all([
@@ -299,7 +299,7 @@ export const getTokenRecipients = createServerFn({ method: "POST" })
 
 export const setTokenRecipients = createServerFn({ method: "POST" })
   .middleware([requireSupabaseAuth])
-  .inputValidator((input: unknown) =>
+  .validator((input: unknown) =>
     z.object({ tokenId: z.string().uuid(), recipientIds: z.array(z.string().uuid()).max(50) }).parse(input),
   )
   .handler(async ({ data, context }) => {
