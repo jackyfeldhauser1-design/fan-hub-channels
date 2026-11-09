@@ -10,11 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
-import { Route as DatenschutzRouteImport } from './routes/datenschutz'
 import { Route as AuthRouteImport } from './routes/auth'
 import { Route as BenachrichtigungenRouteImport } from './routes/benachrichtigungen'
 import { Route as BestellungenRouteImport } from './routes/bestellungen'
 import { Route as ContentRouteImport } from './routes/content'
+import { Route as DatenschutzRouteImport } from './routes/datenschutz'
 import { Route as DropsRouteImport } from './routes/drops'
 import { Route as EinstellungenRouteImport } from './routes/einstellungen'
 import { Route as FansRouteImport } from './routes/fans'
@@ -37,6 +37,7 @@ import { Route as WerbepostsRouteImport } from './routes/werbeposts'
 import { Route as ZugriffeRouteImport } from './routes/zugriffe'
 import { Route as ZweiFaktorRouteImport } from './routes/zwei-faktor'
 import { Route as InhaltTokenRouteImport } from './routes/inhalt.$token'
+import { Route as ApiPublicJobsCryptoRouteImport } from './routes/api/public/jobs/crypto'
 import { Route as ApiPublicJobsGoliveRouteImport } from './routes/api/public/jobs/golive'
 import { Route as ApiPublicJobsLifecycleRouteImport } from './routes/api/public/jobs/lifecycle'
 import { Route as ApiPublicNIdRouteImport } from './routes/api/public/n.$id'
@@ -47,11 +48,6 @@ import { Route as ApiPublicTelegramWebhookRouteImport } from './routes/api/publi
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
-  getParentRoute: () => rootRouteImport,
-} as any)
-const DatenschutzRoute = DatenschutzRouteImport.update({
-  id: '/datenschutz',
-  path: '/datenschutz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AuthRoute = AuthRouteImport.update({
@@ -72,6 +68,11 @@ const BestellungenRoute = BestellungenRouteImport.update({
 const ContentRoute = ContentRouteImport.update({
   id: '/content',
   path: '/content',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const DatenschutzRoute = DatenschutzRouteImport.update({
+  id: '/datenschutz',
+  path: '/datenschutz',
   getParentRoute: () => rootRouteImport,
 } as any)
 const DropsRoute = DropsRouteImport.update({
@@ -184,6 +185,11 @@ const InhaltTokenRoute = InhaltTokenRouteImport.update({
   path: '/inhalt/$token',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiPublicJobsCryptoRoute = ApiPublicJobsCryptoRouteImport.update({
+  id: '/api/public/jobs/crypto',
+  path: '/api/public/jobs/crypto',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiPublicJobsGoliveRoute = ApiPublicJobsGoliveRouteImport.update({
   id: '/api/public/jobs/golive',
   path: '/api/public/jobs/golive',
@@ -220,11 +226,11 @@ const ApiPublicTelegramWebhookRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
-  '/datenschutz': typeof DatenschutzRoute
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
   '/content': typeof ContentRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -247,6 +253,7 @@ export interface FileRoutesByFullPath {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/crypto': typeof ApiPublicJobsCryptoRoute
   '/api/public/jobs/golive': typeof ApiPublicJobsGoliveRoute
   '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
@@ -256,11 +263,11 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
-  '/datenschutz': typeof DatenschutzRoute
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
   '/content': typeof ContentRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -283,6 +290,7 @@ export interface FileRoutesByTo {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/crypto': typeof ApiPublicJobsCryptoRoute
   '/api/public/jobs/golive': typeof ApiPublicJobsGoliveRoute
   '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
@@ -293,11 +301,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
-  '/datenschutz': typeof DatenschutzRoute
   '/auth': typeof AuthRoute
   '/benachrichtigungen': typeof BenachrichtigungenRoute
   '/bestellungen': typeof BestellungenRoute
   '/content': typeof ContentRoute
+  '/datenschutz': typeof DatenschutzRoute
   '/drops': typeof DropsRoute
   '/einstellungen': typeof EinstellungenRoute
   '/fans': typeof FansRoute
@@ -320,6 +328,7 @@ export interface FileRoutesById {
   '/zugriffe': typeof ZugriffeRoute
   '/zwei-faktor': typeof ZweiFaktorRoute
   '/inhalt/$token': typeof InhaltTokenRoute
+  '/api/public/jobs/crypto': typeof ApiPublicJobsCryptoRoute
   '/api/public/jobs/golive': typeof ApiPublicJobsGoliveRoute
   '/api/public/jobs/lifecycle': typeof ApiPublicJobsLifecycleRoute
   '/api/public/n/$id': typeof ApiPublicNIdRoute
@@ -331,11 +340,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
-    | '/datenschutz'
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
     | '/content'
+    | '/datenschutz'
     | '/drops'
     | '/einstellungen'
     | '/fans'
@@ -358,6 +367,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/crypto'
     | '/api/public/jobs/golive'
     | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
@@ -367,11 +377,11 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
-    | '/datenschutz'
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
     | '/content'
+    | '/datenschutz'
     | '/drops'
     | '/einstellungen'
     | '/fans'
@@ -394,6 +404,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/crypto'
     | '/api/public/jobs/golive'
     | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
@@ -403,11 +414,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
-    | '/datenschutz'
     | '/auth'
     | '/benachrichtigungen'
     | '/bestellungen'
     | '/content'
+    | '/datenschutz'
     | '/drops'
     | '/einstellungen'
     | '/fans'
@@ -430,6 +441,7 @@ export interface FileRouteTypes {
     | '/zugriffe'
     | '/zwei-faktor'
     | '/inhalt/$token'
+    | '/api/public/jobs/crypto'
     | '/api/public/jobs/golive'
     | '/api/public/jobs/lifecycle'
     | '/api/public/n/$id'
@@ -440,11 +452,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
-  DatenschutzRoute: typeof DatenschutzRoute
   AuthRoute: typeof AuthRoute
   BenachrichtigungenRoute: typeof BenachrichtigungenRoute
   BestellungenRoute: typeof BestellungenRoute
   ContentRoute: typeof ContentRoute
+  DatenschutzRoute: typeof DatenschutzRoute
   DropsRoute: typeof DropsRoute
   EinstellungenRoute: typeof EinstellungenRoute
   FansRoute: typeof FansRoute
@@ -467,6 +479,7 @@ export interface RootRouteChildren {
   ZugriffeRoute: typeof ZugriffeRoute
   ZweiFaktorRoute: typeof ZweiFaktorRoute
   InhaltTokenRoute: typeof InhaltTokenRoute
+  ApiPublicJobsCryptoRoute: typeof ApiPublicJobsCryptoRoute
   ApiPublicJobsGoliveRoute: typeof ApiPublicJobsGoliveRoute
   ApiPublicJobsLifecycleRoute: typeof ApiPublicJobsLifecycleRoute
   ApiPublicNIdRoute: typeof ApiPublicNIdRoute
@@ -482,13 +495,6 @@ declare module '@tanstack/react-router' {
       path: '/'
       fullPath: '/'
       preLoaderRoute: typeof IndexRouteImport
-      parentRoute: typeof rootRouteImport
-    }
-    '/datenschutz': {
-      id: '/datenschutz'
-      path: '/datenschutz'
-      fullPath: '/datenschutz'
-      preLoaderRoute: typeof DatenschutzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/auth': {
@@ -517,6 +523,13 @@ declare module '@tanstack/react-router' {
       path: '/content'
       fullPath: '/content'
       preLoaderRoute: typeof ContentRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/datenschutz': {
+      id: '/datenschutz'
+      path: '/datenschutz'
+      fullPath: '/datenschutz'
+      preLoaderRoute: typeof DatenschutzRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/drops': {
@@ -673,6 +686,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof InhaltTokenRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/public/jobs/crypto': {
+      id: '/api/public/jobs/crypto'
+      path: '/api/public/jobs/crypto'
+      fullPath: '/api/public/jobs/crypto'
+      preLoaderRoute: typeof ApiPublicJobsCryptoRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/public/jobs/golive': {
       id: '/api/public/jobs/golive'
       path: '/api/public/jobs/golive'
@@ -720,11 +740,11 @@ declare module '@tanstack/react-router' {
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
-  DatenschutzRoute: DatenschutzRoute,
   AuthRoute: AuthRoute,
   BenachrichtigungenRoute: BenachrichtigungenRoute,
   BestellungenRoute: BestellungenRoute,
   ContentRoute: ContentRoute,
+  DatenschutzRoute: DatenschutzRoute,
   DropsRoute: DropsRoute,
   EinstellungenRoute: EinstellungenRoute,
   FansRoute: FansRoute,
@@ -747,6 +767,7 @@ const rootRouteChildren: RootRouteChildren = {
   ZugriffeRoute: ZugriffeRoute,
   ZweiFaktorRoute: ZweiFaktorRoute,
   InhaltTokenRoute: InhaltTokenRoute,
+  ApiPublicJobsCryptoRoute: ApiPublicJobsCryptoRoute,
   ApiPublicJobsGoliveRoute: ApiPublicJobsGoliveRoute,
   ApiPublicJobsLifecycleRoute: ApiPublicJobsLifecycleRoute,
   ApiPublicNIdRoute: ApiPublicNIdRoute,

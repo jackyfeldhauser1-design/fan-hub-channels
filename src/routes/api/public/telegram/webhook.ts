@@ -714,24 +714,33 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           } else if (d.startsWith("ton_")) {
             const id = d.slice(4);
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
-            if (p && Number(p.price_ton) > 0 && settings.ton_wallet) {
-              const memo = `TON-${code()}`;
-              const { data: purchase, error } = await db.from("purchases").insert({
+            if (p?.active && Number(p.price_ton) > 0 && settings.ton_wallet) {
+              const { data: created, error } = await db.from("purchases").insert({
                 tg_user_id: user.id,
                 product_id: p.id,
                 title_snapshot: p.title,
                 currency: "ton",
                 amount_ton: p.price_ton,
                 status: "pending",
-                ton_memo: memo,
+                ton_memo: `TON-${code()}`,
                 referrer_id: user.referred_by,
-              }).select("id").single();
-              if (error) throw error;
-              await logOrderEvent(db, purchase?.id ?? null, user.id, "ton_created", memo);
-              const url = `ton://transfer/${settings.ton_wallet}?amount=${Math.round(Number(p.price_ton) * 1e9)}&text=${encodeURIComponent(memo)}`;
+              }).select("id, amount_ton, ton_memo").single();
+              if (error && error.code !== "23505") throw error;
+              const purchase = created ?? (await db.from("purchases")
+                .select("id, amount_ton, ton_memo")
+                .eq("tg_user_id", user.id)
+                .eq("product_id", p.id)
+                .eq("currency", "ton")
+                .eq("status", "pending")
+                .maybeSingle()).data;
+              if (!purchase?.ton_memo) throw error ?? new Error("TON-Checkout konnte nicht angelegt werden");
+              const memo = purchase.ton_memo;
+              const amount = Number(purchase.amount_ton);
+              if (created) await logOrderEvent(db, purchase.id, user.id, "ton_created", memo);
+              const url = `https://app.tonkeeper.com/transfer/${encodeURIComponent(settings.ton_wallet)}?amount=${Math.round(amount * 1e9)}&text=${encodeURIComponent(memo)}`;
               await tg("sendMessage", {
                 chat_id: chatId,
-                text: `💎 <b>Zahlung in TON</b>\nBetrag: <b>${p.price_ton} TON</b>\nWallet: <code>${settings.ton_wallet}</code>\nVerwendungszweck: <code>${memo}</code>\n\nNach bestätigtem Eingang liefert der Bot den Inhalt automatisch aus.`,
+                text: `💎 <b>Zahlung in TON</b>\nBetrag: <b>${amount} TON</b>\nWallet: <code>${settings.ton_wallet}</code>\nVerwendungszweck: <code>${memo}</code>\n\nNach bestätigtem Eingang liefert der Bot den Inhalt automatisch aus.`,
                 parse_mode: "HTML",
                 reply_markup: { inline_keyboard: [[{ text: "In TON-Wallet öffnen", url }]] },
               });
@@ -739,7 +748,7 @@ export const Route = createFileRoute("/api/public/telegram/webhook")({
           } else if (d.startsWith("trx_")) {
             const id = d.slice(4);
             const { data: p } = await db.from("products").select("*").eq("id", id).maybeSingle();
-            if (p && Number(p.price_trx) > 0 && settings.trx_wallet) {
+            if (p?.active && Number(p.price_trx) > 0 && settings.trx_wallet) {
               const memo = `TRX-${code()}`;
               const { data: purchase, error } = await db.from("purchases").insert({
                 tg_user_id: user.id,
