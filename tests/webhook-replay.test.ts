@@ -39,6 +39,18 @@ describe("Webhook-Replay-Schutz", () => {
     expect(res.reason).toContain("stale");
   });
 
+  it("akzeptiert neue Klicks auf ältere Bot-Nachrichten und verwirft ihre Wiederholung", async () => {
+    const db = new FakeDb({ telegram_updates: [] });
+    const update = {
+      update_id: 100,
+      callback_query: { id: "new-click", data: "age_yes", message: { date: now() - 4000 } },
+    };
+
+    expect((await acceptTelegramUpdate(db, update)).accept).toBe(true);
+    await db.from("telegram_updates").upsert({ update_id: update.update_id }, { onConflict: "update_id" });
+    expect(await acceptTelegramUpdate(db, update)).toEqual({ accept: false, reason: "duplicate update_id" });
+  });
+
   it("verwirft Updates ohne update_id", async () => {
     const db = new FakeDb({ telegram_updates: [] });
     const res = await acceptTelegramUpdate(db as any, { message: { date: now() } });
