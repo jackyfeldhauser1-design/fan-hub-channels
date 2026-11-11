@@ -42,7 +42,7 @@ describe("Crypto payment matching", () => {
   });
 });
 
-it("settles a confirmed TON payment, unlocks and delivers the image only once", async () => {
+it.each([false, true])("settles TON and delivers once, including a temporary delivery failure: %s", async (failFirstDelivery) => {
   const signedUrl = "https://storage.example/test-image.png";
   const db = Object.assign(new FakeDb({
     purchases: [{
@@ -69,10 +69,28 @@ it("settles a confirmed TON payment, unlocks and delivers the image only once", 
     result: [{ transaction_id: { hash: "confirmed-ton" }, in_msg: { value: "10000000", message: "TON-TEST" } }],
   })));
   vi.mocked(tgSafe).mockResolvedValue({ message_id: 1 });
+  if (failFirstDelivery) {
+    let failed = false;
+    vi.mocked(tgSafe).mockImplementation(async (method) => {
+      if (method === "sendPhoto" && !failed) {
+        failed = true;
+        return null;
+      }
+      return { message_id: 1 };
+    });
+  }
 
   try {
     const settings = { ton_wallet: "test-wallet" };
-    expect(await verifyPendingCrypto(db, settings)).toEqual({ checked: 1, matched: 1, delivered: 1, failed: 0 });
+    expect(await verifyPendingCrypto(db, settings)).toEqual({
+      checked: 1, matched: 1, delivered: failFirstDelivery ? 0 : 1, failed: failFirstDelivery ? 1 : 0,
+    });
+    if (failFirstDelivery) {
+      expect(db.rows("purchases")[0]).toMatchObject({ status: "paid", delivery_status: "failed" });
+      expect(await verifyPendingCrypto(db, settings)).toEqual({ checked: 0, matched: 0, delivered: 0, failed: 0 });
+      db.rows("purchases")[0]!.updated_at = new Date(Date.now() - 6 * 60_000).toISOString();
+      expect(await verifyPendingCrypto(db, settings)).toEqual({ checked: 1, matched: 0, delivered: 1, failed: 0 });
+    }
     expect(db.rows("purchases")[0]).toMatchObject({
       status: "paid",
       crypto_tx_id: "confirmed-ton",
@@ -82,7 +100,9 @@ it("settles a confirmed TON payment, unlocks and delivers the image only once", 
 
     expect(await verifyPendingCrypto(db, settings)).toEqual({ checked: 0, matched: 0, delivered: 0, failed: 0 });
     const images = vi.mocked(tgSafe).mock.calls.filter(([method]) => method === "sendPhoto");
-    expect(images).toEqual([["sendPhoto", { chat_id: 42, photo: signedUrl }]]);
+    expect(images).toHaveLength(failFirstDelivery ? 2 : 1);
+    expect(images.at(-1)).toEqual(["sendPhoto", { chat_id: 42, photo: signedUrl }]);
+    expect(db.rows("content_access")).toHaveLength(1);
   } finally {
     vi.unstubAllGlobals();
     vi.mocked(tgSafe).mockReset();
