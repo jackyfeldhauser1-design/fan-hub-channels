@@ -10,6 +10,8 @@ type PendingPurchase = {
   ton_memo?: string | null;
   trx_memo?: string | null;
   created_at?: string | null;
+  updated_at?: string;
+  crypto_tx_id?: string | null;
   tg_users?: { telegram_id?: number | string | null };
 };
 
@@ -80,7 +82,7 @@ async function settle(db: any, purchase: PendingPurchase, txId: string, settings
   if (!purchase.product_id || !purchase.tg_users?.telegram_id || !txId) return false;
   const { data: claimed, error } = await db
     .from("purchases")
-    .update({ status: "paid", delivery_status: "pending", crypto_tx_id: txId })
+    .update({ status: "paid", delivery_status: "pending", crypto_tx_id: txId, updated_at: new Date().toISOString() })
     .eq("id", purchase.id)
     .eq("status", "pending")
     .is("crypto_tx_id", null)
@@ -88,19 +90,36 @@ async function settle(db: any, purchase: PendingPurchase, txId: string, settings
     .maybeSingle();
   if (error || !claimed) return false;
 
-  const { data: product } = await db.from("products").select("*").eq("id", purchase.product_id).maybeSingle();
-  if (!product) return false;
-  const { deliverProduct, logOrderEvent } = await import("@/lib/fulfillment.server");
+  const { logOrderEvent } = await import("@/lib/fulfillment.server");
   await logOrderEvent(db, purchase.id, purchase.tg_user_id, "paid", `${purchase.currency}:auto:${txId}`);
-  const result = await deliverProduct(
-    db,
-    async (method, body) => (await tgSafe(method, body)) as any,
-    Number(purchase.tg_users.telegram_id),
-    product,
-    { id: purchase.id, tg_user_id: purchase.tg_user_id },
-    settings,
-  );
-  return Boolean(result.ok);
+  return deliverPaidPurchase(db, purchase, settings);
+}
+
+async function deliverPaidPurchase(db: any, purchase: PendingPurchase, settings: any) {
+  try {
+    const { data: product, error } = await db.from("products").select("*").eq("id", purchase.product_id).maybeSingle();
+    if (error || !product) throw new Error("Produkt nicht verfügbar");
+    const { deliverProduct } = await import("@/lib/fulfillment.server");
+    const result = await deliverProduct(
+      db,
+      async (method, body) => (await tgSafe(method, body)) as any,
+      Number(purchase.tg_users?.telegram_id),
+      product,
+      { id: purchase.id, tg_user_id: purchase.tg_user_id },
+      settings,
+    );
+    if (result.ok) return true;
+  } catch {
+    // An upsell can fail after the purchased content has already been delivered.
+    const { data: current } = await db.from("purchases").select("delivery_status").eq("id", purchase.id).maybeSingle();
+    if (current?.delivery_status === "delivered") return true;
+  }
+  await db.from("purchases").update({
+    delivery_status: "failed",
+    delivery_note: "Automatische Zustellung fehlgeschlagen",
+    updated_at: new Date().toISOString(),
+  }).eq("id", purchase.id).eq("status", "paid").neq("delivery_status", "delivered");
+  return false;
 }
 
 export async function verifyPendingCrypto(db: any, settings: any) {
@@ -115,6 +134,34 @@ export async function verifyPendingCrypto(db: any, settings: any) {
   if (error) throw error;
   const rows = (data ?? []) as PendingPurchase[];
   let checked = 0, matched = 0, delivered = 0, failed = 0;
+
+  // The timestamp is also a lease: another worker must wait five minutes before retrying.
+  const retryBefore = new Date(Date.now() - 5 * 60_000).toISOString();
+  const { data: retries, error: retryError } = await db.from("purchases")
+    .select("id,tg_user_id,product_id,currency,crypto_tx_id,updated_at,tg_users!purchases_tg_user_id_fkey(telegram_id)")
+    .eq("status", "paid")
+    .in("currency", ["ton", "trx"])
+    .in("delivery_status", ["pending", "failed"])
+    .lt("updated_at", retryBefore)
+    .order("updated_at", { ascending: true })
+    .limit(200);
+  if (retryError) throw retryError;
+  for (const purchase of (retries ?? []) as PendingPurchase[]) {
+    if (!purchase.crypto_tx_id || !purchase.product_id || !purchase.tg_users?.telegram_id) continue;
+    const { data: claimed, error: claimError } = await db.from("purchases")
+      .update({ delivery_status: "pending", updated_at: new Date().toISOString() })
+      .eq("id", purchase.id)
+      .eq("status", "paid")
+      .in("delivery_status", ["pending", "failed"])
+      .eq("updated_at", purchase.updated_at)
+      .select("id")
+      .maybeSingle();
+    if (claimError) { failed++; continue; }
+    if (!claimed) continue;
+    checked++;
+    if (await deliverPaidPurchase(db, purchase, settings)) delivered++;
+    else failed++;
+  }
 
   let tonTxs: any[] = [];
   let trxTxs: any[] = [];
