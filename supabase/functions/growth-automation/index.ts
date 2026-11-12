@@ -1,6 +1,8 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
+import { crossSellDue, hasContactConsent, promoWindowOpen } from "../_shared/retention-policy.ts";
+
 const json=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json"}});
 async function sha256Hex(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("");}
 function esc(v:any){return String(v??"").replace(/[&<>"']/g,(m)=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"} as any)[m]);}
@@ -28,7 +30,7 @@ Deno.serve(async(req)=>{try{
   async function bonusSet(userId:string){const owned=await ownedSetIds(userId);return [...activeSets].sort((a:any,b:any)=>Number(a.products?.price_stars||0)-Number(b.products?.price_stars||0)).find((s:any)=>!owned.has(s.id))||null;}
   async function grantBonus(userId:string,set:any,source:string){const {data:exists}=await db.from("content_access").select("id").eq("tg_user_id",userId).eq("content_set_id",set.id).eq("status","active").maybeSingle();if(!exists)await db.from("content_access").insert({tg_user_id:userId,content_set_id:set.id,status:"active",source,expires_at:null});}
   const {data:scores}=await db.from("customer_growth_scores").select("*").limit(2000);
-  const {data:users}=await db.from("tg_users").select("id,telegram_id,first_name,referral_code").limit(2000);
+  const {data:users}=await db.from("tg_users").select("id,telegram_id,first_name,referral_code,blocked").limit(2000);
   const userMap=new Map((users||[]).map((u:any)=>[u.id,u]));
   const scoredUserIds=[...new Set((scores||[]).map((s:any)=>String(s.tg_user_id||"")).filter(Boolean))];
   // Fetch current active entitlements in bounded batches; do not change or grant access here.
@@ -56,12 +58,7 @@ Deno.serve(async(req)=>{try{
   }
   function contactable(userId:string){
     const state=onboardingMap.get(userId);
-    return Boolean(state?.ageVerified&&state?.consent&&!state?.optedOut);
-  }
-  function promoWindowOpen(){
-    const hour=new Date().toLocaleString("en-US",{timeZone:"Europe/Berlin",hour:"2-digit",hour12:false});
-    const h=Number(hour);
-    return h>=8&&h<22;
+    return hasContactConsent(state,Boolean((userMap.get(userId) as any)?.blocked));
   }
   const stats:any={vipUpgrade:0,winback:0,newDrop:0,crossSell:0,referralTier:0,vipRetention:0,reports:0,alerts:0};
 
@@ -93,7 +90,7 @@ Deno.serve(async(req)=>{try{
       }
     }
 
-    if(Number(s.paid_orders||0)>0&&s.last_purchase_at){
+    if(settings?.sequence_enabled!==false&&Number(s.paid_orders||0)>0&&s.last_purchase_at){
       const days=Math.floor((now-new Date(s.last_purchase_at).getTime())/86400000);
       const stage=[...winDays].reverse().find((d:number)=>days>=d);
       if(stage&&rec&&!await sent(s.tg_user_id,"winback","",String(stage))&&await canPromo(s.tg_user_id)){
@@ -104,10 +101,10 @@ Deno.serve(async(req)=>{try{
     }
 
     if(settings?.new_drop_notify!==false&&Number(s.paid_orders||0)>0){
-      const fresh=activeSets.find((x:any)=>now-new Date(x.created_at).getTime()<36*3600000);
+      const owned=await ownedSetIds(s.tg_user_id);
+      const fresh=activeSets.find((x:any)=>!owned.has(x.id)&&now-new Date(x.created_at).getTime()<36*3600000);
       if(fresh){
-        const owned=await ownedSetIds(s.tg_user_id);
-        if(!owned.has(fresh.id)&&!await sent(s.tg_user_id,"new_drop",fresh.id,"")&&await canPromo(s.tg_user_id)){
+        if(!await sent(s.tg_user_id,"new_drop",fresh.id,"")&&await canPromo(s.tg_user_id)){
           await tg("sendMessage",{chat_id:chat,text:`🆕 <b>Neuer Drop</b>\n\n„${esc(fresh.title)}“ ist neu im Shop und noch nicht in deinen Inhalten.`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"Neu für mich",callback_data:`offer_${fresh.id}`}]]}});
           await mark(s.tg_user_id,"new_drop",fresh.id,"");await event(s.tg_user_id,"new_drop_sent",{setId:fresh.id});stats.newDrop++;
         }
@@ -115,8 +112,8 @@ Deno.serve(async(req)=>{try{
     }
 
     const hours=Math.max(6,Number(settings?.cross_sell_after_open_hours||24));
-    const {data:opened}=await db.from("content_access").select("content_set_id,last_opened_at").eq("tg_user_id",s.tg_user_id).eq("status","active").not("last_opened_at","is",null).gte("last_opened_at",new Date(now-hours*3600000).toISOString()).order("last_opened_at",{ascending:false}).limit(1).maybeSingle();
-    if(opened&&rec&&!await sent(s.tg_user_id,"cross_sell",String(opened.content_set_id),"")&&await canPromo(s.tg_user_id)){
+    const {data:opened}=await db.from("content_access").select("content_set_id,last_opened_at").eq("tg_user_id",s.tg_user_id).eq("status","active").not("last_opened_at","is",null).order("last_opened_at",{ascending:false}).limit(1).maybeSingle();
+    if(opened&&crossSellDue(opened.last_opened_at,hours,now)&&rec&&!await sent(s.tg_user_id,"cross_sell",String(opened.content_set_id),"")&&await canPromo(s.tg_user_id)){
       if(saturation>=Number(settings?.saturation_percent||80)&&!s.is_vip){
         // VIP message already handled above; do not recycle old sets.
       }else{
