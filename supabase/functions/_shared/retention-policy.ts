@@ -10,6 +10,16 @@ export function hasContactConsent(state: any, blocked = false) {
   return !blocked && state?.ageVerified === true && state?.consent === true && !state?.optedOut;
 }
 
+/** Fail closed when a database result is needed to authorize promotional contact. */
+export function requireContactQuery<T>(result: { data?: T; count?: number | null; error?: unknown }): T | number {
+  if (result.error) throw result.error;
+  if (result.count !== undefined) {
+    if (result.count === null) throw new Error("Promotion frequency count unavailable");
+    return result.count;
+  }
+  return result.data as T;
+}
+
 export async function loadContactPermission(db: any, userId: string) {
   const [user, log] = await Promise.all([
     db.from("tg_users").select("blocked").eq("id", userId).maybeSingle(),
