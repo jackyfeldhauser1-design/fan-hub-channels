@@ -38,7 +38,9 @@ Deno.serve(async(req)=>{try{
   for(const row of stars||[]){
     if(!due(row,firstMinutes,secondMinutes,maxReminders)||!await canContact(row.tg_user_id))continue;
     const productId=String(row.payload||"").startsWith("p:")?String(row.payload).slice(2):"";if(!productId)continue;
-    const {data:paid}=await db.from("purchases").select("id").eq("tg_user_id",row.tg_user_id).eq("product_id",productId).eq("status","paid").limit(1).maybeSingle();
+    const {data:paid,error:paidError}=await db.from("purchases").select("id").eq("tg_user_id",row.tg_user_id).eq("product_id",productId).eq("status","paid").limit(1).maybeSingle();
+    // A failed payment lookup must never be interpreted as an unpaid purchase.
+    if(paidError)throw paidError;
     if(paid){await db.from("invoice_intents").update({paid:true}).eq("id",row.id);skippedPaid++;continue;}
     const count=Math.max(0,Number(row.recovery_count||0));
     if(count===0)await db.from("growth_events").insert({tg_user_id:row.tg_user_id,event_type:"checkout_abandoned",product_id:productId||null,source:"stars",meta:{reason:"invoice_unpaid",intent_id:row.id}});
@@ -50,6 +52,10 @@ Deno.serve(async(req)=>{try{
   const {data:ton,error:tonError}=await db.from("purchases").select("id,tg_user_id,product_id,title_snapshot,created_at,reminded_at,recovery_count,last_recovery_at,tg_users!purchases_tg_user_id_fkey(telegram_id)").eq("currency","ton").eq("status","pending").gte("created_at",recentAfter).lt("recovery_count",maxReminders).order("created_at",{ascending:true}).limit(100);if(tonError)throw tonError;
   for(const row of ton||[]){
     if(!due(row,firstMinutes,secondMinutes,maxReminders)||!await canContact(row.tg_user_id))continue;
+    // The batch may be stale: verification can confirm a payment while this job runs.
+    const {data:current,error:currentError}=await db.from("purchases").select("status").eq("id",row.id).maybeSingle();
+    if(currentError)throw currentError;
+    if(!current||current.status!=="pending")continue;
     const chatId=Number((row.tg_users as any)?.telegram_id||0);if(!chatId)continue;
     const {data:set}=await db.from("content_sets").select("id").eq("product_id",row.product_id).eq("status","active").maybeSingle();if(!set)continue;
     const count=Math.max(0,Number(row.recovery_count||0));
