@@ -1,10 +1,16 @@
 import { describe, expect, it } from "vitest";
-import { crossSellDue, hasContactConsent, loadContactPermission, promoWindowOpen } from "../supabase/functions/_shared/retention-policy";
+import { crossSellDue, hasContactConsent, loadContactPermission, promoWindowOpen, requireContactQuery } from "../supabase/functions/_shared/retention-policy";
 import { FakeDb } from "./fake-db";
 
 const consent = { ageVerified: true, consent: true, optedOut: false };
 
 describe("scheduled retention contact", () => {
+  it("fails closed when promotion frequency or delivery lookup is unavailable", () => {
+    expect(requireContactQuery({ count: 2, error: null })).toBe(2);
+    expect(requireContactQuery({ data: { id: "delivery" }, error: null })).toEqual({ id: "delivery" });
+    expect(() => requireContactQuery({ count: null, error: null })).toThrow("count unavailable");
+    expect(() => requireContactQuery({ data: null, error: new Error("database unavailable") })).toThrow("database unavailable");
+  });
   it.each([
     ["2026-11-12T06:59:00Z", false],
     ["2026-11-12T07:00:00Z", true],
