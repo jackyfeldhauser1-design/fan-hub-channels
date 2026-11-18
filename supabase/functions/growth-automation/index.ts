@@ -1,7 +1,7 @@
 import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
-import { crossSellDue, hasContactConsent, promoWindowOpen } from "../_shared/retention-policy.ts";
+import { crossSellDue, hasContactConsent, promoWindowOpen, requireContactQuery } from "../_shared/retention-policy.ts";
 
 const json=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json"}});
 async function sha256Hex(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -11,26 +11,28 @@ function localParts(){const parts=new Intl.DateTimeFormat("de-DE",{timeZone:"Eur
 Deno.serve(async(req)=>{try{
   if(req.method!=="POST")return json({ok:false},405);
   const db=createClient(Deno.env.get("SUPABASE_URL")!,Deno.env.get("SUPABASE_SERVICE_ROLE_KEY")!,{auth:{persistSession:false}});
-  const {data:settings}=await db.from("bot_settings").select("*").eq("id",true).maybeSingle();
+  const settingsResult=await db.from("bot_settings").select("*").eq("id",true).maybeSingle();
+  const settings=requireContactQuery(settingsResult);
   const tokenHeader=req.headers.get("x-cron-token")||"";
   if(!tokenHeader||await sha256Hex(tokenHeader)!==String(settings?.cart_recovery_token_hash||""))return json({ok:false},401);
-  const {data:cred}=await db.from("bot_credentials").select("bot_token,bot_username").eq("id",true).maybeSingle();
+  const {data:cred,error:credError}=await db.from("bot_credentials").select("bot_token,bot_username").eq("id",true).maybeSingle();
+  if(credError)throw credError;
   const token=String(cred?.bot_token||"");if(!token)return json({ok:false,error:"bot not configured"},503);
   async function tg(method:string,body:Record<string,unknown>){const r=await fetch(`https://api.telegram.org/bot${token}/${method}`,{method:"POST",headers:{"content-type":"application/json"},body:JSON.stringify(body)});const x=await r.json();if(!r.ok||!x?.ok)throw new Error(x?.description||method);return x.result;}
-  async function sent(userId:string|null,key:string,subject="",stage=""){let q=db.from("automation_deliveries").select("id").eq("automation_key",key).eq("subject_key",subject).eq("stage",stage).limit(1);q=userId?q.eq("tg_user_id",userId):q.is("tg_user_id",null);return Boolean((await q.maybeSingle()).data);}
-  async function mark(userId:string|null,key:string,subject="",stage="",payload:any={}){await db.from("automation_deliveries").insert({tg_user_id:userId,automation_key:key,subject_key:subject,stage,payload});}
-  async function canPromo(userId:string){if(!contactable(userId)||!promoWindowOpen())return false;const cap=Math.max(1,Number(settings?.promo_frequency_cap_7d||3));const minHours=Math.max(6,Number(settings?.promo_min_hours_between||12));const keys=["vip_upgrade","winback","new_drop","cross_sell"];const since7=new Date(Date.now()-7*86400000).toISOString();const {count}=await db.from("automation_deliveries").select("id",{count:"exact",head:true}).eq("tg_user_id",userId).in("automation_key",keys).gte("delivered_at",since7);if(Number(count||0)>=cap)return false;const {data:last}=await db.from("automation_deliveries").select("delivered_at").eq("tg_user_id",userId).in("automation_key",keys).order("delivered_at",{ascending:false}).limit(1).maybeSingle();if(last?.delivered_at&&Date.now()-new Date(last.delivered_at).getTime()<minHours*3600000)return false;return true;}
+  async function sent(userId:string|null,key:string,subject="",stage=""){let q=db.from("automation_deliveries").select("id").eq("automation_key",key).eq("subject_key",subject).eq("stage",stage).limit(1);q=userId?q.eq("tg_user_id",userId):q.is("tg_user_id",null);return Boolean(requireContactQuery(await q.maybeSingle()));}
+  async function mark(userId:string|null,key:string,subject="",stage="",payload:any={}){const {error}=await db.from("automation_deliveries").insert({tg_user_id:userId,automation_key:key,subject_key:subject,stage,payload});if(error)throw error;}
+  async function canPromo(userId:string){if(!contactable(userId)||!promoWindowOpen())return false;const cap=Math.max(1,Number(settings?.promo_frequency_cap_7d||3));const minHours=Math.max(6,Number(settings?.promo_min_hours_between||12));const keys=["vip_upgrade","winback","new_drop","cross_sell"];const since7=new Date(Date.now()-7*86400000).toISOString();const count=Number(requireContactQuery(await db.from("automation_deliveries").select("id",{count:"exact",head:true}).eq("tg_user_id",userId).in("automation_key",keys).gte("delivered_at",since7)));if(count>=cap)return false;const last=requireContactQuery(await db.from("automation_deliveries").select("delivered_at").eq("tg_user_id",userId).in("automation_key",keys).order("delivered_at",{ascending:false}).limit(1).maybeSingle()) as {delivered_at?:string}|null;if(last?.delivered_at&&Date.now()-new Date(last.delivered_at).getTime()<minHours*3600000)return false;return true;}
   async function event(userId:string|null,type:string,opts:any={}){await db.from("growth_events").insert({tg_user_id:userId,event_type:type,product_id:opts.productId||null,content_set_id:opts.setId||null,source:String(opts.source||"automation"),meta:opts.meta||{}});}
   // Cache active entitlements once per run to avoid one REST request per scored user.
   const ownedSetsByUser=new Map<string,Set<string>>();
   async function ownedSetIds(userId:string){return ownedSetsByUser.get(userId)||new Set<string>();}
-  const {data:sets}=await db.from("content_sets").select("id,title,product_id,created_at,products(id,title,price_stars,price_ton,active,kind,delivery_payload)").eq("status","active").order("created_at",{ascending:false});
+  const sets=requireContactQuery(await db.from("content_sets").select("id,title,product_id,created_at,products(id,title,price_stars,price_ton,active,kind,delivery_payload)").eq("status","active").order("created_at",{ascending:false})) as any[]|null;
   const activeSets=(sets||[]).filter((s:any)=>s.products?.active);
   async function recommend(userId:string){const owned=await ownedSetIds(userId);return activeSets.find((s:any)=>!owned.has(s.id))||null;}
   async function bonusSet(userId:string){const owned=await ownedSetIds(userId);return [...activeSets].sort((a:any,b:any)=>Number(a.products?.price_stars||0)-Number(b.products?.price_stars||0)).find((s:any)=>!owned.has(s.id))||null;}
   async function grantBonus(userId:string,set:any,source:string){const {data:exists}=await db.from("content_access").select("id").eq("tg_user_id",userId).eq("content_set_id",set.id).eq("status","active").maybeSingle();if(!exists)await db.from("content_access").insert({tg_user_id:userId,content_set_id:set.id,status:"active",source,expires_at:null});}
-  const {data:scores}=await db.from("customer_growth_scores").select("*").limit(2000);
-  const {data:users}=await db.from("tg_users").select("id,telegram_id,first_name,referral_code,blocked").limit(2000);
+  const scores=requireContactQuery(await db.from("customer_growth_scores").select("*").limit(2000)) as any[]|null;
+  const users=requireContactQuery(await db.from("tg_users").select("id,telegram_id,first_name,referral_code,blocked").limit(2000)) as any[]|null;
   const userMap=new Map((users||[]).map((u:any)=>[u.id,u]));
   const scoredUserIds=[...new Set((scores||[]).map((s:any)=>String(s.tg_user_id||"")).filter(Boolean))];
   // Fetch current active entitlements in bounded batches; do not change or grant access here.
@@ -46,11 +48,11 @@ Deno.serve(async(req)=>{try{
   }
   // Nur Fans mit bestätigter 18+/Einwilligung dürfen proaktiv kontaktiert werden.
   // Der Webhook speichert den jeweils aktuellen Zustand als letzte action_log-Zeile.
-  const {data:onboardingLogs}=await db.from("action_log")
+  const onboardingLogs=requireContactQuery(await db.from("action_log")
     .select("tg_user_id,meta,created_at")
     .eq("action","telegram_onboarding")
     .order("created_at",{ascending:false})
-    .limit(10000);
+    .limit(10000)) as any[]|null;
   const onboardingMap=new Map<string,any>();
   for(const row of onboardingLogs||[]){
     if(onboardingMap.has(row.tg_user_id))continue;
