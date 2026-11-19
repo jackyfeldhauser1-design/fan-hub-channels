@@ -2,6 +2,7 @@ import "jsr:@supabase/functions-js/edge-runtime.d.ts";
 import { createClient } from "https://esm.sh/@supabase/supabase-js@2";
 
 import { crossSellDue, hasContactConsent, promoWindowOpen, requireContactQuery } from "../_shared/retention-policy.ts";
+import { last24Hours, summarizePaid } from "../_shared/revenue-report.ts";
 
 const json=(x:unknown,s=200)=>new Response(JSON.stringify(x),{status:s,headers:{"content-type":"application/json"}});
 async function sha256Hex(v:string){const d=await crypto.subtle.digest("SHA-256",new TextEncoder().encode(v));return [...new Uint8Array(d)].map(x=>x.toString(16).padStart(2,"0")).join("");}
@@ -138,9 +139,9 @@ Deno.serve(async(req)=>{try{
   const lp=localParts();
   if(control){
     const dayStart=new Date();dayStart.setUTCHours(0,0,0,0);
-    const {data:todayPaid}=await db.from("purchases").select("amount_stars,amount_ton,currency").eq("status","paid").gte("created_at",dayStart.toISOString());
-    const stars=(todayPaid||[]).reduce((a:number,p:any)=>a+(p.currency==="stars"?Number(p.amount_stars||0):0),0);
-    const ton=(todayPaid||[]).reduce((a:number,p:any)=>a+(p.currency==="ton"?Number(p.amount_ton||0):0),0);
+    const {data:todayPaid,error:todayError}=await db.from("purchases").select("amount_stars,amount_ton,currency").eq("status","paid").gte("created_at",dayStart.toISOString());
+    if(todayError)throw todayError;
+    const {stars,ton}=summarizePaid(todayPaid||[]);
     if(settings?.revenue_alert_enabled!==false&&(stars>=Number(settings?.revenue_alert_stars||500)||((todayPaid||[]).length>0&&!await sent(null,"first_sale",lp.date,"")))){
       if(!await sent(null,"revenue_alert",lp.date,String(Math.floor(stars/Math.max(1,Number(settings?.revenue_alert_stars||500)))))){
         await tg("sendMessage",{chat_id:control,text:`💰 <b>Revenue Alert</b>\nHeute: ⭐ ${stars} · 💎 ${ton} TON · ${(todayPaid||[]).length} Käufe`,parse_mode:"HTML"});await mark(null,"revenue_alert",lp.date,String(Math.floor(stars/Math.max(1,Number(settings?.revenue_alert_stars||500)))));await mark(null,"first_sale",lp.date,"");stats.alerts++;
@@ -158,12 +159,14 @@ Deno.serve(async(req)=>{try{
       await tg("sendMessage",{chat_id:control,text:`⚠️ <b>Checkout-Abbrüche</b>\nIn der letzten Stunde wurden ${Number(abandoned||0)} Abbrüche erkannt. Prüfe Stars-/TON-Funnel und Angebot.`,parse_mode:"HTML"});await mark(null,"abandonment_alert",lp.date,String(lp.hour));stats.alerts++;
     }
     if(settings?.daily_report_enabled!==false&&lp.hour===8&&!await sent(null,"daily_report",lp.date,"")){
-      const {count:buyers}=await db.from("purchases").select("tg_user_id",{count:"exact",head:true}).eq("status","paid").gte("created_at",dayStart.toISOString());
-      const {count:clicks}=await db.from("growth_events").select("id",{count:"exact",head:true}).eq("event_type","teaser_click").gte("created_at",dayStart.toISOString());
-      const {data:perf}=await db.from("product_performance_30d").select("title,offer_views,checkout_starts,paid_purchases,revenue_stars").order("revenue_stars",{ascending:false}).limit(20);const best=(perf||[])[0];const weak=(perf||[]).filter((p:any)=>Number(p.offer_views||0)>=2).sort((a:any,b:any)=>((Number(a.paid_purchases||0)/Math.max(1,Number(a.offer_views||0)))-(Number(b.paid_purchases||0)/Math.max(1,Number(b.offer_views||0)))))[0];const next=Number(abandoned||0)>=Number(settings?.abandonment_alert_count||3)?"Zahlungsabbruch prüfen":weak?"Schwächstes Angebot/CTA testen":"Neuen Drop oder Bundle bewerben";await tg("sendMessage",{chat_id:control,text:`📊 <b>Tagesreport</b>\n⭐ ${stars} · 💎 ${ton} TON\nKäufe: ${Number(buyers||0)} · Teaser-Klicks: ${Number(clicks||0)}\n${best?`Top: ${esc(best.title)} · ⭐ ${Number(best.revenue_stars||0)}\n`:""}${weak?`Schwächster Funnel: ${esc(weak.title)}\n`:""}Nächste Aktion: ${next}`,parse_mode:"HTML"});await mark(null,"daily_report",lp.date,"");stats.reports++;
+      const since=last24Hours(now);
+      const {data:dailyPaid,error:dailyError}=await db.from("purchases").select("amount_stars,amount_ton,currency").eq("status","paid").gte("created_at",since);if(dailyError)throw dailyError;
+      const daily=summarizePaid(dailyPaid||[]);
+      const {count:clicks,error:clickError}=await db.from("growth_events").select("id",{count:"exact",head:true}).eq("event_type","teaser_click").gte("created_at",since);if(clickError)throw clickError;
+      const {data:perf,error:perfError}=await db.from("product_performance_30d").select("title,offer_views,checkout_starts,paid_purchases,revenue_stars").order("revenue_stars",{ascending:false}).limit(20);if(perfError)throw perfError;const best=(perf||[])[0];const weak=(perf||[]).filter((p:any)=>Number(p.offer_views||0)>=2).sort((a:any,b:any)=>((Number(a.paid_purchases||0)/Math.max(1,Number(a.offer_views||0)))-(Number(b.paid_purchases||0)/Math.max(1,Number(b.offer_views||0)))))[0];const next=Number(abandoned||0)>=Number(settings?.abandonment_alert_count||3)?"Zahlungsabbruch prüfen":weak?"Schwächstes Angebot/CTA testen":"Neuen Drop oder Bundle bewerben";await tg("sendMessage",{chat_id:control,text:`📊 <b>Tagesreport – letzte 24 Stunden</b>\n⭐ ${daily.stars} · 💎 ${daily.ton} TON\nKäufe: ${daily.purchases} · Teaser-Klicks: ${Number(clicks||0)}\n${best?`Top (30 Tage): ${esc(best.title)} · ⭐ ${Number(best.revenue_stars||0)}\n`:""}${weak?`Schwächster Funnel (30 Tage): ${esc(weak.title)}\n`:""}Nächste Aktion: ${next}`,parse_mode:"HTML"});await mark(null,"daily_report",lp.date,"");stats.reports++;
     }
     if(settings?.weekly_report_enabled!==false&&lp.weekday.toLowerCase().startsWith("mo")&&lp.hour===8&&!await sent(null,"weekly_report",lp.date,"")){
-      const since=new Date(now-7*86400000).toISOString();const {data:w}=await db.from("purchases").select("amount_stars,amount_ton,currency").eq("status","paid").gte("created_at",since);const ws=(w||[]).reduce((a:number,p:any)=>a+(p.currency==="stars"?Number(p.amount_stars||0):0),0);const wt=(w||[]).reduce((a:number,p:any)=>a+(p.currency==="ton"?Number(p.amount_ton||0):0),0);const {data:perf}=await db.from("product_performance_30d").select("title,revenue_stars,paid_purchases,offer_views").order("revenue_stars",{ascending:false}).limit(5);const top=(perf||[])[0];await tg("sendMessage",{chat_id:control,text:`📈 <b>Wochenreport</b>\n⭐ ${ws} · 💎 ${wt} TON · ${(w||[]).length} Käufe\n${top?`Top-Produkt: ${esc(top.title)} · ⭐ ${Number(top.revenue_stars||0)}\n`:""}Dashboard: Umsatz & Growth`,parse_mode:"HTML"});await mark(null,"weekly_report",lp.date,"");stats.reports++;
+      const since=new Date(now-7*86400000).toISOString();const {data:w,error:weekError}=await db.from("purchases").select("amount_stars,amount_ton,currency").eq("status","paid").gte("created_at",since);if(weekError)throw weekError;const weekly=summarizePaid(w||[]);const {data:perf,error:weekPerfError}=await db.from("product_performance_30d").select("title,revenue_stars,paid_purchases,offer_views").order("revenue_stars",{ascending:false}).limit(5);if(weekPerfError)throw weekPerfError;const top=(perf||[])[0];await tg("sendMessage",{chat_id:control,text:`📈 <b>Wochenreport – letzte 7 Tage</b>\n⭐ ${weekly.stars} · 💎 ${weekly.ton} TON · ${weekly.purchases} Käufe\n${top?`Top-Produkt (30 Tage): ${esc(top.title)} · ⭐ ${Number(top.revenue_stars||0)}\n`:""}Dashboard: Umsatz & Growth`,parse_mode:"HTML"});await mark(null,"weekly_report",lp.date,"");stats.reports++;
     }
   }
   return json({ok:true,stats});
