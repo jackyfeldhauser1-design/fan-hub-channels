@@ -53,12 +53,17 @@ export async function guardAction(
   };
   const limit = limits[action]!;
   const since = new Date(Date.now() - limit.windowMs).toISOString();
-  const { count } = await db
+  const { count, error } = await db
     .from("action_log")
     .select("id", { count: "exact", head: true })
     .eq("tg_user_id", user.id)
     .eq("action", action)
     .gte("created_at", since);
+
+  // A failed count cannot be treated as zero: that would bypass the rate limit.
+  if (error || count === null || count === undefined) {
+    return "Die Sicherheitsprüfung ist vorübergehend nicht verfügbar. Bitte versuche es später erneut.";
+  }
 
   if ((count ?? 0) >= limit.max) {
     const risk = (user.risk_score ?? 0) + 25;
@@ -233,24 +238,31 @@ export async function deliverProduct(
   }
 
   if (purchase) {
-    await db
+    const { error: deliveryError } = await db
       .from("purchases")
       .update({ delivery_status: "delivered", delivered_at: new Date().toISOString(), delivery_note: note })
       .eq("id", purchase.id);
+    if (deliveryError) throw deliveryError;
     await logOrderEvent(db, purchase.id, purchase.tg_user_id, "delivered", note);
   }
 
   if (product.upsell_product_id) {
-    const { data: up } = await db.from("products").select("*").eq("id", product.upsell_product_id).maybeSingle();
-    if (up?.active) {
-      await tg("sendMessage", {
-        chat_id: chatId,
-        text: `${settings?.upsell_message ?? "Das könnte dir auch gefallen:"}\n<b>${up.title}</b>`,
-        parse_mode: "HTML",
-        reply_markup: {
-          inline_keyboard: [[{ text: `Jetzt sichern — ⭐ ${up.price_stars}`, callback_data: `buy_${up.id}` }]],
-        },
-      });
+    // An optional upsell must not make a successfully delivered purchase fail.
+    try {
+      const { data: up, error: upsellError } = await db.from("products").select("*").eq("id", product.upsell_product_id).maybeSingle();
+      if (upsellError) throw upsellError;
+      if (up?.active) {
+        await tg("sendMessage", {
+          chat_id: chatId,
+          text: `${settings?.upsell_message ?? "Das könnte dir auch gefallen:"}\n<b>${up.title}</b>`,
+          parse_mode: "HTML",
+          reply_markup: {
+            inline_keyboard: [[{ text: `Jetzt sichern — ⭐ ${up.price_stars}`, callback_data: `buy_${up.id}` }]],
+          },
+        });
+      }
+    } catch (error) {
+      console.error("[fulfillment:upsell]", error);
     }
   }
 
