@@ -69,6 +69,7 @@ Deno.serve(async(req)=>{try{
   }
 
   async function getActiveContentAccess(userId: string, setId: string) {
+    if (!/^[\da-f]{8}(?:-[\da-f]{4}){3}-[\da-f]{12}$/i.test(setId)) return null;
     const { data, error } = await activeContentAccess(userId)
       .eq("content_set_id", setId)
       .maybeSingle();
