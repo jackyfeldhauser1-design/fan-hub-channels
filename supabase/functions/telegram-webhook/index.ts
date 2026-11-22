@@ -130,6 +130,63 @@ Deno.serve(async(req)=>{try{
   async function sendVipStarsInvoice(chatId:number,user:any){const {data:p}=await db.from("products").select("*").eq("delivery_payload","vip").eq("active",true).order("created_at",{ascending:false}).limit(1).maybeSingle();if(!p)throw new Error("VIP-Produkt ist nicht aktiv.");await tg(token,"sendInvoice",{chat_id:chatId,title:String(p.title||"VIP-Zugang").slice(0,32),description:"Exklusiver Paid-Bereich – Freischaltung nach bestätigter Zahlung",payload:`p:${p.id}`,currency:"XTR",prices:[{label:String(p.title||"VIP-Zugang").slice(0,32),amount:Math.max(1,Math.round(Number(p.price_stars||settings.vip_price_stars||450)))}]});await db.from("invoice_intents").insert({tg_user_id:user.id,chat_id:chatId,payload:`p:${p.id}`,title:p.title,amount_stars:Math.max(1,Math.round(Number(p.price_stars||settings.vip_price_stars||450)))});}
   async function beginVipTon(chatId:number,user:any){const {data:p}=await db.from("products").select("*").eq("delivery_payload","vip").eq("active",true).order("created_at",{ascending:false}).limit(1).maybeSingle();const wallet=String(settings.ton_wallet||"").trim();const amount=Number(p?.price_ton||settings.vip_price_ton||0);if(!p||!wallet||amount<=0){await tg(token,"sendMessage",{chat_id:chatId,text:"TON-Zahlung ist für Paid derzeit nicht verfügbar."});return;}const cutoff=new Date(Date.now()-24*3600000).toISOString();const {data:open}=await db.from("purchases").select("id,ton_memo,amount_ton").eq("tg_user_id",user.id).eq("product_id",p.id).eq("currency","ton").eq("status","pending").gte("created_at",cutoff).order("created_at",{ascending:false}).limit(1).maybeSingle();let purchase:any=open;if(!purchase){const memo=tonMemo();const {data:created,error}=await db.from("purchases").insert({tg_user_id:user.id,product_id:p.id,referrer_id:user.referred_by||null,title_snapshot:p.title,currency:"ton",amount_ton:amount,status:"pending",ton_memo:memo,delivery_status:"pending"}).select("id,ton_memo,amount_ton").single();if(error){if(String((error as any)?.code||"")==="23505"){const {data:existing}=await db.from("purchases").select("id,ton_memo,amount_ton").eq("tg_user_id",user.id).eq("product_id",p.id).eq("currency","ton").eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();if(!existing)throw error;purchase=existing;}else throw error;}else purchase=created;}const payUrl=`https://app.tonkeeper.com/transfer/${wallet}?amount=${nanoTon(purchase.amount_ton)}&text=${encodeURIComponent(String(purchase.ton_memo||""))}`;await tg(token,"sendMessage",{chat_id:chatId,text:`👑 <b>Paid-Zugang</b>\n\nSende genau <b>${Number(purchase.amount_ton)} TON</b>. Freischaltung erfolgt erst nach bestätigtem Eingang.`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"💎 In TON Wallet bezahlen",url:payUrl}],[{text:"✅ Zahlung prüfen",callback_data:`checkton_${purchase.id}`}]]}});}
   async function beginTon(chatId:number,user:any,setId:string){const offer=await productForSet(setId);const wallet=String(settings.ton_wallet||"").trim();if(!offer||!wallet||Number(offer.product.price_ton)<=0){await tg(token,"sendMessage",{chat_id:chatId,text:"TON-Zahlung ist für dieses Set derzeit nicht verfügbar."});return;}const p=offer.product;const cutoff=new Date(Date.now()-24*3600000).toISOString();const {data:open}=await db.from("purchases").select("id,ton_memo,amount_ton").eq("tg_user_id",user.id).eq("product_id",p.id).eq("currency","ton").eq("status","pending").gte("created_at",cutoff).order("created_at",{ascending:false}).limit(1).maybeSingle();let purchase:any=open;if(!purchase){const memo=tonMemo();const {data:created,error}=await db.from("purchases").insert({tg_user_id:user.id,product_id:p.id,referrer_id:user.referred_by||null,title_snapshot:p.title,currency:"ton",amount_ton:Number(p.price_ton),status:"pending",ton_memo:memo,delivery_status:"pending"}).select("id,ton_memo,amount_ton").single();if(error){if(String((error as any)?.code||"")==="23505"){const {data:existing,error:existingError}=await db.from("purchases").select("id,ton_memo,amount_ton").eq("tg_user_id",user.id).eq("product_id",p.id).eq("currency","ton").eq("status","pending").order("created_at",{ascending:false}).limit(1).maybeSingle();if(existingError||!existing)throw error;purchase=existing;}else throw error;}else purchase=created;}const memo=String(purchase.ton_memo||"");const amount=Number(purchase.amount_ton||p.price_ton);const payUrl=`https://app.tonkeeper.com/transfer/${wallet}?amount=${nanoTon(amount)}&text=${encodeURIComponent(memo)}`;await tg(token,"sendMessage",{chat_id:chatId,text:`💎 <b>${esc(p.title)}</b>\n\nSende genau <b>${amount} TON</b>. Der Verwendungszweck wird automatisch eingesetzt.\n\nDie Freischaltung erfolgt erst nach bestätigtem Eingang.${open?"\n\nℹ️ Dein bereits offener Zahlungsvorgang wird weiterverwendet.":""}`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"💎 In TON Wallet bezahlen",url:payUrl}],[{text:"✅ Zahlung prüfen",callback_data:`checkton_${purchase.id}`}]]}});}
+  async function beginTrx(chatId: number, user: { id: string; referred_by?: string }, setId: string) {
+    if (await sendOwnedSet(chatId, user.id, setId)) return;
+    const offer = await productForSet(setId);
+    const wallet = String(settings.trx_wallet ?? "").trim();
+    const price = Number(offer?.product.price_trx ?? 0);
+    if (!offer || !wallet || !Number.isFinite(price) || price <= 0) {
+      await tg(token, "sendMessage", { chat_id: chatId, text: "TRX-Zahlung ist für dieses Set derzeit nicht verfügbar." });
+      return;
+    }
+
+    const cutoff = new Date(Date.now() - 24 * 60 * 60_000).toISOString();
+    const { data: open, error: openError } = await db.from("purchases")
+      .select("id,amount_trx,trx_memo")
+      .eq("tg_user_id", user.id)
+      .eq("product_id", offer.product.id)
+      .eq("currency", "trx")
+      .eq("status", "pending")
+      .not("trx_memo", "is", null)
+      .gte("created_at", cutoff)
+      .order("created_at", { ascending: false })
+      .limit(1)
+      .maybeSingle();
+    if (openError) throw openError;
+
+    let order = open;
+    if (!order) {
+      const memo = "TRX-" + crypto.randomUUID().replaceAll("-", "").toUpperCase();
+      const { data: created, error } = await db.from("purchases").insert({
+        tg_user_id: user.id,
+        product_id: offer.product.id,
+        referrer_id: user.referred_by ?? null,
+        title_snapshot: offer.product.title,
+        currency: "trx",
+        amount_trx: price,
+        status: "pending",
+        trx_memo: memo,
+        delivery_status: "pending",
+      }).select("id,amount_trx,trx_memo").single();
+      if (error) throw error;
+      order = created;
+      await trackEvent(user.id, "checkout_started", { productId: offer.product.id, setId, source: "trx" });
+    }
+
+    await tg(token, "sendMessage", {
+      chat_id: chatId,
+      text: [
+        "TRX-Zahlung für " + offer.product.title,
+        "Betrag: " + order.amount_trx + " TRX",
+        "Empfängeradresse: " + wallet,
+        "Memo: " + order.trx_memo,
+        "",
+        "Verwende eine Wallet, die ein Memo an die native TRX-Überweisung im TRON-Netzwerk anhängen kann. Übernimm Betrag und Memo exakt. Nach bestätigtem Eingang liefert der Bot das Set aus.",
+      ].join("\n"),
+      reply_markup: { inline_keyboard: [[{ text: "Meine Inhalte", callback_data: "my_content" }]] },
+    });
+  }
+
     async function verifyTon(purchase:any){const wallet=String(settings.ton_wallet||"").trim();if(!wallet||!purchase?.ton_memo)return null;const endpoint=`https://toncenter.com/api/v2/getTransactions?address=${encodeURIComponent(wallet)}&limit=100&archival=true`;
     const r=await fetch(endpoint,{headers:{Accept:"application/json"}});if(!r.ok)throw new Error(`TON-Prüfung nicht erreichbar (${r.status})`);const body=await r.json();for(const tx of body?.result||[]){const incoming=tx?.in_msg||{};const memo=String(incoming?.message||"").trim();const value=BigInt(String(incoming?.value||"0"));const required=BigInt(nanoTon(purchase.amount_ton));const txId=String(tx?.transaction_id?.hash||tx?.hash||"");if(memo===String(purchase.ton_memo)&&value>=required&&txId)return {txId};}return null;}
   async function sendNextOffer(chatId:number,userId:string,purchaseId:string){const {data:purchase}=await db.from("purchases").select("product_id,products(upsell_product_id)").eq("id",purchaseId).maybeSingle();const preferred=(purchase?.products as any)?.upsell_product_id||null;const {data:sets}=await db.from("content_sets").select("id,product_id,products(id,title,price_stars,price_ton,active)").eq("status","active");const candidates=(sets||[]).filter((s:any)=>s.products?.active&&s.product_id!==purchase?.product_id).sort((a:any,b:any)=>{if(preferred&&a.product_id===preferred)return -1;if(preferred&&b.product_id===preferred)return 1;return Number(a.products?.price_stars||0)-Number(b.products?.price_stars||0);});for(const s of candidates){const {data:owned}=await db.from("content_access").select("id").eq("tg_user_id",userId).eq("content_set_id",s.id).eq("status","active").maybeSingle();if(owned)continue;const next:any=s.products;await trackEvent(userId,"upsell_impression",{productId:s.product_id,setId:s.id,source:preferred&&s.product_id===preferred?"configured":"automatic",meta:{purchase_id:purchaseId}});await tg(token,"sendMessage",{chat_id:chatId,text:`✨ <b>${esc(settings.upsell_message||"Das könnte dir auch gefallen:")}</b>\n\n${esc(next.title)} · ⭐ ${next.price_stars}${Number(next.price_ton)>0?` / 💎 ${Number(next.price_ton)} TON`:""}`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"Set ansehen",callback_data:`offer_${s.id}`}],[{text:"🛍 Zurück zum Shop",callback_data:"shop"}]]}});return;}const {data:vip}=await db.from("products").select("id,title,price_stars,price_ton").eq("active",true).eq("delivery_payload","vip").maybeSingle();const {data:sub}=await db.from("subscriptions").select("id").eq("tg_user_id",userId).eq("plan","vip").eq("status","active").maybeSingle();if(vip&&!sub){await trackEvent(userId,"upsell_impression",{productId:vip.id,source:"vip_fallback",meta:{purchase_id:purchaseId}});await tg(token,"sendMessage",{chat_id:chatId,text:`👑 <b>Nächster Schritt: Paid-Bereich</b>\n\n${esc(vip.title)} · ⭐ ${vip.price_stars}${Number(vip.price_ton)>0?` / 💎 ${Number(vip.price_ton)} TON`:""}`,parse_mode:"HTML",reply_markup:{inline_keyboard:[[{text:"👑 Paid ansehen",callback_data:"vip_info"}]]}});}}
@@ -157,6 +214,16 @@ Deno.serve(async(req)=>{try{
   if (msg?.chat?.type === "private" && /^\/inhalte(?:@\w+)?$/i.test(text)) {
     const user = await ensureUser(msg.from);
     await sendContentPage(Number(msg.chat.id), user.id);
+    return json({ ok: true });
+  }
+
+  if (contentQuery && contentAction.startsWith("trx_")) {
+    await tg(token, "answerCallbackQuery", { callback_query_id: contentQuery.id });
+    const target = contentQuery.message?.chat;
+    if (target?.type === "private" && target.id === contentQuery.from?.id) {
+      const user = await ensureUser(contentQuery.from);
+      await beginTrx(target.id, user, contentAction.slice(4));
+    }
     return json({ ok: true });
   }
 
