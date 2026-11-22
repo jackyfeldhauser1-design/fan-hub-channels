@@ -192,12 +192,12 @@ export async function deliverContentSet(
 
   const files = (items ?? []).map((x: any) => x.media_files).filter(Boolean);
   if (!files.length) {
-    await tgRequired(tg, "sendMessage", { chat_id: chatId, text: `🔓 ${set.title}\n\nDer Inhalt ist freigeschaltet, aber noch nicht mit Medien befüllt.` });
+    await tgRequired(tg, "sendMessage", { chat_id: chatId, protect_content: true, text: `🔓 ${set.title}\n\nDer Inhalt ist freigeschaltet, aber noch nicht mit Medien befüllt.` });
     return { ok: true, delivered: 0 };
   }
 
   await tgRequired(tg, "sendMessage", {
-    chat_id: chatId,
+    chat_id: chatId, protect_content: true,
     text: `🔓 <b>${escapeHtml(set.title)}</b>\n${set.description ? `\n${escapeHtml(set.description)}` : ""}`,
     parse_mode: "HTML",
   });
@@ -209,15 +209,15 @@ export async function deliverContentSet(
     if (batch.length === 1) {
       const [item] = batch;
       if (item.type === "video") {
-        await tgRequired(tg, "sendVideo", { chat_id: chatId, video: item.media });
+        await tgRequired(tg, "sendVideo", { chat_id: chatId, protect_content: true, video: item.media });
       } else {
-        await tgRequired(tg, "sendPhoto", { chat_id: chatId, photo: item.media });
+        await tgRequired(tg, "sendPhoto", { chat_id: chatId, protect_content: true, photo: item.media });
       }
       delivered += 1;
       batch = [];
       return;
     }
-    await tgRequired(tg, "sendMediaGroup", { chat_id: chatId, media: batch });
+    await tgRequired(tg, "sendMediaGroup", { chat_id: chatId, protect_content: true, media: batch });
     delivered += batch.length;
     batch = [];
   };
@@ -235,9 +235,9 @@ export async function deliverContentSet(
     }
     await flushBatch();
     if (mime.startsWith("audio/")) {
-      await tgRequired(tg, "sendAudio", { chat_id: chatId, audio: url, caption: file.display_name || set.title });
+      await tgRequired(tg, "sendAudio", { chat_id: chatId, protect_content: true, audio: url, caption: file.display_name || set.title });
     } else {
-      await tgRequired(tg, "sendDocument", { chat_id: chatId, document: url, caption: file.display_name || set.title });
+      await tgRequired(tg, "sendDocument", { chat_id: chatId, protect_content: true, document: url, caption: file.display_name || set.title });
     }
     delivered++;
   }
