@@ -5,7 +5,9 @@ import ts from "typescript";
 import { describe, expect, it } from "vitest";
 
 const token = "test-token";
-const secret = createHash("sha256").update("telegram-webhook:" + token).digest("base64url");
+const secret = createHash("sha256")
+  .update("telegram-webhook:" + token)
+  .digest("base64url");
 const telegramUser = { id: 4242, first_name: "Fan" };
 const setId = "00000000-0000-4000-8000-000000000001";
 const productId = "00000000-0000-4000-8000-000000000002";
@@ -39,10 +41,11 @@ function grant(contentId: string, patch: Partial<Grant> = {}): Grant {
   };
 }
 
-function fixture(grants: Grant[], failAccess = false) {
+function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string } = {}) {
   const calls: Array<{ method: string; body: Record<string, unknown> }> = [];
   const accessQueries: URL[] = [];
   const requests: string[] = [];
+  const orders: Array<Record<string, unknown>> = [];
   const upstream: typeof fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.hostname === "api.telegram.org") {
@@ -54,64 +57,93 @@ function fixture(grants: Grant[], failAccess = false) {
     if (url.pathname.includes("/storage/v1/object/sign/")) {
       return Response.json({ signedURL: "/object/sign/media-vault/example.jpg?token=test" });
     }
+    if (table === "purchases") {
+      if (init?.method === "POST") {
+        const order = { id: "order-id", ...JSON.parse(String(init.body)) };
+        orders.push(order);
+        return Response.json(order);
+      }
+      return Response.json(orders);
+    }
     if (init?.method === "POST") return Response.json([]);
     if (init?.method === "PATCH") return new Response(null, { status: 204 });
     if (table === "bot_credentials") return Response.json([{ bot_token: token }]);
+    if (table === "bot_settings") return Response.json([{ trx_wallet: options.trxWallet }]);
     if (table === "tg_users") return Response.json([{ id: "buyer", telegram_id: telegramUser.id }]);
     if (table === "content_access") {
-      if (failAccess) return Response.json({ message: "temporary failure" }, { status: 400 });
+      if (options.failAccess)
+        return Response.json({ message: "temporary failure" }, { status: 400 });
       accessQueries.push(url);
       const params = url.searchParams;
       const cutoff = params.get("or")?.split("expires_at.gt.")[1]?.slice(0, -1) ?? "";
       const offset = Number(params.get("offset") ?? 0);
       const limit = Number(params.get("limit") ?? grants.length);
-      const rows = grants.filter((entry) =>
-        params.get("tg_user_id") === "eq." + entry.tg_user_id
-        && params.get("status") === "eq." + entry.status
-        && (!params.has("content_set_id") || params.get("content_set_id") === "eq." + entry.content_set_id)
-        && (entry.expires_at === null || entry.expires_at > cutoff),
+      const rows = grants.filter(
+        (entry) =>
+          params.get("tg_user_id") === "eq." + entry.tg_user_id &&
+          params.get("status") === "eq." + entry.status &&
+          (!params.has("content_set_id") ||
+            params.get("content_set_id") === "eq." + entry.content_set_id) &&
+          (entry.expires_at === null || entry.expires_at > cutoff),
       );
       return Response.json(rows.slice(offset, offset + limit));
     }
     if (table === "content_sets") return Response.json([{ id: setId, product_id: productId }]);
-    if (table === "products") return Response.json([{ id: productId, title: "Testset", price_stars: 100 }]);
+    if (table === "products")
+      return Response.json([
+        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456 },
+      ]);
     if (table === "content_set_items") {
-      return Response.json([{ media_files: { storage_path: "example.jpg", mime_type: "image/jpeg" } }]);
+      return Response.json([
+        { media_files: { storage_path: "example.jpg", mime_type: "image/jpeg" } },
+      ]);
     }
     return Response.json([]);
   };
 
   let handler: (request: Request) => Promise<Response>;
   new Function("Deno", "EdgeRuntime", "createClient", "fetch", outputText)(
-    { env: { get: () => "" }, serve: (callback: typeof handler) => { handler = callback; } },
+    {
+      env: { get: () => "" },
+      serve: (callback: typeof handler) => {
+        handler = callback;
+      },
+    },
     { waitUntil: () => {} },
-    () => createClient("https://database.example", "test-key", {
-      global: { fetch: upstream },
-      auth: { persistSession: false },
-    }),
+    () =>
+      createClient("https://database.example", "test-key", {
+        global: { fetch: upstream },
+        auth: { persistSession: false },
+      }),
     upstream,
   );
 
   let updateId = 0;
   async function send(update: object) {
-    return handler(new Request("https://example.test/telegram-webhook", {
-      method: "POST",
-      headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": secret },
-      body: JSON.stringify({ update_id: ++updateId, ...update }),
-    }));
+    return handler(
+      new Request("https://example.test/telegram-webhook", {
+        method: "POST",
+        headers: { "content-type": "application/json", "x-telegram-bot-api-secret-token": secret },
+        body: JSON.stringify({ update_id: ++updateId, ...update }),
+      }),
+    );
   }
   function message(text: string) {
-    return send({ message: { text, chat: { id: telegramUser.id, type: "private" }, from: telegramUser } });
+    return send({
+      message: { text, chat: { id: telegramUser.id, type: "private" }, from: telegramUser },
+    });
   }
   function tap(data: string, chat = { id: telegramUser.id, type: "private" }) {
     return send({ callback_query: { id: "tap", data, from: telegramUser, message: { chat } } });
   }
   function buttons() {
-    const markup = calls.filter((entry) => entry.method === "sendMessage").at(-1)?.body.reply_markup;
-    return (markup as { inline_keyboard: Array<Array<{ callback_data: string }>> })
-      .inline_keyboard.flat().map((button) => button.callback_data);
+    const markup = calls.filter((entry) => entry.method === "sendMessage").at(-1)
+      ?.body.reply_markup;
+    return (markup as { inline_keyboard: Array<Array<{ callback_data: string }>> }).inline_keyboard
+      .flat()
+      .map((button) => button.callback_data);
   }
-  return { message, tap, buttons, calls, accessQueries, requests };
+  return { message, tap, buttons, calls, accessQueries, requests, orders };
 }
 
 describe("Supabase Telegram webhook · purchased sets", () => {
@@ -166,15 +198,56 @@ describe("Supabase Telegram webhook · purchased sets", () => {
     const expired = fixture([grant(setId, { expires_at: "2000-01-01T00:00:00Z" })]);
     expect((await expired.tap("content_" + setId)).status).toBe(200);
     const group = fixture([grant(setId)]);
-    expect((await group.tap("content_" + setId, { id: -1001, type: "supergroup" })).status).toBe(200);
+    expect((await group.tap("content_" + setId, { id: -1001, type: "supergroup" })).status).toBe(
+      200,
+    );
     for (const bot of [denied, expired, group]) {
       expect(bot.calls.some((call) => call.method === "sendPhoto")).toBe(false);
     }
     expect(group.accessQueries).toHaveLength(0);
   });
 
+  it("opens a TRX order from a teaser and reuses its amount and memo", async () => {
+    const bot = fixture([], { trxWallet: "test-trx-wallet" });
+    expect((await bot.message("/start c_" + setId)).status).toBe(200);
+    expect(bot.buttons()).toContain("trx_" + setId);
+    expect((await bot.tap("trx_" + setId)).status).toBe(200);
+    expect((await bot.tap("trx_" + setId)).status).toBe(200);
+    expect(bot.orders).toMatchObject([
+      {
+        tg_user_id: "buyer",
+        product_id: productId,
+        currency: "trx",
+        amount_trx: 25.123456,
+        status: "pending",
+        delivery_status: "pending",
+        trx_memo: expect.stringMatching(/^TRX-[A-F0-9]{32}$/),
+      },
+    ]);
+    const instructions = bot.calls.filter((call) =>
+      String(call.body.text).startsWith("TRX-Zahlung für"),
+    );
+    expect(instructions).toHaveLength(2);
+    expect(instructions[0]?.body.text).toContain("25.123456 TRX");
+    expect(instructions[0]?.body.text).toContain("test-trx-wallet");
+    expect(instructions[0]?.body.text).toContain(bot.orders[0]?.trx_memo);
+    expect(instructions[0]?.body.text).toBe(instructions[1]?.body.text);
+    expect(bot.calls.some((call) => call.method === "sendPhoto")).toBe(false);
+  });
+
+  it("does not create a TRX order for owned content or a missing wallet", async () => {
+    const buyer = fixture([grant(setId)], { trxWallet: "test-trx-wallet" });
+    expect((await buyer.tap("trx_" + setId)).status).toBe(200);
+    expect(buyer.buttons()).toContain("content_" + setId);
+    const unavailable = fixture([]);
+    expect((await unavailable.tap("trx_" + setId)).status).toBe(200);
+    expect(unavailable.calls.at(-1)?.body.text).toContain("nicht verfügbar");
+    expect(buyer.orders).toHaveLength(0);
+    expect(unavailable.orders).toHaveLength(0);
+  });
+
   it("does not offer payment if access verification fails", async () => {
-    const bot = fixture([], true);
+    const bot = fixture([], { failAccess: true });
     expect((await bot.message("/start c_" + setId)).status).toBe(500);
     expect(bot.calls).toHaveLength(0);
     expect(bot.requests).not.toContain("POST purchases");
