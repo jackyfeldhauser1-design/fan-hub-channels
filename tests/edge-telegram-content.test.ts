@@ -59,7 +59,7 @@ function fixture(grants: Grant[], failAccess = false) {
     if (table === "bot_credentials") return Response.json([{ bot_token: token }]);
     if (table === "tg_users") return Response.json([{ id: "buyer", telegram_id: telegramUser.id }]);
     if (table === "content_access") {
-      if (failAccess) return Response.json({ message: "temporary failure" }, { status: 503 });
+      if (failAccess) return Response.json({ message: "temporary failure" }, { status: 400 });
       accessQueries.push(url);
       const params = url.searchParams;
       const cutoff = params.get("or")?.split("expires_at.gt.")[1]?.slice(0, -1) ?? "";
