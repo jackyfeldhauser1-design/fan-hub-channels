@@ -20,7 +20,8 @@ Deno.serve(async(req)=>{try{
 
   const me=await tg(token,"getMe");
   const body=await req.json().catch(()=>({}));
-  const expected=`${String(Deno.env.get("TELEGRAM_WEBHOOK_BASE_URL")||settings?.app_base_url||Deno.env.get("PUBLIC_APP_URL")||"https://fan-hub-vercel2.vercel.app").replace(/\/$/,"")}/api/public/telegram/webhook`;
+  const expected=String(Deno.env.get("TELEGRAM_WEBHOOK_URL")||`${String(Deno.env.get("SUPABASE_URL")||"").replace(/\/$/,"")}/functions/v1/telegram-webhook`).trim();
+  if(!/^https:\/\/[^\s/?#]+\/functions\/v1\/telegram-webhook$/.test(expected))throw new Error("invalid_telegram_webhook_url");
   let webhook=await tg(token,"getWebhookInfo");
   if(body?.repair===true&&String(webhook?.url||"")!==expected){
     const bytes=new TextEncoder().encode(`telegram-webhook:${token}`);
