@@ -6,7 +6,7 @@ begin
       '*/5 * * * *',
       $job$
       select net.http_post(
-        url := 'https://itsfelize.store/api/public/jobs/crypto',
+        url := 'https://fan-hub-vercel2.vercel.app/api/public/jobs/crypto',
         headers := jsonb_build_object(
           'x-cron-token',
           (select decrypted_secret from vault.decrypted_secrets where name = 'fan_hub_cart_recovery_token')
