@@ -34,6 +34,20 @@ describe("public base URL and Telegram webhook", () => {
     expect(resolveTelegramWebhookUrl({ app_base_url: "https://itsfelize.store" })).toBe("");
   });
 
+  it("uses the exact Supabase webhook URL without appending the Vercel route", () => {
+    vi.stubEnv("TELEGRAM_WEBHOOK_URL", "https://biqvodzbbgfkzwrapftz.supabase.co/functions/v1/telegram-webhook");
+    vi.stubEnv("PUBLIC_APP_URL", "https://itsfelize.de");
+    expect(resolveTelegramWebhookUrl({ app_base_url: "https://itsfelize.store" }))
+      .toBe("https://biqvodzbbgfkzwrapftz.supabase.co/functions/v1/telegram-webhook");
+  });
+
+  it("rejects arbitrary or insecure explicit webhook URLs", () => {
+    vi.stubEnv("TELEGRAM_WEBHOOK_URL", "https://evil.example/functions/v1/not-a-webhook");
+    expect(resolveTelegramWebhookUrl()).toBe("");
+    vi.stubEnv("TELEGRAM_WEBHOOK_URL", "http://example.com/functions/v1/telegram-webhook");
+    expect(resolveTelegramWebhookUrl()).toBe("");
+  });
+
   it("rejects insecure or invalid production webhook URLs", () => {
     vi.stubEnv("NODE_ENV", "production");
     vi.stubEnv("PUBLIC_APP_URL", "");
