@@ -22,6 +22,11 @@ function validateBaseUrl(base: string) {
 export function resolveTelegramWebhookUrl(settings?: { app_base_url?: string | null } | null) {
   // Keep the Telegram receiver independent of the public customer-facing domain.
   // When not configured, retain the existing URL until the new endpoint is verified.
+  const exactWebhook = String(process.env["TELEGRAM_WEBHOOK_URL"] ?? "").trim();
+  if (exactWebhook) {
+    const parsed = validateBaseUrl(exactWebhook);
+    return parsed && new URL(parsed).pathname.endsWith("/functions/v1/telegram-webhook") ? parsed : "";
+  }
   const dedicated = String(process.env["TELEGRAM_WEBHOOK_BASE_URL"] ?? "").trim();
   const base = dedicated ? validateBaseUrl(dedicated) : resolvePublicBaseUrl(settings);
   return base ? `${base}/api/public/telegram/webhook` : "";
