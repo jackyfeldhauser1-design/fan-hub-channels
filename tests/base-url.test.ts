@@ -1,5 +1,11 @@
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { resolvePublicBaseUrl, resolveTelegramWebhookUrl } from "../src/lib/base-url";
+
+beforeEach(() => {
+  vi.stubEnv("PUBLIC_APP_URL", "");
+  vi.stubEnv("TELEGRAM_WEBHOOK_URL", "");
+  vi.stubEnv("TELEGRAM_WEBHOOK_BASE_URL", "");
+});
 
 afterEach(() => {
   vi.unstubAllEnvs();
