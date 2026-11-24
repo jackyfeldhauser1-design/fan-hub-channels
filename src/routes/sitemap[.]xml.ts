@@ -1,6 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 
-const BASE_URL = "https://itsfelize.store";
+import { resolvePublicBaseUrl } from "@/lib/base-url";
 
 const entries = [
   { path: "/warteliste", changefreq: "weekly", priority: "0.8" },
@@ -12,10 +12,14 @@ export const Route = createFileRoute("/sitemap.xml")({
   server: {
     handlers: {
       GET: async () => {
+        const base = resolvePublicBaseUrl();
+        if (!base) {
+          return new Response("Public URL not configured", { status: 503, headers: { "Cache-Control": "no-store" } });
+        }
         const urls = entries
           .map(
             (e) =>
-              `  <url>\n    <loc>${BASE_URL}${e.path}</loc>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`,
+              `  <url>\n    <loc>${base.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;")}${e.path}</loc>\n    <changefreq>${e.changefreq}</changefreq>\n    <priority>${e.priority}</priority>\n  </url>`,
           )
           .join("\n");
         const xml = [
