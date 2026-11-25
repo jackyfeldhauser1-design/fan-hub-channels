@@ -41,11 +41,11 @@ function grant(contentId: string, patch: Partial<Grant> = {}): Grant {
   };
 }
 
-function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string } = {}) {
+function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; existingOrders?: Array<Record<string, unknown>> } = {}) {
   const calls: Array<{ method: string; body: Record<string, unknown> }> = [];
   const accessQueries: URL[] = [];
   const requests: string[] = [];
-  const orders: Array<Record<string, unknown>> = [];
+  const orders: Array<Record<string, unknown>> = [...(options.existingOrders ?? [])];
   const upstream: typeof fetch = async (input, init) => {
     const url = new URL(String(input));
     if (url.hostname === "api.telegram.org") {
@@ -63,7 +63,7 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
         orders.push(order);
         return Response.json(order);
       }
-      return Response.json(orders);
+      return Response.json(orders.filter((order) => ["id", "tg_user_id", "currency", "product_id", "status"].every((key) => !url.searchParams.has(key) || url.searchParams.get(key) === "eq." + order[key])));
     }
     if (init?.method === "POST") return Response.json([]);
     if (init?.method === "PATCH") return new Response(null, { status: 204 });
@@ -251,5 +251,27 @@ describe("Supabase Telegram webhook · purchased sets", () => {
     expect((await bot.message("/start c_" + setId)).status).toBe(500);
     expect(bot.calls).toHaveLength(0);
     expect(bot.requests).not.toContain("POST purchases");
+  });
+});
+
+
+describe("Crypto payment status", () => {
+  const id = "00000000-0000-4000-8000-000000000099";
+  it.each(["ton", "trx"])("reports paid but undelivered %s orders without a second settlement", async (currency) => {
+    const bot = fixture([], { existingOrders: [{ id, tg_user_id: "buyer", currency, status: "paid", delivery_status: "failed" }] });
+    expect((await bot.tap("check" + currency + "_" + id)).status).toBe(200);
+    expect(bot.calls.at(-1)?.body.text).toContain("Bitte nicht erneut bezahlen");
+    expect(bot.requests).not.toContain("PATCH purchases");
+    expect(bot.calls.some((call) => call.method === "sendPhoto")).toBe(false);
+  });
+  it("does not disclose another customer's payment", async () => {
+    const bot = fixture([], { existingOrders: [{ id, tg_user_id: "other", currency: "ton", status: "paid", delivery_status: "delivered" }] });
+    expect((await bot.tap("checkton_" + id)).status).toBe(200);
+    expect(bot.calls.at(-1)?.body.text).toContain("nicht gefunden");
+  });
+  it("does not query a payment from a group chat", async () => {
+    const bot = fixture([]);
+    expect((await bot.tap("checkton_" + id, { id: -1001, type: "supergroup" })).status).toBe(200);
+    expect(bot.requests).not.toContain("GET purchases");
   });
 });
