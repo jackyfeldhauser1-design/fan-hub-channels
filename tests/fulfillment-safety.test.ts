@@ -36,3 +36,39 @@ describe("Fulfillment safety", () => {
     expect(tg).toHaveBeenCalledTimes(2);
   });
 });
+
+
+describe("Delivery failure regression", () => {
+  const purchase = { id: "p1", tg_user_id: "fan-1" };
+  it.each([null, false, { ok: false }])("does not mark a rejected Telegram response delivered (%j)", async (response) => {
+    const db = new FakeDb({ purchases: [{ ...purchase, delivery_status: "pending" }] });
+    await expect(deliverProduct(db, async () => response, 123,
+      { id: "item-1", title: "Test", delivery_type: "text" }, purchase, {})).rejects.toThrow(/Zustellung/);
+    expect(db.rows("purchases")[0]?.delivery_status).toBe("pending");
+  });
+  it("rejects an incomplete bundle before granting or sending content", async () => {
+    const db = new FakeDb({
+      purchases: [{ ...purchase, delivery_status: "pending" }],
+      bundle_items: [{ bundle_id: "bundle", product_id: "existing" }, { bundle_id: "bundle", product_id: "missing" }],
+      content_sets: [{ id: "set", product_id: "existing" }],
+      content_access: [],
+    });
+    const tg = vi.fn(async () => ({ message_id: 1 }));
+    await expect(deliverProduct(db, tg, 123, { id: "bundle", kind: "bundle" }, purchase, {})).rejects.toThrow(/nicht verfügbare Sets/);
+    expect(db.rows("content_access")).toHaveLength(0);
+    expect(tg).not.toHaveBeenCalled();
+    expect(db.rows("purchases")[0]?.delivery_status).toBe("pending");
+  });
+  it("does not confirm an empty protected set", async () => {
+    const db = new FakeDb({
+      purchases: [{ ...purchase, delivery_status: "pending" }],
+      content_sets: [{ id: "set", product_id: "item", access_mode: "permanent" }],
+      content_set_items: [],
+      content_access: [{ id: "access", tg_user_id: "fan-1", content_set_id: "set", status: "active", expires_at: null }],
+    });
+    const tg = vi.fn(async () => ({ message_id: 1 }));
+    await expect(deliverProduct(db, tg, 123, { id: "item", delivery_type: "text" }, purchase, {})).rejects.toThrow(/Medien fehlen/);
+    expect(tg).not.toHaveBeenCalled();
+    expect(db.rows("purchases")[0]?.delivery_status).toBe("pending");
+  });
+});

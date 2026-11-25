@@ -9,7 +9,7 @@ function escapeHtml(value: unknown) {
 
 async function tgRequired(tg: TgSender, method: string, body: Record<string, unknown>) {
   const result = await tg(method, body);
-  if (result === null || result === undefined) throw new Error(`Telegram ${method}: Zustellung fehlgeschlagen`);
+  if (result === null || result === undefined || result === false || result?.ok === false) throw new Error(`Telegram ${method}: Zustellung fehlgeschlagen`);
   return result;
 }
 
@@ -31,11 +31,12 @@ export function selectPreviewFileId(
 }
 
 export async function contentSetForProduct(db: any, productId: string) {
-  const { data } = await db
+  const { data, error } = await db
     .from("content_sets")
     .select("*")
     .eq("product_id", productId)
     .maybeSingle();
+  if (error) throw error;
   return data ?? null;
 }
 
@@ -43,12 +44,14 @@ export async function grantContentAccess(
   db: any,
   opts: { tgUserId: string; contentSet: any; purchaseId?: string | null; source?: string; expiresAt?: string | null },
 ) {
-  const { data: existing } = await db
+  const { data: existing, error: lookupError } = await db
     .from("content_access")
     .select("*")
     .eq("tg_user_id", opts.tgUserId)
     .eq("content_set_id", opts.contentSet.id)
     .maybeSingle();
+
+  if (lookupError) throw lookupError;
 
   // A Telegram webhook replay for the same purchase must never extend a timed
   // entitlement. Return the already committed access row unchanged.
@@ -121,7 +124,7 @@ export async function syncVipContentAccess(db: any, tgUserId: string) {
 }
 
 export async function activeContentAccess(db: any, tgUserId: string, contentSetId: string) {
-  const { data } = await db
+  const { data, error } = await db
     .from("content_access")
     .select("*")
     .eq("tg_user_id", tgUserId)
@@ -130,6 +133,7 @@ export async function activeContentAccess(db: any, tgUserId: string, contentSetI
     .order("granted_at", { ascending: false })
     .limit(1)
     .maybeSingle();
+  if (error) throw error;
   if (!data) return null;
   if (data.expires_at && new Date(data.expires_at).getTime() <= Date.now()) {
     await db.from("content_access").update({ status: "expired" }).eq("id", data.id);
@@ -176,24 +180,25 @@ export async function deliverContentSet(
   const access = await activeContentAccess(db, tgUserId, contentSetId);
   if (!access) return { ok: false, reason: "Kein aktiver Zugriff" };
 
-  const { data: set } = await db
+  const { data: set, error: setError } = await db
     .from("content_sets")
     .select("id, title, description, status")
     .eq("id", contentSetId)
     .maybeSingle();
+  if (setError) throw setError;
   if (!set) return { ok: false, reason: "Inhalt nicht gefunden" };
 
-  const { data: items } = await db
+  const { data: items, error: itemsError } = await db
     .from("content_set_items")
     .select("sort_order, media_files(id, storage_path, display_name, mime_type)")
     .eq("content_set_id", contentSetId)
     .eq("item_role", "protected")
     .order("sort_order", { ascending: true });
 
-  const files = (items ?? []).map((x: any) => x.media_files).filter(Boolean);
-  if (!files.length) {
-    await tgRequired(tg, "sendMessage", { chat_id: chatId, protect_content: true, text: `🔓 ${set.title}\n\nDer Inhalt ist freigeschaltet, aber noch nicht mit Medien befüllt.` });
-    return { ok: true, delivered: 0 };
+  if (itemsError) throw itemsError;
+  const files = (items ?? []).map((x: any) => x.media_files);
+  if (!files.length || files.some((file: any) => !file?.storage_path)) {
+    return { ok: false, reason: "Geschützte Medien fehlen oder sind unvollständig" };
   }
 
   await tgRequired(tg, "sendMessage", {
