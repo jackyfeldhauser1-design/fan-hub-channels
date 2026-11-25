@@ -145,6 +145,11 @@ export async function deliverProduct(
   settings: any,
 ) {
   if (!product) return { ok: false, note: "kein Produkt" };
+  const send: Tg = async (method, body) => {
+    const result = await tg(method, body);
+    if (result == null || result === false || result?.ok === false) throw new Error(`Telegram ${method}: Zustellung fehlgeschlagen`);
+    return result;
+  };
 
   const gated = product.delivery_type === "link";
   let note = "direkt im Chat";
@@ -158,12 +163,13 @@ export async function deliverProduct(
     if (bundleError) throw new Error(bundleError.message);
 
     const productIds = (bundleRows ?? []).map((row: any) => row.product_id).filter(Boolean);
+    if (!productIds.length) throw new Error("Bundle enthält keine Produkte");
     if (productIds.length) {
       const { contentSetForProduct, grantContentAccess, activeContentAccess, deliverContentSet } = await import("@/lib/content.server");
+      const sets = await Promise.all(productIds.map((childProductId: string) => contentSetForProduct(db, childProductId)));
+      if (sets.some((set) => !set)) throw new Error("Bundle enthält nicht verfügbare Sets");
       let deliveredSets = 0;
-      for (const childProductId of productIds) {
-        const contentSet = await contentSetForProduct(db, childProductId);
-        if (!contentSet) continue;
+      for (const contentSet of sets) {
         let access = await activeContentAccess(db, purchase.tg_user_id, contentSet.id);
         if (!access) {
           access = await grantContentAccess(db, {
@@ -173,7 +179,7 @@ export async function deliverProduct(
             source: "bundle",
           });
         }
-        const delivered = await deliverContentSet(db, tg, chatId, purchase.tg_user_id, contentSet.id);
+        const delivered = await deliverContentSet(db, send, chatId, purchase.tg_user_id, contentSet.id);
         if (!delivered.ok) throw new Error(delivered.reason ?? "Bundle-Inhalt konnte nicht ausgeliefert werden");
         deliveredSets += 1;
       }
@@ -197,7 +203,7 @@ export async function deliverProduct(
           source: "purchase",
         });
       }
-      const delivered = await deliverContentSet(db, tg, chatId, purchase.tg_user_id, contentSet.id);
+      const delivered = await deliverContentSet(db, send, chatId, purchase.tg_user_id, contentSet.id);
       if (!delivered.ok) throw new Error(delivered.reason ?? "Content konnte nicht ausgeliefert werden");
       note = `Telegram-Content (${delivered.delivered ?? 0} Medien)`;
       contentHandled = true;
@@ -211,7 +217,7 @@ export async function deliverProduct(
       tgUserId: purchase.tg_user_id,
       settings,
     });
-    await tg("sendMessage", {
+    await send("sendMessage", {
       chat_id: chatId,
       text: `✅ <b>${product.title}</b>\n\n🔐 Dein persönlicher Zugang ist <b>${ttl} Stunden</b> gültig und kann <b>${maxViews}×</b> geöffnet werden. Bitte nicht weitergeben – der Link ist mit deinem Konto verknüpft.`,
       parse_mode: "HTML",
@@ -219,10 +225,10 @@ export async function deliverProduct(
     });
     note = `Einmal-Link (${maxViews}× / ${ttl}h)`;
   } else if (!contentHandled && product.delivery_type === "file" && product.delivery_payload) {
-    await tg("sendDocument", { chat_id: chatId, document: product.delivery_payload, caption: product.title });
+    await send("sendDocument", { chat_id: chatId, document: product.delivery_payload, caption: product.title });
     note = "Datei im Chat";
   } else if (!contentHandled && product.delivery_type === "link" && product.delivery_payload) {
-    await tg("sendMessage", {
+    await send("sendMessage", {
       chat_id: chatId,
       text: `✅ <b>${product.title}</b>\nDein Zugang:`,
       parse_mode: "HTML",
@@ -230,7 +236,7 @@ export async function deliverProduct(
     });
     note = "Direktlink im Chat";
   } else if (!contentHandled) {
-    await tg("sendMessage", {
+    await send("sendMessage", {
       chat_id: chatId,
       text: `✅ <b>${product.title}</b>\n\n${product.delivery_payload || "Danke für deinen Kauf!"}`,
       parse_mode: "HTML",
@@ -252,7 +258,7 @@ export async function deliverProduct(
       const { data: up, error: upsellError } = await db.from("products").select("*").eq("id", product.upsell_product_id).maybeSingle();
       if (upsellError) throw upsellError;
       if (up?.active) {
-        await tg("sendMessage", {
+        await send("sendMessage", {
           chat_id: chatId,
           text: `${settings?.upsell_message ?? "Das könnte dir auch gefallen:"}\n<b>${up.title}</b>`,
           parse_mode: "HTML",
