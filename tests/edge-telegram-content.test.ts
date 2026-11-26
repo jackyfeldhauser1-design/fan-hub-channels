@@ -41,7 +41,7 @@ function grant(contentId: string, patch: Partial<Grant> = {}): Grant {
   };
 }
 
-function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; recoveryProduct?: boolean; existingOrders?: Array<Record<string, unknown>> } = {}) {
+function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; recoveryProduct?: boolean; recoveryKind?: "bundle" | "vip"; subscription?: Record<string, unknown>; memberStatus?: string; existingOrders?: Array<Record<string, unknown>> } = {}) {
   const calls: Array<{ method: string; body: Record<string, unknown> }> = [];
   const accessQueries: URL[] = [];
   const requests: string[] = [];
@@ -50,7 +50,7 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
     const url = new URL(String(input));
     if (url.hostname === "api.telegram.org") {
       calls.push({ method: url.pathname.split("/").at(-1)!, body: JSON.parse(String(init?.body)) });
-      return Response.json({ ok: true, result: { message_id: calls.length } });
+      return Response.json({ ok: true, result: { message_id: calls.length, ...(url.pathname.endsWith("/getChatMember") ? { status: options.memberStatus ?? "left" } : {}) } });
     }
     const table = url.pathname.split("/").at(-1);
     requests.push((init?.method ?? "GET") + " " + table);
@@ -72,7 +72,7 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
     if (init?.method === "POST") return Response.json([]);
     if (init?.method === "PATCH") return new Response(null, { status: 204 });
     if (table === "bot_credentials") return Response.json([{ bot_token: token }]);
-    if (table === "bot_settings") return Response.json([{ trx_wallet: options.trxWallet }]);
+    if (table === "bot_settings") return Response.json([{ trx_wallet: options.trxWallet, vip_chat_id: "-100123" }]);
     if (table === "tg_users") return Response.json([{ id: "buyer", telegram_id: telegramUser.id }]);
     if (table === "content_access") {
       if (options.failAccess)
@@ -92,10 +92,12 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
       );
       return Response.json(rows.slice(offset, offset + limit));
     }
+    if (table === "subscriptions") return Response.json(options.subscription ? [options.subscription] : []);
+    if (table === "bundle_items") return Response.json([{ product_id: productId }]);
     if (table === "content_sets") return Response.json([{ id: setId, product_id: productId }]);
     if (table === "products")
       return Response.json([
-        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456, ...(options.recoveryProduct ? { delivery_payload: "content:" + setId } : {}) },
+        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456, ...(options.recoveryKind === "vip" ? { delivery_payload: "vip" } : options.recoveryKind === "bundle" ? { delivery_payload: "bundle:content", kind: "bundle" } : options.recoveryProduct ? { delivery_payload: "content:" + setId } : {}) },
       ]);
     if (table === "content_set_items") {
       return Response.json([
@@ -302,5 +304,42 @@ describe("Stars recovery", () => {
     const bot = fixture([], { existingOrders: [{ ...order }] });
     expect((await bot.tap("recoverstars_" + id, { id: -1001, type: "supergroup" })).status).toBe(200);
     expect(bot.requests).not.toContain("GET purchases");
+  });
+});
+
+describe("Bundle and VIP Stars recovery", () => {
+  const id = "00000000-0000-4000-8000-000000000099";
+  const order = { id, tg_user_id: "buyer", currency: "stars", status: "paid", delivery_status: "failed", product_id: productId, telegram_charge_id: "test-charge", updated_at: "2000-01-01T00:00:00Z" };
+  const subscription = { id: "sub", last_purchase_id: id, status: "active", expires_at: null };
+  it("restores an owned bundle without sending media or charging again", async () => {
+    const bot = fixture([grant(setId)], { existingOrders: [{ ...order }], recoveryKind: "bundle" });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(200);
+    expect(bot.orders[0]?.delivery_status).toBe("delivered");
+    expect(bot.requests).not.toContain("PATCH content_access");
+    expect(bot.calls.some(c => c.method === "sendInvoice" || c.method === "sendPhoto")).toBe(false);
+  });
+  it("does not regrant revoked bundle access", async () => {
+    const bot = fixture([grant(setId, { status: "revoked" })], { existingOrders: [{ ...order }], recoveryKind: "bundle" });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(500);
+    expect(bot.requests).not.toContain("PATCH content_access");
+    expect(bot.orders[0]?.delivery_status).not.toBe("delivered");
+  });
+  it("verifies an existing VIP member without issuing another invite", async () => {
+    const bot = fixture([], { existingOrders: [{ ...order }], recoveryKind: "vip", subscription, memberStatus: "member" });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(200);
+    expect(bot.orders[0]?.delivery_status).toBe("delivered");
+    expect(bot.requests).not.toContain("PATCH subscriptions");
+    expect(bot.calls.some(c => c.method === "createChatInviteLink")).toBe(false);
+  });
+  it("does not issue another invitation when previous VIP delivery is uncertain", async () => {
+    const bot = fixture([], { existingOrders: [{ ...order }], recoveryKind: "vip", subscription, memberStatus: "left" });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(500);
+    expect(bot.orders[0]?.delivery_status).not.toBe("delivered");
+    expect(bot.calls.some(c => c.method === "createChatInviteLink")).toBe(false);
+  });
+  it("rejects recovery for a different VIP purchase", async () => {
+    const bot = fixture([], { existingOrders: [{ ...order }], recoveryKind: "vip", subscription: { ...subscription, last_purchase_id: "other" } });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(500);
+    expect(bot.calls.some(c => c.method === "getChatMember" || c.method === "createChatInviteLink")).toBe(false);
   });
 });
