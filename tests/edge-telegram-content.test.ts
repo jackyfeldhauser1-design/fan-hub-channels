@@ -41,7 +41,7 @@ function grant(contentId: string, patch: Partial<Grant> = {}): Grant {
   };
 }
 
-function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; existingOrders?: Array<Record<string, unknown>> } = {}) {
+function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; recoveryProduct?: boolean; existingOrders?: Array<Record<string, unknown>> } = {}) {
   const calls: Array<{ method: string; body: Record<string, unknown> }> = [];
   const accessQueries: URL[] = [];
   const requests: string[] = [];
@@ -63,7 +63,11 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
         orders.push(order);
         return Response.json(order);
       }
-      return Response.json(orders.filter((order) => ["id", "tg_user_id", "currency", "product_id", "status"].every((key) => !url.searchParams.has(key) || url.searchParams.get(key) === "eq." + order[key])));
+      const matching = orders.filter((order) => ["id", "tg_user_id", "currency", "product_id", "status", "updated_at"].every((key) => !url.searchParams.has(key) || url.searchParams.get(key) === "eq." + order[key]) && (!url.searchParams.has("telegram_charge_id") || order.telegram_charge_id != null) && (!url.searchParams.has("delivery_status") || url.searchParams.get("delivery_status")!.slice(4,-1).split(",").includes(String(order.delivery_status))));
+      if (init?.method === "PATCH") {
+        for (const order of matching) Object.assign(order, JSON.parse(String(init.body)));
+      }
+      return Response.json(matching);
     }
     if (init?.method === "POST") return Response.json([]);
     if (init?.method === "PATCH") return new Response(null, { status: 204 });
@@ -81,7 +85,7 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
       const rows = grants.filter(
         (entry) =>
           params.get("tg_user_id") === "eq." + entry.tg_user_id &&
-          params.get("status") === "eq." + entry.status &&
+          (!params.has("status") || params.get("status") === "eq." + entry.status) &&
           (!params.has("content_set_id") ||
             params.get("content_set_id") === "eq." + entry.content_set_id) &&
           (entry.expires_at === null || entry.expires_at > cutoff),
@@ -91,7 +95,7 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
     if (table === "content_sets") return Response.json([{ id: setId, product_id: productId }]);
     if (table === "products")
       return Response.json([
-        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456 },
+        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456, ...(options.recoveryProduct ? { delivery_payload: "content:" + setId } : {}) },
       ]);
     if (table === "content_set_items") {
       return Response.json([
@@ -272,6 +276,31 @@ describe("Crypto payment status", () => {
   it("does not query a payment from a group chat", async () => {
     const bot = fixture([]);
     expect((await bot.tap("checkton_" + id, { id: -1001, type: "supergroup" })).status).toBe(200);
+    expect(bot.requests).not.toContain("GET purchases");
+  });
+});
+
+describe("Stars recovery", () => {
+  const id = "00000000-0000-4000-8000-000000000099";
+  const order = { id, tg_user_id: "buyer", currency: "stars", status: "paid", delivery_status: "failed", product_id: productId, telegram_charge_id: "test-charge", updated_at: "2000-01-01T00:00:00Z", title_snapshot: "Testset" };
+  it("recovers existing access only once across concurrent requests", async () => {
+    const bot = fixture([grant(setId)], { existingOrders: [{ ...order }], recoveryProduct: true });
+    expect((await bot.message("/zahlung")).status).toBe(200);
+    expect(bot.buttons()).toContain("recoverstars_" + id);
+    const results = await Promise.all([bot.tap("recoverstars_" + id), bot.tap("recoverstars_" + id)]);
+    expect(results.map(r => r.status)).toEqual([200, 200]);
+    expect(bot.orders[0]?.delivery_status).toBe("delivered");
+    expect(bot.calls.filter(c => String(c.body.text).includes("Dein bezahltes Set ist freigeschaltet"))).toHaveLength(1);
+    expect(bot.calls.some(c => c.method === "sendInvoice" || c.method === "sendPhoto")).toBe(false);
+  });
+  it.each([{ tg_user_id: "other" }, { status: "pending" }, { delivery_status: "delivered" }, { delivery_status: "revoked" }, { updated_at: new Date().toISOString() }])("rejects ineligible recovery %j", async (patch) => {
+    const bot = fixture([grant(setId)], { existingOrders: [{ ...order, ...patch }], recoveryProduct: true });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(200);
+    expect(bot.requests).not.toContain("PATCH purchases");
+  });
+  it("rejects recovery in group chats", async () => {
+    const bot = fixture([], { existingOrders: [{ ...order }] });
+    expect((await bot.tap("recoverstars_" + id, { id: -1001, type: "supergroup" })).status).toBe(200);
     expect(bot.requests).not.toContain("GET purchases");
   });
 });
