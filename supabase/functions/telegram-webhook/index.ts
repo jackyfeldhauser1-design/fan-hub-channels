@@ -254,7 +254,7 @@ Deno.serve(async(req)=>{try{
     }else if(product?.delivery_payload==="bundle:content"||product?.kind==="bundle"){
       await grantBundle(chatId,user,purchase.id,product.id,recovery);
     }else if(product?.delivery_type==="text"){
-      if(recovery)throw new Error("Text recovery requires manual review");
+      if(recovery&&!product.delivery_payload)throw new Error("Purchased text unavailable; manual review required");
       await tg(token,"sendMessage",{chat_id:chatId,text:String(product.delivery_payload||"✅ Zahlung bestätigt."),protect_content:true});
       const {error}=await db.from("purchases").update({delivery_status:"delivered",delivered_at:new Date().toISOString(),delivery_note:"protected Telegram text delivery"}).eq("id",purchase.id).eq("tg_user_id",user.id).select("id").single();
       if(error)throw error;
@@ -290,7 +290,7 @@ Deno.serve(async(req)=>{try{
     }
     const {data:product,error:productError}=await db.from("products").select("*").eq("id",row.product_id).maybeSingle();
     if(productError)throw productError;
-    if(!product||!(product.delivery_payload?.startsWith("content:")||product.delivery_payload==="vip"||product.delivery_payload==="bundle:content"||product.kind==="bundle")){
+    if(!product||!(product.delivery_payload?.startsWith("content:")||product.delivery_payload==="vip"||product.delivery_payload==="bundle:content"||product.kind==="bundle"||(product.delivery_type==="text"&&!!product.delivery_payload))){
       await tg(token,"sendMessage",{chat_id:target.id,text:"Dieser Kauf benötigt eine manuelle Prüfung. Bitte nicht erneut bezahlen.",protect_content:true});return json({ok:true});
     }
     const {data:claim,error:claimError}=await db.from("purchases").update({delivery_status:"pending",updated_at:new Date().toISOString()}).eq("id",id).eq("tg_user_id",user.id).eq("currency","stars").eq("status","paid").eq("updated_at",row.updated_at).in("delivery_status",["pending","failed"]).select("id").maybeSingle();
