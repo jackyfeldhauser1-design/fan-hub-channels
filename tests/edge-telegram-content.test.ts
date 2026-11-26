@@ -41,7 +41,7 @@ function grant(contentId: string, patch: Partial<Grant> = {}): Grant {
   };
 }
 
-function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; recoveryProduct?: boolean; recoveryKind?: "bundle" | "vip"; subscription?: Record<string, unknown>; memberStatus?: string; existingOrders?: Array<Record<string, unknown>> } = {}) {
+function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: string; recoveryProduct?: boolean; recoveryKind?: "bundle" | "vip" | "text" | "emptyText"; subscription?: Record<string, unknown>; memberStatus?: string; existingOrders?: Array<Record<string, unknown>> } = {}) {
   const calls: Array<{ method: string; body: Record<string, unknown> }> = [];
   const accessQueries: URL[] = [];
   const requests: string[] = [];
@@ -97,7 +97,7 @@ function fixture(grants: Grant[], options: { failAccess?: boolean; trxWallet?: s
     if (table === "content_sets") return Response.json([{ id: setId, product_id: productId }]);
     if (table === "products")
       return Response.json([
-        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456, ...(options.recoveryKind === "vip" ? { delivery_payload: "vip" } : options.recoveryKind === "bundle" ? { delivery_payload: "bundle:content", kind: "bundle" } : options.recoveryProduct ? { delivery_payload: "content:" + setId } : {}) },
+        { id: productId, title: "Testset", price_stars: 100, price_trx: 25.123456, ...(options.recoveryKind === "text" ? { delivery_type: "text", delivery_payload: "Testtext" } : options.recoveryKind === "emptyText" ? { delivery_type: "text", delivery_payload: "" } : options.recoveryKind === "vip" ? { delivery_payload: "vip" } : options.recoveryKind === "bundle" ? { delivery_payload: "bundle:content", kind: "bundle" } : options.recoveryProduct ? { delivery_payload: "content:" + setId } : {}) },
       ]);
     if (table === "content_set_items") {
       return Response.json([
@@ -341,5 +341,24 @@ describe("Bundle and VIP Stars recovery", () => {
     const bot = fixture([], { existingOrders: [{ ...order }], recoveryKind: "vip", subscription: { ...subscription, last_purchase_id: "other" } });
     expect((await bot.tap("recoverstars_" + id)).status).toBe(500);
     expect(bot.calls.some(c => c.method === "getChatMember" || c.method === "createChatInviteLink")).toBe(false);
+  });
+});
+
+describe("Paid text recovery", () => {
+  const id = "00000000-0000-4000-8000-000000000099";
+  const order = { id, tg_user_id: "buyer", currency: "stars", status: "paid", delivery_status: "failed", product_id: productId, telegram_charge_id: "test-charge", updated_at: "2000-01-01T00:00:00Z" };
+  it("sends a purchased text once for simultaneous recovery requests", async () => {
+    const bot = fixture([], { existingOrders: [{ ...order }], recoveryKind: "text" });
+    const results = await Promise.all([bot.tap("recoverstars_" + id), bot.tap("recoverstars_" + id)]);
+    expect(results.map(r => r.status)).toEqual([200, 200]);
+    expect(bot.orders[0]?.delivery_status).toBe("delivered");
+    expect(bot.calls.filter(c => c.method === "sendMessage" && c.body.text === "Testtext")).toHaveLength(1);
+    expect(bot.calls.some(c => c.method === "sendInvoice")).toBe(false);
+  });
+  it("does not confirm empty purchased text", async () => {
+    const bot = fixture([], { existingOrders: [{ ...order }], recoveryKind: "emptyText" });
+    expect((await bot.tap("recoverstars_" + id)).status).toBe(200);
+    expect(bot.orders[0]?.delivery_status).toBe("failed");
+    expect(bot.requests).not.toContain("PATCH purchases");
   });
 });
